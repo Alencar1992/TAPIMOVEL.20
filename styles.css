@@ -1,0 +1,56 @@
+:root {
+  --bg: #f4f7fb;
+  --card: #fff;
+  --txt: #0f172a;
+  --muted: #64748b;
+  --primary: #2563eb;
+  --danger: #dc2626;
+  --border: #e2e8f0;
+}
+body.dark {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --txt: #f8fafc;
+  --muted: #94a3b8;
+  --primary: #3b82f6;
+  --danger: #f87171;
+  --border: #334155;
+}
+* { box-sizing: border-box; font-family: Inter, Arial, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--txt); }
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; gap: 16px; padding: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 8px 24px #0000000d; }
+.sidebar { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.sidebar h1 { font-size: 1.2rem; margin: 0 0 6px; }
+button, input, select {
+  border-radius: 10px; border: 1px solid var(--border); padding: 10px; font-size: 0.95rem;
+}
+button { background: var(--primary); color: #fff; border: 0; cursor: pointer; transition: .2s; }
+button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+button.nav { background: #e2e8f0; color: #1e293b; text-align: left; }
+button.nav.active { background: var(--primary); color: #fff; }
+button.danger { background: var(--danger); }
+main { padding: 4px 8px 8px 0; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+#toast { color: var(--muted); font-size: 0.9rem; }
+.section { display: none; }
+.section.active { display: block; }
+.form-grid { display: grid; gap: 10px; }
+label { display: grid; gap: 6px; font-size: .9rem; color: var(--muted); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.row { display: flex; gap: 8px; margin: 10px 0; }
+.hidden { display: none; }
+.progress-card { padding: 14px; margin-bottom: 10px; }
+.progress-title { margin: 0 0 8px; }
+.bar { height: 12px; border-radius: 999px; background: #dbeafe; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; transition: width .7s ease; }
+.green { background: #16a34a; }
+.yellow { background: #eab308; }
+.red { background: #ef4444; }
+.netflix-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.nbtn.pending { background: #ef4444; }
+.nbtn.pago { background: #22c55e; }
+@media (max-width: 960px) {
+  .app { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
