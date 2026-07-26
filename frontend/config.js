@@ -1,3 +1,3 @@
 window.TAPIMOVEL_CONFIG = {
-  apiUrl: "COLE_AQUI_A_URL_DO_WEB_APP_APPS_SCRIPT"
+  apiUrl: "https://script.google.com/macros/s/AKfycbwupkSzv-H0qucPvVdvpQ85ytmNDu8_DOgPnakTY5lwIQ1jDCpuGqCvfvAMSIuMRL6f/exec"
 };
