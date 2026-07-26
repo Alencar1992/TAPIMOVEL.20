@@ -1,0 +1,3 @@
+window.TAPIMOVEL_CONFIG = {
+  apiUrl: "COLE_AQUI_A_URL_DO_WEB_APP_APPS_SCRIPT"
+};
