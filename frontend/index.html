@@ -722,6 +722,7 @@
         let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
         let itensIndisponiveis = []; let termoPesquisa = ""; let pausarSync = false;
+        let ignorarProximoClickProduto = null;
         let syncEmAndamento = false;
 
         function mostrarConfirmacaoPagamento(numero) {
@@ -1050,6 +1051,7 @@
         window.onload = function() {
             try {
                 let dataHoje = new Date();
+                carregarDisponibilidadeCardapio();
                 let selectAnoFolga = document.getElementById('filtroAnoFolga');
 
                 if (selectAnoFolga) selectAnoFolga.innerHTML = '';
@@ -1173,31 +1175,78 @@
 
         let timerPressao; let tocouLongo = false;
         function iniciarPressao(e, nome) {
-            if (e.type === 'mousedown' && e.button !== 0) return;
-            if (e.type === 'touchstart') e.preventDefault();
+            if (typeof e.button === 'number' && e.button !== 0) return;
+            clearTimeout(timerPressao);
             tocouLongo = false;
             timerPressao = setTimeout(() => {
                 tocouLongo = true;
+                ignorarProximoClickProduto = nome;
                 if(navigator.vibrate) navigator.vibrate(50);
                 alternarEsgotadoMenuTracker(nome);
             }, 550);
         }
-        function cancelarPressao(e) {
+        function cancelarPressao() {
             clearTimeout(timerPressao);
-            if (!tocouLongo && e && e.type === 'touchend') {
-                let nome = e.currentTarget.getAttribute('data-nome');
-                let prod = [...bdCatalogo.salgadas, ...bdCatalogo.especiais, ...bdCatalogo.doces_tradicionais, ...bdCatalogo.doces_avela, ...bdCatalogo.doces_nutella, ...bdCatalogo.bebidas].find(p => p.nome === nome);
-                if (prod) clickProduto(prod);
-            }
         }
-        function alternarEsgotadoMenuTracker(nome) { if (itensIndisponiveis.includes(nome)) { itensIndisponiveis = itensIndisponiveis.filter(n => n !== nome); } else { itensIndisponiveis.push(nome); } if(termoPesquisa.length > 0) renderizarPesquisa(); else renderizarCatalogo(abaAtivaCatalogo); }
+        function carregarDisponibilidadeCardapio() {
+            if (typeof google === 'undefined') return;
+            google.script.run
+                .withSuccessHandler(function(resposta) {
+                    try {
+                        itensIndisponiveis = JSON.parse(resposta || "[]");
+                    } catch (_) {
+                        itensIndisponiveis = [];
+                    }
+                    if (termoPesquisa.length > 0) renderizarPesquisa();
+                    else if (abaAtivaCatalogo) renderizarCatalogo(abaAtivaCatalogo);
+                })
+                .withFailureHandler(function(erro) {
+                    console.error("Não foi possível carregar os itens esgotados:", erro);
+                })
+                .obterDisponibilidadeCardapio();
+        }
+        function alternarEsgotadoMenuTracker(nome) {
+            const estadoAnterior = itensIndisponiveis.slice();
+            if (itensIndisponiveis.includes(nome)) {
+                itensIndisponiveis = itensIndisponiveis.filter(n => n !== nome);
+            } else {
+                itensIndisponiveis.push(nome);
+            }
+
+            if(termoPesquisa.length > 0) renderizarPesquisa();
+            else renderizarCatalogo(abaAtivaCatalogo);
+
+            google.script.run
+                .withSuccessHandler(function(resposta) {
+                    try {
+                        itensIndisponiveis = JSON.parse(resposta || "[]");
+                    } catch (_) {}
+                    mostrarToast(itensIndisponiveis.includes(nome)
+                        ? `⛔ ${nome} marcado como esgotado no cardápio do cliente.`
+                        : `✅ ${nome} voltou a ficar disponível.`);
+                })
+                .withFailureHandler(function(erro) {
+                    itensIndisponiveis = estadoAnterior;
+                    if(termoPesquisa.length > 0) renderizarPesquisa();
+                    else renderizarCatalogo(abaAtivaCatalogo);
+                    mostrarAlerta("Não foi possível atualizar a disponibilidade no cardápio do cliente.<br><small>" + erro.message + "</small>");
+                })
+                .salvarDisponibilidadeCardapio(JSON.stringify(itensIndisponiveis));
+        }
         function alternarEsgotado(evento, nome) { evento.preventDefault(); alternarEsgotadoMenuTracker(nome); }
-        function clickProduto(prod) { if (tocouLongo) return; if (itensIndisponiveis.includes(prod.nome)) return; adicionarAoCarrinho(prod); }
+        function clickProduto(prod) {
+            if (ignorarProximoClickProduto === prod.nome) {
+                ignorarProximoClickProduto = null;
+                return;
+            }
+            if (itensIndisponiveis.includes(prod.nome)) return;
+            adicionarAoCarrinho(prod);
+        }
 
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<div class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" onclick='clickProduto(${JSON.stringify(prod)})' oncontextmenu="alternarEsgotado(event, '${prod.nome}')" ontouchstart="iniciarPressao(event, '${prod.nome}')" ontouchend="cancelarPressao(event)" ontouchmove="cancelarPressao(event)" onmousedown="iniciarPressao(event, '${prod.nome}')" onmouseup="cancelarPressao(event)" onmouseleave="cancelarPressao(event)">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span></div>`;
+            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" aria-disabled="${esgotado}" onclick='clickProduto(${JSON.stringify(prod)})' oncontextmenu="alternarEsgotado(event, '${prod.nome}')" onpointerdown="iniciarPressao(event, '${prod.nome}')" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span></button>`;
         };
 
         function pesquisarProdutos() {

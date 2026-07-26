@@ -808,6 +808,7 @@ function salvarMultiplosFechamentos(resumosJSON) {
 function executarAcaoApi_(action, args) {
   const acoesPublicas = [
     "carregarDadosNuvem",
+    "obterDisponibilidadeCardapio",
     "registrarPedidoOnline"
   ];
 
@@ -833,6 +834,7 @@ function executarAcaoApi_(action, args) {
     "buscarDadosEspelhoBackend",
     "salvarFechamentoDiaPlanilha",
     "salvarMultiplosFechamentos",
+    "salvarDisponibilidadeCardapio",
     "excluirContadorTapiocasHoje"
   ];
 
@@ -861,6 +863,35 @@ function registrarPedidoOnline(pedidoJSON) {
     lock.waitLock(15000);
     const pedido = JSON.parse(pedidoJSON);
     const props = PropertiesService.getScriptProperties();
+    const diaSemana = Number(
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "u")
+    );
+    const rotasPorDia = {
+      1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
+      2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
+      3: ["JD LETICIA", "PQ STO ANTONIO", "JD VAZ DE LIMA", "CHACARA SANTANA"],
+      4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
+      5: ["JD SOUZA"]
+    };
+    const rotasPermitidas = rotasPorDia[diaSemana] || [];
+    const endereco = String(pedido.enderecoCliente || "").trim().toUpperCase();
+    const itensIndisponiveis = JSON.parse(
+      props.getProperty("cardapio_itens_indisponiveis") || "[]"
+    );
+    const itemEsgotado = (pedido.itens || []).find(function(item) {
+      return itensIndisponiveis.indexOf(item.nome) !== -1;
+    });
+
+    if (diaSemana < 1 || diaSemana > 5) {
+      throw new Error("O cardápio on-line funciona somente de segunda a sexta-feira.");
+    }
+    if (!rotasPermitidas.some(function(rota) { return endereco.indexOf(rota) === 0; })) {
+      throw new Error("O endereço informado não pertence à rota disponível hoje.");
+    }
+    if (itemEsgotado) {
+      throw new Error("O item '" + itemEsgotado.nome + "' está esgotado no momento.");
+    }
+
     const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
     const numerosHoje = ativos
@@ -878,6 +909,35 @@ function registrarPedidoOnline(pedidoJSON) {
     props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
     lancarPedidoPlanilha(JSON.stringify(pedido));
     return { numero: pedido.numero, pedido: pedido };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function obterDisponibilidadeCardapio() {
+  const props = PropertiesService.getScriptProperties();
+  return props.getProperty("cardapio_itens_indisponiveis") || "[]";
+}
+
+function salvarDisponibilidadeCardapio(itensJSON) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const itens = JSON.parse(itensJSON || "[]");
+    if (!Array.isArray(itens)) {
+      throw new Error("A lista de itens indisponíveis é inválida.");
+    }
+
+    const itensNormalizados = itens
+      .filter(function(nome) { return typeof nome === "string" && nome.trim(); })
+      .map(function(nome) { return nome.trim(); })
+      .filter(function(nome, indice, lista) { return lista.indexOf(nome) === indice; });
+
+    PropertiesService
+      .getScriptProperties()
+      .setProperty("cardapio_itens_indisponiveis", JSON.stringify(itensNormalizados));
+
+    return JSON.stringify(itensNormalizados);
   } finally {
     lock.releaseLock();
   }
