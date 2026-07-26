@@ -7,7 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <meta name="theme-color" content="#ff6b6b">
+    <meta name="theme-color" content="#10161a">
 
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
@@ -177,8 +177,9 @@
         .seta { font-size: 0.8rem; transition: 0.3s; }
         .aberto .seta { transform: rotate(180deg); }
     </style>
+    <link rel="stylesheet" href="./professional.css">
 </head>
-<body>
+<body class="app-admin">
     <div id="modalErroSistema" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);justify-content:center;align-items:center;z-index:99999;font-family:sans-serif">
         <div style="background:#1e1e1e;padding:20px;border-radius:8px;width:95%;max-width:450px;border-top:5px solid #dc3545;box-shadow:0 10px 30px rgba(0,0,0,.5);box-sizing:border-box">
             <div style="font-size:3rem;text-align:center;margin-bottom:10px">🐞</div>
@@ -204,12 +205,12 @@
 
     <div id="modalConfirm" class="modal-overlay" style="z-index: 4000;">
         <div class="modal-content" style="max-width: 380px; text-align: center; border-top: 5px solid var(--edit);">
-            <div style="font-size: 3rem; margin-bottom: 10px;">❓</div>
-            <h3 style="margin-top: 0; color: var(--text);">Atenção!</h3>
+            <div id="iconeConfirm" class="confirm-icon" aria-hidden="true">?</div>
+            <h3 id="tituloConfirm" style="margin-top: 0; color: var(--text);">Confirme a ação</h3>
             <p id="textoConfirm" style="font-size: 1.1rem; margin-bottom: 25px; color: var(--text-muted);"></p>
             <div style="display: flex; gap: 10px;">
                 <button id="btnCancelarConfirm" class="btn-acao btn-limpar" style="margin: 0;">Cancelar</button>
-                <button id="btnOkConfirm" class="btn-acao" style="background: var(--edit);">Sim, Confirmar</button>
+                <button id="btnOkConfirm" class="btn-acao" style="background: var(--edit);">Confirmar</button>
             </div>
         </div>
     </div>
@@ -465,7 +466,7 @@
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-weight:bold; font-size:1.1rem;"><span>🌮 Tapiocas Hoje:</span> <strong id="relQtdTapiocas">0 un</strong></div>
             </div>
             <button id="btnSalvarPrint" class="btn-acao" style="background: var(--edit); margin-bottom: 10px;" onclick="baixarPrintFechamento()">📸 Print</button>
-            <button class="btn-acao" style="background: var(--success); margin-bottom: 10px;" onclick="registrarFechamentoDia()">✓ Registrar e Zerar Dia</button>
+            <button class="btn-acao btn-fechamento-seguro" style="background: var(--success); margin-bottom: 10px;" onclick="confirmarRegistroFechamentoDiario()">Registrar e Zerar Dia</button>
             <button class="btn-acao btn-limpar" onclick="fecharModais()" style="margin-top: 0;">Apenas Fechar Tela</button>
         </div>
     </div>
@@ -764,7 +765,44 @@
         }
 
         function mostrarAlerta(mensagem, callback) { document.getElementById('textoAlerta').innerHTML = mensagem; document.getElementById('modalAlerta').style.display = 'flex'; let btn = document.getElementById('btnOkAlerta'); let novoBtn = btn.cloneNode(true); btn.parentNode.replaceChild(novoBtn, btn); novoBtn.onclick = function() { document.getElementById('modalAlerta').style.display = 'none'; if(callback) callback(); }; }
-        function mostrarConfirmacao(mensagem, callbackSim) { document.getElementById('textoConfirm').innerHTML = mensagem; document.getElementById('modalConfirm').style.display = 'flex'; let btnSim = document.getElementById('btnOkConfirm'); let novoBtnSim = btnSim.cloneNode(true); btnSim.parentNode.replaceChild(novoBtnSim, btnSim); document.getElementById('btnCancelarConfirm').onclick = function() { document.getElementById('modalConfirm').style.display = 'none'; }; novoBtnSim.onclick = function() { document.getElementById('modalConfirm').style.display = 'none'; if(callbackSim) callbackSim(); }; }
+        function mostrarConfirmacao(mensagem, callbackSim, opcoes = {}) {
+            const modal = document.getElementById('modalConfirm');
+            const titulo = document.getElementById('tituloConfirm');
+            const icone = document.getElementById('iconeConfirm');
+            const cancelar = document.getElementById('btnCancelarConfirm');
+            const btnSim = document.getElementById('btnOkConfirm');
+            const novoBtnSim = btnSim.cloneNode(true);
+
+            document.getElementById('textoConfirm').textContent = mensagem;
+            titulo.textContent = opcoes.titulo || 'Confirme a ação';
+            icone.textContent = opcoes.icone || '?';
+            cancelar.textContent = opcoes.textoCancelar || 'Cancelar';
+            novoBtnSim.textContent = opcoes.textoConfirmar || 'Confirmar';
+            novoBtnSim.classList.toggle('acao-destrutiva', Boolean(opcoes.destrutiva));
+            btnSim.parentNode.replaceChild(novoBtnSim, btnSim);
+
+            cancelar.onclick = function() { modal.style.display = 'none'; };
+            novoBtnSim.onclick = function() {
+                modal.style.display = 'none';
+                if (callbackSim) callbackSim();
+            };
+            modal.style.display = 'flex';
+            cancelar.focus();
+        }
+
+        function confirmarRegistroFechamentoDiario() {
+            mostrarConfirmacao(
+                'Os totais de hoje serão registrados e os pedidos ativos serão zerados. Esta ação não pode ser desfeita.',
+                registrarFechamentoDia,
+                {
+                    titulo: 'Registrar e zerar o dia?',
+                    icone: '!',
+                    textoCancelar: 'Cancelar',
+                    textoConfirmar: 'Confirmar e zerar',
+                    destrutiva: true
+                }
+            );
+        }
         function travarSyncTemporariamente() { pausarSync = true; setTimeout(() => { pausarSync = false; }, 4000); }
 
         const bdCatalogo = {
@@ -1159,7 +1197,7 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<div class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" onclick='clickProduto(${JSON.stringify(prod)})' oncontextmenu="alternarEsgotado(event, '${prod.nome}')" ontouchstart="iniciarPressao(event, '${prod.nome}')" ontouchend="cancelarPressao(event)" ontouchmove="cancelarPressao(event)" onmousedown="iniciarPressao(event, '${prod.nome}')" onmouseup="cancelarPressao(event)" onmouseleave="cancelarPressao(event)">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span></div>`;
+            return `<div class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" onclick='clickProduto(${JSON.stringify(prod)})' oncontextmenu="alternarEsgotado(event, '${prod.nome}')" ontouchstart="iniciarPressao(event, '${prod.nome}')" ontouchend="cancelarPressao(event)" ontouchmove="cancelarPressao(event)" onmousedown="iniciarPressao(event, '${prod.nome}')" onmouseup="cancelarPressao(event)" onmouseleave="cancelarPressao(event)">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span></div>`;
         };
 
         function pesquisarProdutos() {
