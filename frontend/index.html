@@ -177,8 +177,9 @@
         .seta { font-size: 0.8rem; transition: 0.3s; }
         .aberto .seta { transform: rotate(180deg); }
     </style>
+    <link rel="stylesheet" href="./professional.css">
 </head>
-<body>
+<body class="app-admin">
     <div id="modalErroSistema" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);justify-content:center;align-items:center;z-index:99999;font-family:sans-serif">
         <div style="background:#1e1e1e;padding:20px;border-radius:8px;width:95%;max-width:450px;border-top:5px solid #dc3545;box-shadow:0 10px 30px rgba(0,0,0,.5);box-sizing:border-box">
             <div style="font-size:3rem;text-align:center;margin-bottom:10px">🐞</div>
@@ -465,7 +466,7 @@
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-weight:bold; font-size:1.1rem;"><span>🌮 Tapiocas Hoje:</span> <strong id="relQtdTapiocas">0 un</strong></div>
             </div>
             <button id="btnSalvarPrint" class="btn-acao" style="background: var(--edit); margin-bottom: 10px;" onclick="baixarPrintFechamento()">📸 Print</button>
-            <button class="btn-acao" style="background: var(--success); margin-bottom: 10px;" onclick="registrarFechamentoDia()">✓ Registrar e Zerar Dia</button>
+            <button class="btn-acao" style="background: var(--success); margin-bottom: 10px;" onclick="mostrarConfirmacao('Registrar o fechamento de hoje e zerar os dados ativos? Esta ação não pode ser desfeita.', registrarFechamentoDia)">✓ Registrar e Zerar Dia</button>
             <button class="btn-acao btn-limpar" onclick="fecharModais()" style="margin-top: 0;">Apenas Fechar Tela</button>
         </div>
     </div>
