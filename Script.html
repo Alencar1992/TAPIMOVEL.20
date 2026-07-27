@@ -1,0 +1,152 @@
+<script>
+  let state = { options:{}, summary:{}, monthly:{} };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    google.script.run.withSuccessHandler((data) => {
+      state = data;
+      hydrateOptions();
+      renderDashboard();
+      renderEntregasResumo(data.monthly.entregas);
+      carregarDevedores();
+    }).getInitialData();
+
+    bindForms();
+  }
+
+  function bindForms() {
+    formHandler('form-entrada', (payload) => google.script.run.withSuccessHandler(afterAction).saveEntrada(payload));
+    formHandler('form-saida', (payload) => {
+      if (payload.quem === 'OUTROS') payload.quem = payload.quemManual || '';
+      google.script.run.withSuccessHandler(afterAction).saveSaida(payload);
+    });
+    formHandler('form-entrega', (payload) => google.script.run.withSuccessHandler(afterAction).saveEntrega(payload));
+    formHandler('form-devedor', (payload) => google.script.run.withSuccessHandler(afterAction).saveDevedor(payload));
+  }
+
+  function formHandler(id, callback) {
+    document.getElementById(id).addEventListener('submit', (e) => {
+      e.preventDefault();
+      callback(Object.fromEntries(new FormData(e.target).entries()));
+      e.target.reset();
+    });
+  }
+
+  function hydrateOptions() {
+    fillSelect('saida-quem', state.options.quem);
+    fillSelect('entrega-categoria', state.options.entregas);
+    onEntradaCategoria();
+    const netflix = document.getElementById('netflix-users');
+    netflix.innerHTML = state.options.netflixUsers.map((n) => `<button class="n-btn pending" onclick="toggleNetflix('${n}')">${n} - R$15</button>`).join('');
+  }
+
+  function fillSelect(id, options) {
+    document.getElementById(id).innerHTML = options.map((o) => `<option>${o}</option>`).join('');
+  }
+
+  function onEntradaCategoria() {
+    const cat = document.getElementById('entrada-categoria').value;
+    let opts = ['Sem subcategoria'];
+    if (cat === 'Entregas') opts = state.options.entregas;
+    if (cat === 'Outras') opts = ['Salário', 'Comissão', 'Venda', 'Outros'];
+    fillSelect('entrada-subcategoria', opts);
+  }
+
+  function onQuemChange() {
+    document.getElementById('quem-manual-wrap').classList.toggle('hidden', document.getElementById('saida-quem').value !== 'OUTROS');
+  }
+
+  function renderDashboard() {
+    const s = state.summary;
+    document.getElementById('dashboard').innerHTML = `
+      <div class="card"><h3>💰 Lucro Real: ${money(s.lucroReal || 0)}</h3></div>
+      ${progressCard('Gastos Lucas', s.progress?.lucas)}
+      ${progressCard('Cartão INTER', s.progress?.inter)}
+      ${progressCard('Cartão NEON', s.progress?.neon)}
+      <div class="card">
+        <button onclick="relatorio('ELIEL')">Relatório ELIEL (WhatsApp)</button>
+        <button onclick="relatorio('PRIPEL')">Relatório PRIPEL (WhatsApp)</button>
+      </div>
+    `;
+    animateBars();
+  }
+
+  function progressCard(title, p = {value:0,percent:0,color:'green',limit:0}) {
+    return `<div class="card progress"><h4>${title}</h4><p>${money(p.value)} / ${money(p.limit)} (${(p.percent||0).toFixed(1)}%)</p><div class="bar"><i class="${p.color}" data-p="${p.percent||0}"></i></div></div>`;
+  }
+
+  function animateBars() {
+    document.querySelectorAll('.bar i').forEach((el) => setTimeout(() => el.style.width = `${el.dataset.p}%`, 50));
+  }
+
+  function renderEntregasResumo(resumo) {
+    const items = resumo?.items || [];
+    document.getElementById('entregas-resumo').innerHTML = `
+      <h3>Resumo Mensal Entregas</h3>
+      ${items.map((i) => `<p>${i.categoria}: ${i.quantidade} | ${money(i.valor)}</p>`).join('') || '<p>Sem registros no mês.</p>'}
+      <hr/><strong>Total: ${money(resumo?.totalMes || 0)}</strong>
+    `;
+  }
+
+  function carregarDevedores() {
+    const nome = document.getElementById('filtro-devedor').value;
+    google.script.run.withSuccessHandler((data) => {
+      const box = document.getElementById('devedores-lista');
+      box.innerHTML = (data.items || []).map((d) => `<p>${d.Nome} - ${d.Descrição}: ${money(d.Valor)} (${d.Status})</p>`).join('') + `<hr/><strong>Total: ${money(data.total || 0)}</strong>`;
+    }).getDevedoresPendentes(nome);
+  }
+
+  function relatorio(tipo) {
+    google.script.run.withSuccessHandler((res) => openWA(res)).gerarRelatorioWhatsApp(tipo);
+  }
+
+  function relatorioDevedores() {
+    google.script.run.withSuccessHandler((res) => openWA(res)).gerarRelatorioDevedoresWhatsApp(document.getElementById('filtro-devedor').value);
+  }
+
+  function openWA(res) {
+    if (!res.ok) return toast(res.message);
+    window.open(res.data.url, '_blank');
+    toast(res.message);
+  }
+
+  function toggleNetflix(nome) {
+    google.script.run.withSuccessHandler(afterAction).toggleNetflixStatus(nome);
+  }
+
+  function registrarPostagem() {
+    google.script.run.withSuccessHandler(afterAction).registerPostagem();
+  }
+
+  function fecharMes() {
+    google.script.run.withSuccessHandler(afterAction).fecharMes();
+  }
+
+  function afterAction(res) {
+    toast(res.message);
+    if (!res.ok) return;
+    state.summary = res.summary;
+    renderDashboard();
+    google.script.run.withSuccessHandler(renderEntregasResumo).getEntregasResumo();
+    carregarDevedores();
+  }
+
+  function setSection(id) {
+    document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.getElementById('section-title').innerText = id[0].toUpperCase() + id.slice(1);
+  }
+
+  function toggleTheme() {
+    document.body.classList.toggle('dark');
+  }
+
+  function toast(message) {
+    document.getElementById('toast').innerText = message || '';
+  }
+
+  function money(v) {
+    return new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(Number(v || 0));
+  }
+</script>

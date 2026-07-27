@@ -1,12 +1,13 @@
-# Tapimóvel 2.0
+# Brincando-com-IA
 
-Migração do sistema da Expresso Tapiocaria para GitHub Pages, mantendo o Google Sheets como
-banco de dados e o Google Apps Script como API intermediária.
+Sistema financeiro web rodando direto no GitHub Pages (sem dependência de Google Apps Script no navegador).
 
-## Estrutura
+## Arquivos principais
+- `index.html`: interface principal.
+- `styles.css`: estilos do dashboard.
+- `app.js`: regras de negócio, módulos e persistência em LocalStorage.
 
-- `frontend/`: painel administrativo e cardápio do cliente.
-- `apps-script/`: backend conectado à planilha.
-- `docs/`: instruções e decisões da migração.
-
-Consulte [docs/MIGRACAO.md](docs/MIGRACAO.md) para preparar a versão beta.
+## Como usar
+1. Abra o site publicado no GitHub Pages.
+2. Os dados ficam salvos no navegador (LocalStorage).
+3. Relatórios abrem no WhatsApp Web com mensagem pronta.

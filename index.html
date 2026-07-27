@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Financeiro</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar card">
+      <h1>💼 Finance Hub</h1>
+      <button data-section="dashboard" class="nav active">Dashboard</button>
+      <button data-section="entrada" class="nav">Entrada</button>
+      <button data-section="saida" class="nav">Saída</button>
+      <button data-section="entregas" class="nav">Entregas</button>
+      <button data-section="netflix" class="nav">Netflix</button>
+      <button data-section="devedores" class="nav">Devedores</button>
+      <button id="btn-fechar-mes" class="danger">Fechar Mês</button>
+      <button id="btn-theme">🌙 Tema</button>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <h2 id="section-title">Dashboard</h2>
+        <span id="toast"></span>
+      </header>
+
+      <section id="dashboard" class="section active"></section>
+
+      <section id="entrada" class="section">
+        <div class="card">
+          <h3>💵 Registrar Entrada</h3>
+          <form id="form-entrada" class="form-grid">
+            <label>Categoria
+              <select name="categoria" id="entrada-categoria">
+                <option>Entregas</option>
+                <option>Devedores</option>
+                <option>Outras</option>
+              </select>
+            </label>
+            <label>Subcategoria
+              <select name="subcategoria" id="entrada-subcategoria"></select>
+            </label>
+            <label>Descrição
+              <input name="descricao" required />
+            </label>
+            <label>Valor
+              <input type="number" min="0.01" step="0.01" name="valor" required />
+            </label>
+            <button type="submit">Salvar Entrada</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="saida" class="section">
+        <div class="card">
+          <h3>💸 Registrar Saída</h3>
+          <form id="form-saida" class="form-grid">
+            <label>Descrição
+              <input name="descricao" required />
+            </label>
+            <label>Valor
+              <input type="number" min="0.01" step="0.01" name="valor" required />
+            </label>
+            <label>Quem
+              <select name="quem" id="saida-quem"></select>
+            </label>
+            <label id="saida-quem-manual-wrap" class="hidden">Quem (manual)
+              <input name="quemManual" />
+            </label>
+            <label>Forma Pagamento
+              <select name="formaPagamento">
+                <option>DINHEIRO</option>
+                <option>PIX</option>
+                <option>INTER</option>
+                <option>NEON</option>
+                <option>CRÉDITO</option>
+              </select>
+            </label>
+            <label>Parcelas
+              <input type="number" min="1" name="parcelas" />
+            </label>
+            <button type="submit">Salvar Saída</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="entregas" class="section">
+        <div class="grid-2">
+          <div class="card">
+            <h3>🚚 Registrar Entrega</h3>
+            <form id="form-entrega" class="form-grid">
+              <label>Categoria
+                <select name="categoria" id="entrega-categoria"></select>
+              </label>
+              <label>Quantidade
+                <input type="number" min="1" name="quantidade" required />
+              </label>
+              <label>Valor Unitário
+                <input type="number" min="0.01" step="0.01" name="valorUnitario" required />
+              </label>
+              <button type="submit">Salvar Entrega</button>
+            </form>
+            <button id="btn-postagem">Registrar Postagem (R$ 5)</button>
+          </div>
+          <div class="card" id="entregas-resumo"></div>
+        </div>
+      </section>
+
+      <section id="netflix" class="section">
+        <div class="card">
+          <h3>🎬 Controle Netflix</h3>
+          <div id="netflix-grid" class="netflix-grid"></div>
+        </div>
+      </section>
+
+      <section id="devedores" class="section">
+        <div class="grid-2">
+          <div class="card">
+            <h3>👤 Novo Devedor</h3>
+            <form id="form-devedor" class="form-grid">
+              <label>Nome
+                <input name="nome" required />
+              </label>
+              <label>Descrição
+                <input name="descricao" required />
+              </label>
+              <label>Valor
+                <input type="number" min="0.01" step="0.01" name="valor" required />
+              </label>
+              <button type="submit">Salvar Devedor</button>
+            </form>
+          </div>
+          <div class="card">
+            <h3>Relatório Devedores</h3>
+            <label>Filtro por Nome
+              <input id="filtro-devedor" />
+            </label>
+            <div class="row">
+              <button id="btn-buscar-devedores">Buscar</button>
+              <button id="btn-wa-devedores">WhatsApp</button>
+            </div>
+            <div id="devedores-lista"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
