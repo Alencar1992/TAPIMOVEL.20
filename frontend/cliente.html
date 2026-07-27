@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cardápio - Expresso Tapiocaria</title>
+    <script src="./config.js"></script>
+    <script src="./api-client.js"></script>
+    <style>
+        /* TEMA ESCURO E NEUTRO */
+        :root {
+            --primary: #c29d59;
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --text-muted: #999999;
+            --success: #4a8b57;
+            --danger: #dc3545;
+            --border: #333333;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding-bottom: 90px; }
+
+        /* CABEÇALHO FIXO (STICKY) */
+        .sticky-top { position: sticky; top: 0; z-index: 1000; background: var(--bg); box-shadow: 0 4px 10px rgba(0,0,0,0.6); }
+
+        header { background: #181818; color: var(--primary); padding: 15px 10px; border-bottom: 1px solid var(--border); }
+        .header-content { display: flex; justify-content: space-between; align-items: center; max-width: 600px; margin: 0 auto; }
+        .header-logo { width: 50px; height: 50px; object-fit: contain; font-size: 40px; display: flex; align-items: center; justify-content: center; background: #2a2a2a; border-radius: 50%; }
+        .header-text { text-align: center; flex: 1; padding: 0 10px; }
+        .header-text h1 { margin: 0; font-size: 1.3rem; color: var(--text); line-height: 1.1; }
+        .header-text p { margin: 3px 0 0 0; font-size: 0.85rem; color: var(--text-muted); }
+        #diaSemanaBadge { display: inline-block; background: var(--primary); color: #121212; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; margin-top: 5px; }
+
+        .tabs { display: flex; overflow-x: auto; padding: 10px; background: #181818; border-bottom: 1px solid var(--border); }
+        .tab { padding: 8px 15px; border-radius: 20px; background: #2a2a2a; margin-right: 10px; white-space: nowrap; font-weight: bold; cursor: pointer; color: var(--text); border: 1px solid var(--border);}
+        .tab.active { background: var(--primary); color: #121212; border-color: var(--primary); }
+
+        .container { padding: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: var(--card-bg); border-radius: 8px; padding: 15px; border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; text-align: center; position: relative;}
+        .card h3 { margin: 0 0 5px 0; font-size: 1rem; color: var(--text); }
+        .card p.ing { font-size: 0.8rem; color: var(--text-muted); margin: 0 0 10px 0; line-height: 1.2; }
+        .card p.price { font-weight: bold; color: var(--success); margin: 0 0 10px 0; font-size: 1.1rem;}
+
+        .btn-add { background: #2a2a2a; color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s;}
+        .btn-add:hover { background: var(--primary); color: #121212; border-color: var(--primary); }
+
+        .badge { position: absolute; top: -10px; right: -10px; background: var(--primary); color: #121212; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .sub-title { grid-column: 1 / -1; margin: 10px 0 0 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+
+        /* Modais */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: flex-end; }
+        .modal-content { background: var(--card-bg); width: 100%; border-radius: 20px 20px 0 0; padding: 20px; box-sizing: border-box; max-height: 90vh; overflow-y: auto; color: var(--text); border-top: 1px solid var(--border);}
+        .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; background: #2a2a2a; color: white; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; box-sizing: border-box;}
+
+        .btn-large { background: var(--success); color: white; width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        .btn-close { background: #333; color: var(--text); margin-top: 10px; border: 1px solid var(--border); }
+
+        .btn-destaque { animation: pulsarBotao 2s infinite; }
+        @keyframes pulsarBotao { 0% { box-shadow: 0 0 0 0 rgba(74, 139, 87, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(74, 139, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 139, 87, 0); } }
+
+        /* Modal Centralizado (Para Alertas e Rotas) */
+        .modal-center { align-items: center; }
+        .modal-center .modal-content { border-radius: 15px; max-width: 90%; margin: auto; border: 1px solid var(--border); text-align: center; }
+
+        /* Carrinho */
+        .cart-bar { position: fixed; bottom: 0; left: 0; width: 100%; padding: 15px; box-sizing: border-box; display: none; justify-content: space-between; align-items: center; z-index: 1500; cursor: pointer; border-top: 2px solid var(--success); animation: gritarCarrinho 1.5s infinite alternate; }
+        .cart-bar h3 { margin: 0; font-size: 1.2rem; font-weight: bold; }
+        @keyframes gritarCarrinho { 0% { background-color: #181818; color: var(--primary); box-shadow: 0 -5px 15px rgba(0,0,0,0.5); transform: scale(1); } 100% { background-color: var(--success); color: white; box-shadow: 0 -5px 25px rgba(74, 139, 87, 0.8); transform: scale(1.02); } }
+
+        .cart-item { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 10px 0; }
+
+        #loadingScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(18,18,18,0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: var(--primary); }
+        .spinner { border: 5px solid var(--border); border-top: 5px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .sucesso-box { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; text-align: center; padding: 20px; }
+        .sucesso-box h1 { color: var(--success); font-size: 3rem; margin: 0; }
+    </style>
+    <link rel="stylesheet" href="./professional.css">
+</head>
+<body class="app-cliente">
+    <div id="loadingScreen"><div class="spinner"></div><h2>Enviando para a chapa...</h2></div>
+
+    <div id="appNormal">
+        <div class="sticky-top">
+            <header>
+                <div class="header-content">
+                    <div class="header-logo" aria-hidden="true">T</div>
+                    <div class="header-text">
+                        <h1>Expresso Tapiocaria</h1>
+                        <p>Cardápio digital</p>
+                    </div>
+                    <span id="diaSemanaBadge">Carregando...</span>
+                </div>
+            </header>
+
+            <div class="tabs">
+                <button type="button" class="tab active" data-categoria="salgadas" onclick="mudarAba('salgadas', this)">Salgadas</button>
+                <button type="button" class="tab" data-categoria="especiais" onclick="mudarAba('especiais', this)">Especiais</button>
+                <button type="button" class="tab" data-categoria="doces" onclick="mudarAba('doces', this)">Doces</button>
+                <button type="button" class="tab" data-categoria="monte" onclick="mudarAba('monte', this)">Monte a Sua</button>
+                <button type="button" class="tab" data-categoria="bebidas" onclick="mudarAba('bebidas', this)">Bebidas</button>
+            </div>
+        </div>
+
+        <section class="menu-status" id="menuStatus" aria-live="polite">
+            <div>
+                <strong id="menuStatusTitulo">Cardápio de hoje</strong>
+                <span id="menuStatusTexto">Consultando a rota disponível...</span>
+            </div>
+            <span class="status-dot" aria-hidden="true"></span>
+        </section>
+
+        <div class="container"><div class="grid" id="gridProdutos"></div></div>
+
+        <div class="cart-bar" id="cartBar" onclick="abrirCheckout()">
+            <h3>🛒 FINALIZAR PEDIDO</h3>
+            <h3 id="cartTotal">R$ 0,00</h3>
+        </div>
+    </div>
+
+    <div class="sucesso-box" id="telaSucesso">
+        <h1>✅</h1>
+        <h2 style="color: var(--primary);">Pedido Recebido!</h2>
+        <p>Sua senha na cozinha é a <b>#<span id="numSenha"></span></b>.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Já estamos preparando a sua tapioca. Fique atento ao nosso chamado!</p>
+
+        <button class="btn-large" style="margin-top: 25px; background: var(--primary); color: #121212;" onclick="reiniciarApp()">Fazer Novo Pedido</button>
+
+        <a href="https://wa.me/5511932180290?text=Olá,%20fiz%20um%20pedido%20pelo%20cardápio%20online%20e%20gostaria%20de%20tirar%20uma%20dúvida!" target="_blank" style="text-decoration: none; width: 100%; margin-top: 15px; display: block;">
+            <button class="btn-large" style="background: #25D366; color: white;">📱 Dúvidas? Chame no WhatsApp</button>
+        </a>
+    </div>
+
+    <div class="modal" id="modalItem">
+        <div class="modal-content">
+            <h2 id="modalNome" style="margin-top:0; color:var(--primary);">Nome</h2>
+            <p id="modalIng" style="color:var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;"></p>
+            <label>Alguma observação? (Opcional)</label>
+            <input type="text" id="modalObs" placeholder="Ex: Tirar cebola, sem orégano...">
+            <button class="btn-large" style="background: var(--primary); color: #121212;" onclick="confirmarAdicao()">Adicionar (R$ <span id="modalPreco"></span>)</button>
+            <button class="btn-large btn-close" onclick="document.getElementById('modalItem').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <div class="modal" id="modalCheckout">
+        <div class="modal-content" style="height: 95vh; display: flex; flex-direction: column;">
+            <h2 style="margin-top:0; color:var(--primary); text-align:center;">Finalizar Pedido</h2>
+
+            <div style="flex: 1; overflow-y: auto; padding-right: 5px;">
+                <h3 style="border-bottom: 1px solid var(--border); padding-bottom: 5px; color: var(--primary);">Seus Itens</h3>
+                <div id="listaCheckout" style="margin-bottom: 20px;"></div>
+
+                <h3 style="border-bottom: 1px solid var(--border); padding-bottom: 5px; color: var(--primary);">Seus Dados</h3>
+                <label><b>Seu Nome:</b> *</label>
+                <input type="text" id="cliNome" placeholder="Como devemos chamá-lo?">
+
+                <div style="display: flex; gap: 10px; flex-direction: column;">
+                    <div>
+                        <label><b>Onde você está hoje? (Rua/Bairro):</b> *</label>
+                        <select id="cliRota"></select>
+                        <input type="text" id="cliRotaLivre" placeholder="Ex: Rua das Flores, 12 - Centro" style="display:none;">
+                    </div>
+                    <div id="boxNumero" style="display: block;">
+                        <label><b>Número da Casa:</b> *</label>
+                        <input type="number" id="cliNum" placeholder="Ex: 123">
+                    </div>
+                </div>
+
+                <label><b>Forma de Pagamento (na entrega/retirada):</b> *</label>
+                <select id="cliPag" onchange="verificarDinheiro()">
+                    <option value="PIX">PIX</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="VR">VR (Vale Refeição)</option>
+                </select>
+
+                <div id="boxTroco" style="display: none; background: #2a2a2a; padding: 10px; border-radius: 8px; border: 1px dashed var(--primary); margin-bottom: 15px;">
+                    <label style="color: var(--primary);"><b>Vai precisar de troco para quanto?</b> *</label>
+                    <input type="number" id="cliTroco" placeholder="Ex: 50 (Digite 0 se não precisar)">
+                </div>
+            </div>
+
+            <div style="padding-top: 15px; border-top: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; color: var(--text);">
+                    <span>Total:</span><span id="checkoutTotal">R$ 0,00</span>
+                </div>
+                <button class="btn-large btn-destaque" onclick="validarPedido()">🚀 Enviar Pedido</button>
+                <button class="btn-large btn-close" onclick="document.getElementById('modalCheckout').style.display='none'">⬅️ Voltar ao Cardápio</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal modal-center" id="modalAlerta" style="z-index: 3000;">
+        <div class="modal-content" style="border-color: var(--danger);">
+            <h2 style="margin-top:0; color:var(--danger);">⚠️ Atenção</h2>
+            <p id="textoAlerta" style="font-size: 1.1rem; line-height: 1.5; color: var(--text);"></p>
+            <button class="btn-large" style="background: var(--danger); margin-top: 15px;" onclick="document.getElementById('modalAlerta').style.display='none'">Entendi</button>
+        </div>
+    </div>
+
+    <div class="modal modal-center" id="modalRota" style="z-index: 2500;">
+        <div class="modal-content">
+            <h2 style="margin-top:0; color:var(--primary);">📍 Atenção à Rota!</h2>
+            <p style="font-size: 1.1rem; line-height: 1.4;">
+                Temos um roteiro semanal de ruas. 🚚💨<br><br>
+                <b>Tem certeza de que o nosso carro está passando na sua rua HOJE?</b><br><br>
+                <small style="color: var(--text-muted);">Pedidos fora da rota do dia poderão ser cancelados. ❌</small>
+            </p>
+            <button class="btn-large btn-destaque" style="margin-top: 15px;" onclick="confirmarRotaEEnviar()">Sim, enviem pra chapa! 🔥</button>
+            <button class="btn-large btn-close" onclick="document.getElementById('modalRota').style.display='none'">Cancelar ⬅️</button>
+        </div>
+    </div>
+
+    <script>
+        const bdCatalogo = {
+            salgadas: [ { nome: "Bauru", preco: 14.00, tipo: "tapioca", ing: "Presunto, muçarela, tomate e orégano" }, { nome: "Caipira I", preco: 15.00, tipo: "tapioca", ing: "Frango, muçarela e milho" }, { nome: "Caipira II", preco: 15.00, tipo: "tapioca", ing: "Frango, catupiry e milho" }, { nome: "Pizza", preco: 13.00, tipo: "tapioca", ing: "Muçarela, tomate e orégano" }, { nome: "Dois Queijos", preco: 14.00, tipo: "tapioca", ing: "Muçarela e Catupiry" }, { nome: "Peito de Peru c/ Queijo Branco e Tomate", preco: 15.00, tipo: "tapioca", ing: "Peito de peru, queijo branco e tomate" }, { nome: "Presunto, Queijo e Catupiry", preco: 16.00, tipo: "tapioca", ing: "Presunto, muçarela e catupiry" }, { nome: "Paulistana", preco: 16.00, tipo: "tapioca", ing: "muçarela, bacon, tomate e cebola" }, { nome: "Três Queijos", preco: 15.00, tipo: "tapioca", ing: "Muçarela, catupiry e cheddar" }, { nome: "Baiana", preco: 17.00, tipo: "tapioca", ing: "Muçarela, calabresa, catupiry, molho de pimenta, tomate, cebola e orégano" }, { nome: "Carne Seca, Muçarela e Catupiry", preco: 18.00, tipo: "tapioca", ing: "Carne seca, muçarela e catupiry" }, { nome: "Carne Seca, Muçarela e Cheddar", preco: 18.00, tipo: "tapioca", ing: "Carne seca, muçarela e cheddar" }, { nome: "Frango, Muçarela e Catupiry", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e catupiry" }, { nome: "Frango, Muçarela e Cheddar", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e cheddar" }, { nome: "Frango, Muçarela e Bacon", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e bacon" }, { nome: "Frango Catupiry e Bacon", preco: 17.00, tipo: "tapioca", ing: "Frango, catupiry e bacon" }, { nome: "Calabresa, Muçarela e Catupiry", preco: 17.00, tipo: "tapioca", ing: "Calabresa, muçarela e catupiry" }, { nome: "Calabresa, Muçarela e Cheddar", preco: 17.00, tipo: "tapioca", ing: "Calabresa, muçarela e cheddar" } ],
+            especiais: [ { nome: "Expresso I", preco: 20.00, tipo: "tapioca", ing: "Muçarela, frango, bacon e catupiry" }, { nome: "Expresso II", preco: 20.00, tipo: "tapioca", ing: "Muçarela, calabresa, bacon e catupiry" }, { nome: "A Moda I", preco: 21.00, tipo: "tapioca", ing: "Muçarela, calabresa, frango e catupiry" }, { nome: "A Moda II", preco: 22.00, tipo: "tapioca", ing: "Muçarela, presunto, frango, catupiry e cheddar" }, { nome: "Especial", preco: 24.00, tipo: "tapioca", ing: "Muçarela, presunto, calabresa, frango, catupiry e cheddar" }, { nome: "Tapi-Tudo", preco: 26.00, tipo: "tapioca", ing: "Muçarela, presunto, calabresa, cheddar, frango, catupiry e bacon" } ],
+            doces_tradicionais: [ { nome: "Canelinha", preco: 10.00, tipo: "tapioca", ing: "Coco, leite cond e canela" }, { nome: "Beijinho", preco: 10.00, tipo: "tapioca", ing: "Coco e leite condensado" }, { nome: "Banana Leite Cond. e Canela", preco: 12.00, tipo: "tapioca", ing: "Banana, Leite cond. e Canela" }, { nome: "Banana Chocolate ao Leite", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate ao Leite" }, { nome: "Brigadeiro", preco: 13.00, tipo: "tapioca", ing: "Chocolate ao Leite e granulado" }, { nome: "Prestígio", preco: 13.00, tipo: "tapioca", ing: "Coco e chocolate ao Leite" }, { nome: "Romeu e Julieta", preco: 14.00, tipo: "tapioca", ing: "Muçarela c/ Goiabada" }, { nome: "Coco c/ Doce de Leite", preco: 13.00, tipo: "tapioca", ing: "Coco c/ Doce de Leite" }, { nome: "Coco c/ Choc. e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Coco c/ Choc. e Leite Cond." }, { nome: "Morango c/ Leite Cond.", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Leite Cond." }, { nome: "Morango c/ Chocolate", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Chocolate ao Leite" }, { nome: "Morango c/ Coco e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Coco e Leite Cond." }, { nome: "Paçoca c/ Doce de Leite", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Doce de Leite" }, { nome: "Paçoca c/ Chocolate", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Chocolate ao Leite" }, { nome: "Queijadinha", preco: 14.00, tipo: "tapioca", ing: "Coco, muçarela e leite cond." }, { nome: "Castanha c/ Chocolate", preco: 14.00, tipo: "tapioca", ing: "Castanha c/ Chocolate ao Leite" } ],
+            doces_avela: [ { nome: "Banana Chocolate Avelã", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate Avelã" }, { nome: "Brigadeiro c/ Avelã e Granulado", preco: 13.00, tipo: "tapioca", ing: "Brigadeiro c/ Avelã e Granulado" }, { nome: "Prestígio de Avelã", preco: 14.00, tipo: "tapioca", ing: "Coco e chocolate avelã" }, { nome: "Paçoquinha I", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate avelã" }, { nome: "Paçoquinha II", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate branco" }, { nome: "Sensação (Morango/Avelã)", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Avelã" }, { nome: "Morango c/ Chocolate Branco", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Chocolate Branco" }, { nome: "Bombom Sonho de Valsa c/ Avelã", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Avelã" }, { nome: "Bombom Sonho de Valsa c/ Branco", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Branco" } ],
+            doces_nutella: [ { nome: "Ninho com Nutella", preco: 18.00, tipo: "tapioca", ing: "Ninho com Nutella" }, { nome: "Nutella com Coco", preco: 18.00, tipo: "tapioca", ing: "Nutella com Coco" }, { nome: "Nutella com M&M", preco: 19.00, tipo: "tapioca", ing: "Nutella com M&M" }, { nome: "Nutella com Morango", preco: 18.00, tipo: "tapioca", ing: "Nutella com Morango" }, { nome: "Nutella com Banana", preco: 18.00, tipo: "tapioca", ing: "Nutella com Banana" }, { nome: "Bombom S. de Valsa c/ Nutella", preco: 19.00, tipo: "tapioca", ing: "Bombom S. de Valsa c/ Nutella" } ],
+            bebidas: [ { nome: "Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" }, { nome: "Água Mineral", preco: 3.00, tipo: "bebida", ing: "" }, { nome: "Suco Natural", preco: 8.00, tipo: "bebida", ing: "" } ]
+        };
+
+        const precosMonteSua = {
+            'Calabresa': { 'Catupiry (Orig.)': 14, 'Cheddar': 14, 'Cream Cheese': 14, 'Muçarela': 14, 'Queijo Branco': 14 },
+            'Frango': { 'Catupiry (Orig.)': 14, 'Cheddar': 14, 'Cream Cheese': 14, 'Muçarela': 14, 'Queijo Branco': 14 },
+            'Carne Seca': { 'Catupiry (Orig.)': 15, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 15 },
+            'Salame': { 'Catupiry (Orig.)': 15, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 15 },
+            'Bacon': { 'Catupiry (Orig.)': 16, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 16 },
+            'Peito de Peru': { 'Catupiry (Orig.)': 16, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 16 }
+        };
+
+        const rotasDaSemana = {
+            1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
+            2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
+            3: ["JD LETICIA", "PQ STO ANTONIO", "JD VAZ DE LIMA", "CHACARA SANTANA"],
+            4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
+            5: ["JD SOUZA"]
+        };
+        const nomesDias = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+        let carrinho = [];
+        let produtoSendoAdicionado = null;
+        let baseSelecionadaMonte = null;
+        let pedidoTemp = {};
+        let categoriaAtiva = 'salgadas';
+        let itensIndisponiveis = [];
+        let diaAtualInt = new Date().getDay();
+        let lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5;
+        const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        window.onload = () => {
+            mudarAba('salgadas', document.querySelector('.tab'));
+            carregarConfiguracoesDia();
+            carregarDisponibilidadeCardapio();
+            setInterval(carregarDisponibilidadeCardapio, 30000);
+        };
+
+        // Função para mostrar os Alertas Bonitos
+        function mostrarAlerta(mensagem) {
+            document.getElementById('textoAlerta').innerHTML = mensagem;
+            document.getElementById('modalAlerta').style.display = 'flex';
+        }
+
+        // Função para reiniciar o app sem piscar a tela
+        function reiniciarApp() {
+            document.getElementById('telaSucesso').style.display = 'none';
+            document.getElementById('appNormal').style.display = 'block';
+            carrinho = [];
+            atualizarBarra();
+            mudarAba('salgadas', document.querySelector('.tab'));
+            window.scrollTo(0,0);
+        }
+
+        function carregarConfiguracoesDia() {
+            document.getElementById('diaSemanaBadge').textContent = nomesDias[diaAtualInt];
+
+            let selectRota = document.getElementById('cliRota');
+            let inputLivre = document.getElementById('cliRotaLivre');
+            let boxNum = document.getElementById('boxNumero');
+            let status = document.getElementById('menuStatus');
+            let statusTitulo = document.getElementById('menuStatusTitulo');
+            let statusTexto = document.getElementById('menuStatusTexto');
+            let rotasDeHoje = rotasDaSemana[diaAtualInt] || [];
+
+            inputLivre.style.display = 'none';
+            selectRota.style.display = 'block';
+            selectRota.disabled = false;
+            boxNum.style.display = 'block';
+            selectRota.innerHTML = '<option value="">-- Selecione seu bairro ou rua --</option>';
+
+            if (lojaAberta && rotasDeHoje.length > 0) {
+                rotasDeHoje.forEach(rota => {
+                    selectRota.innerHTML += `<option value="${rota}">${rota}</option>`;
+                });
+                status.classList.remove('fechado');
+                statusTitulo.textContent = 'Pedidos abertos';
+                statusTexto.textContent = 'Atendimento de hoje: ' + rotasDeHoje.join(' • ');
+            } else {
+                lojaAberta = false;
+                selectRota.innerHTML = '<option value="">Cardápio fechado hoje</option>';
+                selectRota.disabled = true;
+                status.classList.add('fechado');
+                statusTitulo.textContent = 'Cardápio fechado';
+                statusTexto.textContent = 'Os pedidos on-line funcionam de segunda a sexta-feira.';
+            }
+        }
+
+        function carregarDisponibilidadeCardapio() {
+            google.script.run
+                .withSuccessHandler(function(resposta) {
+                    try {
+                        itensIndisponiveis = JSON.parse(resposta || "[]");
+                    } catch (_) {
+                        itensIndisponiveis = [];
+                    }
+                    const totalAntes = carrinho.length;
+                    carrinho = carrinho.filter(item => !itensIndisponiveis.includes(item.nome));
+                    if (carrinho.length !== totalAntes) atualizarBarra();
+                    mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+                })
+                .withFailureHandler(function(erro) {
+                    console.error("Não foi possível consultar os itens esgotados:", erro);
+                })
+                .obterDisponibilidadeCardapio();
+        }
+
+        function obterImagemProduto(produto) {
+            const texto = `${produto.nome} ${produto.ing || ''}`.toLowerCase();
+            const base = './assets/menu/';
+            if (produto.tipo === 'bebida') return '';
+            if (texto.includes('carne seca')) return base + 'tapioca-carne-seca.webp';
+            if (texto.includes('calabresa')) return base + 'tapioca-calabresa.webp';
+            if (texto.includes('frango')) return base + 'tapioca-frango.webp';
+            if (texto.includes('presunto') || texto.includes('peito de peru') || texto.includes('pizza')) return base + 'tapioca-presunto.webp';
+            if (texto.includes('morango')) return base + 'tapioca-morango-chocolate.webp';
+            if (texto.includes('banana') || texto.includes('canela')) return base + 'tapioca-banana.webp';
+            if (texto.includes('coco') || texto.includes('beijinho') || texto.includes('queijadinha')) return base + 'tapioca-coco.webp';
+            if (texto.includes('chocolate') || texto.includes('nutella') || texto.includes('avelã') || texto.includes('paçoca') || texto.includes('brigadeiro')) return base + 'tapioca-chocolate-avela.webp';
+            return base + 'tapioca-queijos.webp';
+        }
+
+        function mudarAba(cat, btn) {
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            categoriaAtiva = cat;
+
+            const grid = document.getElementById('gridProdutos');
+            grid.innerHTML = '';
+            baseSelecionadaMonte = null;
+
+            const gerarCard = (p) => {
+                let qtd = carrinho.filter(i => i.nome === p.nome).reduce((a,b)=>a+b.quantidade,0);
+                let badge = qtd > 0 ? `<div class="badge">${qtd}</div>` : '';
+                let esgotado = itensIndisponiveis.includes(p.nome);
+                let indisponivel = esgotado || !lojaAberta;
+                let imagem = obterImagemProduto(p);
+                let foto = imagem
+                    ? `<img class="card-image" src="${imagem}" alt="Foto ilustrativa de ${p.nome}" loading="lazy" decoding="async">`
+                    : `<div class="card-image card-image-placeholder" aria-hidden="true">🥤</div>`;
+                let selo = esgotado ? '<span class="sold-out-label">Esgotado</span>' : '';
+                let textoBotao = esgotado ? 'Esgotado' : (lojaAberta ? 'Adicionar' : 'Fechado hoje');
+                return `<article class="card ${esgotado ? 'esgotado' : ''}">${badge}${selo}${foto}<div class="card-body"><div><h3>${p.nome}</h3><p class="ing">${p.ing || 'Bebida gelada'}</p></div><div class="card-footer"><p class="price">${formatar(p.preco)}</p><button type="button" class="btn-add" ${indisponivel ? 'disabled' : ''} onclick='prepararItem(${JSON.stringify(p)})'>${textoBotao}</button></div></div></article>`;
+            };
+
+            if(cat === 'salgadas') grid.innerHTML = bdCatalogo.salgadas.map(gerarCard).join('');
+            else if(cat === 'especiais') grid.innerHTML = bdCatalogo.especiais.map(gerarCard).join('');
+            else if(cat === 'doces') grid.innerHTML = `<h3 class="sub-title">Tradicionais</h3>` + bdCatalogo.doces_tradicionais.map(gerarCard).join('') + `<h3 class="sub-title">Linha Avelã</h3>` + bdCatalogo.doces_avela.map(gerarCard).join('') + `<h3 class="sub-title">Linha Nutella</h3>` + bdCatalogo.doces_nutella.map(gerarCard).join('');
+            else if(cat === 'bebidas') grid.innerHTML = bdCatalogo.bebidas.map(gerarCard).join('');
+            else if(cat === 'monte') {
+                grid.innerHTML = `<h3 class="sub-title" style="text-align:center;">Passo 1: Escolha a Carne</h3>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(c => `<div class="card" style="justify-content:center; border: 1px dashed var(--primary);"><h3 style="margin-bottom:15px; font-size:1.2rem;">${c}</h3><button class="btn-add" onclick="passo2Monte('${c}')">Escolher</button></div>`).join('');
+            }
+        }
+
+        function passo2Monte(carne) {
+            baseSelecionadaMonte = carne;
+            const grid = document.getElementById('gridProdutos');
+            let html = `<h3 class="sub-title" style="text-align:center;">Passo 2: Qual queijo em ${carne}?</h3>`;
+            ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(q => {
+                let pr = precosMonteSua[carne][q];
+                let pObj = { nome: `Monte Sua: ${carne} c/ ${q}`, preco: pr, tipo: 'tapioca', ing: `${carne} e ${q}` };
+                html += `<div class="card"><h3>${q}</h3><p class="price">${formatar(pr)}</p><button class="btn-add" onclick='prepararItem(${JSON.stringify(pObj)})'>Adicionar</button></div>`;
+            });
+            html += `<button class="btn-large btn-close" style="grid-column: 1/-1;" onclick="mudarAba('monte', document.querySelectorAll('.tab')[3])">⬅️ Voltar para Carnes</button>`;
+            grid.innerHTML = html;
+        }
+
+        function prepararItem(prod) {
+            if (!lojaAberta) {
+                mostrarAlerta("O cardápio on-line funciona de <b>segunda a sexta-feira</b>.");
+                return;
+            }
+            if (itensIndisponiveis.includes(prod.nome)) {
+                mostrarAlerta("Este item está <b>esgotado</b> no momento. Escolha outra opção.");
+                return;
+            }
+            produtoSendoAdicionado = prod;
+            document.getElementById('modalNome').textContent = prod.nome;
+            document.getElementById('modalIng').textContent = prod.ing || "";
+            document.getElementById('modalPreco').textContent = prod.preco.toFixed(2).replace('.',',');
+            document.getElementById('modalObs').value = '';
+            document.getElementById('modalItem').style.display = 'flex';
+        }
+
+        function confirmarAdicao() {
+            let obs = document.getElementById('modalObs').value.trim();
+            carrinho.push({ ...produtoSendoAdicionado, quantidade: 1, obs: obs, pronto: false, id: Date.now() });
+            document.getElementById('modalItem').style.display = 'none';
+            atualizarBarra();
+            mudarAba(document.querySelector('.tab.active').textContent.toLowerCase().substring(0,5) === 'monte' ? 'monte' : document.querySelector('.tab.active').textContent.toLowerCase(), document.querySelector('.tab.active'));
+        }
+
+        function atualizarBarra() {
+            const bar = document.getElementById('cartBar');
+            if(carrinho.length === 0) bar.style.display = 'none';
+            else {
+                bar.style.display = 'flex';
+                let total = carrinho.reduce((a,b)=>a+(b.preco*b.quantidade),0);
+                document.getElementById('cartTotal').textContent = formatar(total);
+            }
+        }
+
+        function abrirCheckout() {
+            const lista = document.getElementById('listaCheckout');
+            lista.innerHTML = '';
+            let total = 0;
+            carrinho.forEach((item, idx) => {
+                total += item.preco;
+                lista.innerHTML += `<div class="cart-item"><div><span>1x ${item.nome}</span>${item.obs ? `<small>Obs: ${item.obs}</small>` : ''}</div><div style="display:flex; align-items:center; gap:10px;"><span>${formatar(item.preco)}</span><span style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removerItem(${idx})">🗑️</span></div></div>`;
+            });
+            document.getElementById('checkoutTotal').textContent = formatar(total);
+            document.getElementById('modalCheckout').style.display = 'flex';
+        }
+
+        function removerItem(idx) {
+            carrinho.splice(idx, 1);
+            if(carrinho.length === 0) document.getElementById('modalCheckout').style.display = 'none';
+            else abrirCheckout();
+            atualizarBarra();
+            mudarAba(document.querySelector('.tab.active').textContent.toLowerCase().substring(0,5) === 'monte' ? 'monte' : document.querySelector('.tab.active').textContent.toLowerCase(), document.querySelector('.tab.active'));
+        }
+
+        function verificarDinheiro() {
+            let pag = document.getElementById('cliPag').value;
+            document.getElementById('boxTroco').style.display = (pag === 'Dinheiro') ? 'block' : 'none';
+        }
+
+        function validarPedido() {
+            if (!lojaAberta) {
+                return mostrarAlerta("O cardápio on-line está fechado hoje. Atendemos de <b>segunda a sexta-feira</b>.");
+            }
+            let nome = document.getElementById('cliNome').value.trim();
+            let pag = document.getElementById('cliPag').value;
+            let troco = document.getElementById('cliTroco').value.trim();
+            let num = document.getElementById('cliNum').value.trim();
+            let rotaFinal = "";
+
+            if(!nome) return mostrarAlerta("Por favor, preencha o seu <b>Nome</b>!");
+
+            let selectRota = document.getElementById('cliRota').value;
+            if(!selectRota || !num) return mostrarAlerta("Por favor, selecione seu <b>bairro ou rua</b> e digite o <b>número</b>!");
+            rotaFinal = selectRota + ", Nº " + num;
+
+            if(pag === 'Dinheiro' && !troco) {
+                return mostrarAlerta("Como vai pagar em Dinheiro, informe o valor para o <b>troco</b>.<br><br>(Digite 0 se não precisar).");
+            }
+            if(carrinho.length === 0) {
+                return mostrarAlerta("O seu carrinho está vazio!");
+            }
+
+            pedidoTemp = { nome, rotaFinal, pag, troco };
+            document.getElementById('modalRota').style.display = 'flex';
+        }
+
+        function confirmarRotaEEnviar() {
+            document.getElementById('modalRota').style.display = 'none';
+            enviarPedidoBackend(pedidoTemp.nome, pedidoTemp.rotaFinal, pedidoTemp.pag, pedidoTemp.troco);
+        }
+
+        const ehHoje = (ts) => { if(!ts) return false; const d=new Date(ts), h=new Date(); return d.getDate()===h.getDate() && d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear(); };
+
+        function enviarPedidoBackend(nome, rotaFinal, pag, troco) {
+            document.getElementById('modalCheckout').style.display = 'none';
+            document.getElementById('loadingScreen').style.display = 'flex';
+
+            let pagamentoFinal = pag;
+            if (pag === 'Dinheiro') {
+                pagamentoFinal = troco == "0" ? "Dinheiro (Sem troco)" : `Dinheiro (Troco para R$ ${troco})`;
+            }
+
+            let novoPedido = {
+                    origem: "Online",
+                    nomeCliente: nome,
+                    enderecoCliente: rotaFinal,
+                    pagamentoDesejado: pagamentoFinal,
+                    itens: JSON.parse(JSON.stringify(carrinho)),
+                    total: carrinho.reduce((a,b)=>a+(b.preco),0),
+                    hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                    produzido: false,
+                    timestampCriacao: new Date().getTime()
+                };
+
+            if (novoPedido.itens.length > 0) {
+                let obsAntiga = novoPedido.itens[0].obs || "";
+                novoPedido.itens[0].obs = `🟢 CLI: ${nome} | 📍 ${rotaFinal} | 💳 ${pagamentoFinal} ${obsAntiga ? ' | OBS: ' + obsAntiga : ''}`;
+            }
+
+            google.script.run
+              .withSuccessHandler(function(resposta) {
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('appNormal').style.display = 'none';
+                document.getElementById('telaSucesso').style.display = 'flex';
+                document.getElementById('numSenha').textContent = resposta.numero;
+              })
+              .withFailureHandler(function(erro) {
+                document.getElementById('loadingScreen').style.display = 'none';
+                mostrarAlerta("Não foi possível enviar o pedido. Tente novamente.<br><small>" + erro.message + "</small>");
+              })
+              .registrarPedidoOnline(JSON.stringify(novoPedido));
+        }
+    </script>
+</body>
+</html>
