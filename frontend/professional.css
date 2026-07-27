@@ -195,18 +195,21 @@ body.app-admin .fechar-sidebar {
 
 body.app-admin .tabs-container {
   order: -1;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 60px;
   padding: 5px;
-  overflow-x: auto;
+  overflow: visible;
+  flex: 0 0 auto;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
 body.app-admin .tab-btn {
-  flex: 1 0 auto;
+  width: 100%;
+  min-width: 0;
   min-height: 48px;
   padding: 12px 18px;
   background: transparent;
@@ -224,6 +227,10 @@ body.app-admin .tab-btn.active {
 
 body.app-admin #view-catalogo > div:first-child {
   margin-top: 12px;
+}
+
+body.app-admin #view-catalogo > * {
+  flex-shrink: 0;
 }
 
 body.app-admin .barra-pesquisa {
@@ -851,12 +858,20 @@ body.app-cliente #loadingScreen {
   }
 
   body.app-admin .tabs-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-height: 0;
+    padding: 8px;
     margin-bottom: 10px;
   }
 
+  body.app-admin .tabs-container .tab-btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   body.app-admin .tab-btn {
-    min-height: 48px;
-    padding-inline: 16px;
+    min-height: 52px;
+    padding-inline: 12px;
     font-size: .88rem;
   }
 
