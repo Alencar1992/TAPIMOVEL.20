@@ -6,6 +6,7 @@
     <title>Cardápio - Expresso Tapiocaria</title>
     <script src="./config.js"></script>
     <script src="./api-client.js"></script>
+    <script src="./catalogo-runtime.js"></script>
     <style>
         /* TEMA ESCURO E NEUTRO */
         :root {
@@ -222,7 +223,7 @@
             doces_tradicionais: [ { nome: "Canelinha", preco: 10.00, tipo: "tapioca", ing: "Coco, leite cond e canela" }, { nome: "Beijinho", preco: 10.00, tipo: "tapioca", ing: "Coco e leite condensado" }, { nome: "Banana Leite Cond. e Canela", preco: 12.00, tipo: "tapioca", ing: "Banana, Leite cond. e Canela" }, { nome: "Banana Chocolate ao Leite", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate ao Leite" }, { nome: "Brigadeiro", preco: 13.00, tipo: "tapioca", ing: "Chocolate ao Leite e granulado" }, { nome: "Prestígio", preco: 13.00, tipo: "tapioca", ing: "Coco e chocolate ao Leite" }, { nome: "Romeu e Julieta", preco: 14.00, tipo: "tapioca", ing: "Muçarela c/ Goiabada" }, { nome: "Coco c/ Doce de Leite", preco: 13.00, tipo: "tapioca", ing: "Coco c/ Doce de Leite" }, { nome: "Coco c/ Choc. e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Coco c/ Choc. e Leite Cond." }, { nome: "Morango c/ Leite Cond.", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Leite Cond." }, { nome: "Morango c/ Chocolate", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Chocolate ao Leite" }, { nome: "Morango c/ Coco e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Coco e Leite Cond." }, { nome: "Paçoca c/ Doce de Leite", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Doce de Leite" }, { nome: "Paçoca c/ Chocolate", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Chocolate ao Leite" }, { nome: "Queijadinha", preco: 14.00, tipo: "tapioca", ing: "Coco, muçarela e leite cond." }, { nome: "Castanha c/ Chocolate", preco: 14.00, tipo: "tapioca", ing: "Castanha c/ Chocolate ao Leite" } ],
             doces_avela: [ { nome: "Banana Chocolate Avelã", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate Avelã" }, { nome: "Brigadeiro c/ Avelã e Granulado", preco: 13.00, tipo: "tapioca", ing: "Brigadeiro c/ Avelã e Granulado" }, { nome: "Prestígio de Avelã", preco: 14.00, tipo: "tapioca", ing: "Coco e chocolate avelã" }, { nome: "Paçoquinha I", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate avelã" }, { nome: "Paçoquinha II", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate branco" }, { nome: "Sensação (Morango/Avelã)", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Avelã" }, { nome: "Morango c/ Chocolate Branco", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Chocolate Branco" }, { nome: "Bombom Sonho de Valsa c/ Avelã", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Avelã" }, { nome: "Bombom Sonho de Valsa c/ Branco", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Branco" } ],
             doces_nutella: [ { nome: "Ninho com Nutella", preco: 18.00, tipo: "tapioca", ing: "Ninho com Nutella" }, { nome: "Nutella com Coco", preco: 18.00, tipo: "tapioca", ing: "Nutella com Coco" }, { nome: "Nutella com M&M", preco: 19.00, tipo: "tapioca", ing: "Nutella com M&M" }, { nome: "Nutella com Morango", preco: 18.00, tipo: "tapioca", ing: "Nutella com Morango" }, { nome: "Nutella com Banana", preco: 18.00, tipo: "tapioca", ing: "Nutella com Banana" }, { nome: "Bombom S. de Valsa c/ Nutella", preco: 19.00, tipo: "tapioca", ing: "Bombom S. de Valsa c/ Nutella" } ],
-            bebidas: [ { nome: "Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" }, { nome: "Água Mineral", preco: 3.00, tipo: "bebida", ing: "" }, { nome: "Suco Natural", preco: 8.00, tipo: "bebida", ing: "" } ]
+            bebidas: [ { nome: "Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" } ]
         };
 
         const precosMonteSua = {
@@ -250,15 +251,36 @@
         let categoriaAtiva = 'salgadas';
         let itensIndisponiveis = [];
         let diaAtualInt = new Date().getDay();
-        let lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5;
+        let horaAtualInt = new Date().getHours();
+        let lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt >= 18 && horaAtualInt < 22;
         const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         window.onload = () => {
-            mudarAba('salgadas', document.querySelector('.tab'));
             carregarConfiguracoesDia();
             carregarDisponibilidadeCardapio();
+            TapimovelCatalogo.carregar(bdCatalogo, function() {
+                removerDoCarrinhoItensForaDoCatalogo();
+                mudarAba('salgadas', document.querySelector('.tab'));
+            });
             setInterval(carregarDisponibilidadeCardapio, 30000);
+            setInterval(function() {
+                TapimovelCatalogo.carregar(bdCatalogo, function() {
+                    removerDoCarrinhoItensForaDoCatalogo();
+                    mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+                });
+            }, 60000);
         };
+
+        function removerDoCarrinhoItensForaDoCatalogo() {
+            const nomesAtivos = new Set(
+                Object.values(bdCatalogo).flat().map(item => item.nome)
+            );
+            const totalAntes = carrinho.length;
+            carrinho = carrinho.filter(item =>
+                nomesAtivos.has(item.nome) || String(item.nome || '').startsWith('Monte Sua:')
+            );
+            if (carrinho.length !== totalAntes) atualizarBarra();
+        }
 
         // Função para mostrar os Alertas Bonitos
         function mostrarAlerta(mensagem) {
@@ -299,14 +321,20 @@
                 });
                 status.classList.remove('fechado');
                 statusTitulo.textContent = 'Pedidos abertos';
-                statusTexto.textContent = 'Atendimento de hoje: ' + rotasDeHoje.join(' • ');
+                statusTexto.textContent = 'Atendimento das 18h às 22h · ' + rotasDeHoje.join(' • ');
             } else {
                 lojaAberta = false;
                 selectRota.innerHTML = '<option value="">Cardápio fechado hoje</option>';
                 selectRota.disabled = true;
                 status.classList.add('fechado');
                 statusTitulo.textContent = 'Cardápio fechado';
-                statusTexto.textContent = 'Os pedidos on-line funcionam de segunda a sexta-feira.';
+                if (diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt < 18) {
+                    statusTexto.textContent = 'O atendimento de hoje abre às 18h e encerra às 22h.';
+                } else if (diaAtualInt >= 1 && diaAtualInt <= 5) {
+                    statusTexto.textContent = `O atendimento desta rota encerrou às 22h. Passaremos novamente na próxima ${nomesDias[diaAtualInt].toUpperCase()}.`;
+                } else {
+                    statusTexto.textContent = 'O cardápio digital funciona de segunda a sexta-feira, das 18h às 22h.';
+                }
             }
         }
 
@@ -391,7 +419,7 @@
 
         function prepararItem(prod) {
             if (!lojaAberta) {
-                mostrarAlerta("O cardápio on-line funciona de <b>segunda a sexta-feira</b>.");
+                mostrarAlerta("O cardápio digital funciona de <b>segunda a sexta-feira, das 18h às 22h</b>.");
                 return;
             }
             if (itensIndisponiveis.includes(prod.nome)) {
@@ -451,7 +479,7 @@
 
         function validarPedido() {
             if (!lojaAberta) {
-                return mostrarAlerta("O cardápio on-line está fechado hoje. Atendemos de <b>segunda a sexta-feira</b>.");
+                return mostrarAlerta("O cardápio digital está fechado. Atendemos de <b>segunda a sexta-feira, das 18h às 22h</b>.");
             }
             let nome = document.getElementById('cliNome').value.trim();
             let pag = document.getElementById('cliPag').value;

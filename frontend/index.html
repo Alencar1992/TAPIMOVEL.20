@@ -12,8 +12,12 @@
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="./config.js"></script>
     <script src="./api-client.js"></script>
+    <script src="./catalogo-runtime.js"></script>
     <style>
         :root {
             --primary: #ff6b6b; --primary-hover: #fa5252; --edit: #339af0; --edit-hover: #228be6;
@@ -178,6 +182,8 @@
         .aberto .seta { transform: rotate(180deg); }
     </style>
     <link rel="stylesheet" href="./professional.css">
+    <link rel="stylesheet" href="./eliel.css">
+    <link rel="stylesheet" href="./configuracao.css">
 </head>
 <body class="app-admin">
     <div id="modalErroSistema" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);justify-content:center;align-items:center;z-index:99999;font-family:sans-serif">
@@ -215,6 +221,55 @@
         </div>
     </div>
 
+    <div id="modalIdentificacaoConfig" class="modal-overlay" style="z-index: 4100;">
+        <div class="modal-content config-identificacao">
+            <div class="config-modal-icone" aria-hidden="true">⚙️</div>
+            <h3>Quem está acessando?</h3>
+            <p>Informe seu nome. Este acesso e todas as alterações serão registrados no histórico.</p>
+            <label for="configResponsavel">Seu nome</label>
+            <input id="configResponsavel" class="input-obs" type="text" maxlength="100" autocomplete="name" placeholder="Digite seu nome">
+            <div class="config-modal-acoes">
+                <button type="button" class="btn-acao btn-limpar" onclick="fecharIdentificacaoConfiguracao()">Cancelar</button>
+                <button type="button" class="btn-acao" onclick="confirmarIdentificacaoConfiguracao()">Entrar na configuração</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEditorConfig" class="modal-overlay" style="z-index: 4100;">
+        <div class="modal-content config-editor-modal">
+            <div class="config-editor-titulo">
+                <div><h3 id="configEditorTitulo">Nova tapioca</h3><p id="configEditorResponsavel"></p></div>
+                <button type="button" onclick="fecharEditorConfiguracao()" aria-label="Fechar editor">✕</button>
+            </div>
+            <form id="configFormItem" onsubmit="salvarItemConfiguracao(event)">
+                <input id="configNomeOriginal" type="hidden">
+                <label for="configItemNome">Nome do item</label>
+                <input id="configItemNome" class="input-obs" type="text" maxlength="140" required>
+                <div class="config-form-duplo">
+                    <label for="configItemCategoria">Categoria
+                        <select id="configItemCategoria" class="input-obs" required>
+                            <option value="salgadas">Salgadas</option>
+                            <option value="especiais">Especiais</option>
+                            <option value="doces_tradicionais">Doces tradicionais</option>
+                            <option value="doces_avela">Doces · Avelã</option>
+                            <option value="doces_nutella">Doces · Nutella</option>
+                            <option value="bebidas">Bebidas</option>
+                        </select>
+                    </label>
+                    <label for="configItemPreco">Preço
+                        <input id="configItemPreco" class="input-obs" type="text" inputmode="decimal" placeholder="14,00" required>
+                    </label>
+                </div>
+                <label for="configItemIngredientes">Ingredientes / descrição</label>
+                <textarea id="configItemIngredientes" class="input-obs" rows="4" maxlength="500" placeholder="Ex.: Muçarela e Catupiry"></textarea>
+                <div class="config-modal-acoes">
+                    <button type="button" class="btn-acao btn-limpar" onclick="fecharEditorConfiguracao()">Cancelar</button>
+                    <button id="configBtnSalvar" type="submit" class="btn-acao">Salvar item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <audio id="somCampainha" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
     <audio id="somCaixa" src="https://www.soundjay.com/misc/sounds/cash-register-01.mp3" preload="auto"></audio>
 
@@ -236,11 +291,15 @@
         </div>
 
         <div class="menu-grupo">
-            <button class="btn-categoria" onclick="toggleSubmenu('sub-planilhas')">📑 Planilhas <span class="seta">▼</span></button>
-            <div id="sub-planilhas" class="submenu">
-                <button onclick="window.open('https://docs.google.com/spreadsheets/d/1_XkhvERb8BrJCFGau7djN0A_0MBEgLZhgmvnzv4Zmz0/edit', '_blank');">📈 Abrir Planilha Real</button>
-                <button onclick="abrirRestrito('espelho')">🪞 Abrir planilha (App)</button>
-            </div>
+            <button class="btn-categoria" onclick="abrirRestrito('relatorio-eliel')">📊 Relatório Eliel</button>
+        </div>
+
+        <div class="menu-grupo">
+            <button class="btn-categoria" onclick="abrirRestrito('itens')">📦 Itens</button>
+        </div>
+
+        <div class="menu-grupo">
+            <button class="btn-categoria" onclick="abrirRestrito('configuracao')">⚙️ Configuração</button>
         </div>
 
         <div class="menu-grupo">
@@ -312,6 +371,136 @@
             <button onclick="limparHistoricoVendasHoje()" style="background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">🧹 Limpar Tela</button>
         </div>
         <div id="listaHistoricoHoje"></div>
+    </div>
+
+    <div id="view-relatorio-eliel" class="app-view relatorio-eliel-view">
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <div class="eliel-cabecalho">
+            <div>
+                <p class="eliel-kicker">GESTÃO MENSAL</p>
+                <h2>Relatório Eliel</h2>
+                <p>Vendas, rotas, custos e distribuição do resultado.</p>
+            </div>
+            <div class="eliel-periodo">
+                <label for="elielMes">Mês de referência</label>
+                <div>
+                    <select id="elielMes" class="input-obs"></select>
+                    <select id="elielAno" class="input-obs"></select>
+                    <button type="button" class="btn-eliel-icone" onclick="carregarRelatorioEliel()" aria-label="Atualizar relatório">↻</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="elielAvisoMesPendente" class="eliel-aviso" hidden>
+            <div><strong>Mês anterior ainda não finalizado</strong><span id="elielAvisoMesTexto"></span></div>
+            <div class="eliel-aviso-acoes">
+                <button type="button" onclick="abrirMesPendenteEliel()">Finalizar agora</button>
+                <button type="button" class="secundario" onclick="this.closest('.eliel-aviso').hidden=true">Fechar</button>
+            </div>
+        </div>
+
+        <div id="elielLoading" class="eliel-loading" hidden><div class="spinner"></div><p>Preparando o relatório...</p></div>
+        <div id="elielConteudo" hidden>
+            <section class="eliel-metricas">
+                <article><span>Faturamento</span><strong id="elielFaturamento">R$ 0,00</strong></article>
+                <article><span>Taxas</span><strong id="elielTaxas">R$ 0,00</strong></article>
+                <article><span>Após taxas</span><strong id="elielSubtotal">R$ 0,00</strong></article>
+                <article class="destaque"><span>Líquido após custos</span><strong id="elielLiquido">R$ 0,00</strong></article>
+            </section>
+
+            <section class="eliel-painel">
+                <div class="eliel-titulo-linha"><div><h3>Volume de tapiocas</h3><p>Quantidade consolidada por período.</p></div><strong id="elielTotalTapiocas">0 un</strong></div>
+                <div class="eliel-duas-colunas">
+                    <div><h4>Por dia</h4><div id="elielPorDia" class="eliel-lista"></div></div>
+                    <div><h4>Por semana</h4><div id="elielPorSemana" class="eliel-lista"></div></div>
+                </div>
+            </section>
+
+            <section class="eliel-duas-colunas">
+                <article class="eliel-painel">
+                    <h3>Três mais vendidas</h3>
+                    <div id="elielTop3" class="eliel-ranking"></div>
+                </article>
+                <article class="eliel-painel">
+                    <h3>Cinco menos vendidas</h3>
+                    <div id="elielMenos5" class="eliel-insights"></div>
+                </article>
+            </section>
+
+            <section class="eliel-painel">
+                <div class="eliel-titulo-linha"><div><h3>Desempenho por rota</h3><p>Valor, volume e tapioca campeã de cada dia de rota.</p></div><strong id="elielMelhorRota">—</strong></div>
+                <div id="elielRotas" class="eliel-tabela-wrap"></div>
+            </section>
+
+            <section class="eliel-duas-colunas">
+                <article class="eliel-painel">
+                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
+                    <div class="eliel-form-grid">
+                        <label>Combustível carro<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
+                        <label>Salário cozinha<input id="elielCustoCozinha" class="input-obs" inputmode="decimal"></label>
+                        <label>Salário aux. carro<input id="elielCustoAux" class="input-obs" inputmode="decimal"></label>
+                        <label>Manutenção carro<input id="elielCustoManutencao" class="input-obs" inputmode="decimal"></label>
+                    </div>
+                    <div class="eliel-total-linha"><span>Total de custos</span><strong id="elielTotalCustos">R$ 0,00</strong></div>
+                </article>
+                <article class="eliel-painel">
+                    <h3>Distribuição do líquido</h3>
+                    <div class="eliel-form-grid eliel-percentuais">
+                        <label>Compra (%)<input id="elielPercCompra" class="input-obs" type="number" min="0" max="100" value="70"></label>
+                        <label>Lucas (%)<input id="elielPercLucas" class="input-obs" type="number" min="0" max="100" value="25"></label>
+                        <label>Eliel (%)<input id="elielPercEliel" class="input-obs" type="number" min="0" max="100" value="5"></label>
+                    </div>
+                    <div id="elielDistribuicao" class="eliel-distribuicao"></div>
+                </article>
+            </section>
+
+            <section class="eliel-painel">
+                <h3>Resumo de lucros do mês</h3>
+                <p id="elielResumoLucro" class="eliel-resumo"></p>
+            </section>
+
+            <div class="eliel-acoes">
+                <button type="button" onclick="exportarRelatorioElielCsv()">Exportar CSV</button>
+                <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar XLSX</button>
+                <button type="button" onclick="gerarComparativoElielPdf()">Comparativo do mês anterior em PDF</button>
+                <button type="button" class="perigo" onclick="abrirFechamentoMesEliel()">Fechar e zerar mês</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-itens" class="app-view itens-view">
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <div class="itens-cabecalho">
+            <div><h2>Itens do cardápio</h2><p>Pausas valem apenas até a virada do dia.</p></div>
+            <span id="itensResumo">0 disponíveis</span>
+        </div>
+        <div class="itens-legenda"><span><i class="status-dot disponivel"></i> Disponível</span><span><i class="status-dot indisponivel"></i> Indisponível</span></div>
+        <input id="itensBusca" class="barra-pesquisa" type="search" placeholder="Buscar item..." oninput="renderizarTelaItens()">
+        <div id="listaGestaoItens" class="lista-gestao-itens"></div>
+        <p class="itens-instrucao">Para pausar ou reativar, pressione o item por 3 segundos e acompanhe o progresso.</p>
+    </div>
+
+    <div id="view-configuracao" class="app-view configuracao-view">
+        <button class="nav-voltar" onclick="sairConfiguracao()">⬅️ Voltar para o Catálogo</button>
+        <div class="config-cabecalho">
+            <div>
+                <h2>Configuração geral</h2>
+                <p>Crie, edite ou remova itens permanentes do cardápio.</p>
+            </div>
+            <div class="config-operador">
+                <span>Responsável desta sessão</span>
+                <strong id="configResponsavelAtual">—</strong>
+            </div>
+        </div>
+        <div class="config-barra">
+            <input id="configBusca" class="barra-pesquisa" type="search" placeholder="Buscar no cardápio..." oninput="renderizarConfiguracao()">
+            <button type="button" class="config-btn-novo" onclick="abrirEditorConfiguracao()">＋ Nova tapioca</button>
+        </div>
+        <div class="config-resumo">
+            <strong id="configTotalItens">0 itens</strong>
+            <span>Alterações são aplicadas no PDV e no cardápio do cliente.</span>
+        </div>
+        <div id="configListaItens" class="config-lista"></div>
     </div>
 
     <div id="view-espelho" class="app-view">
@@ -757,7 +946,10 @@
 
         function abrirRestrito(acao) {
             fecharMenuLateral();
-            if(acao === 'espelho') mudarTela('view-espelho');
+            if(acao === 'relatorio-eliel') abrirRelatorioEliel();
+            else if(acao === 'itens') abrirTelaItens();
+            else if(acao === 'configuracao') solicitarAcessoConfiguracao();
+            else if(acao === 'espelho') mudarTela('view-espelho');
             else if(acao === 'rankings') mudarTela('view-rankings');
             else if(acao === 'liquidez') abrirModalLiquidez();
             else if(acao === 'estimativa') abrirModalEstimativa();
@@ -878,9 +1070,7 @@
                 { nome: "Bombom S. de Valsa c/ Nutella", preco: 19.00, tipo: "tapioca", ing: "Bombom S. de Valsa c/ Nutella" }
             ],
             bebidas: [
-                { nome: "🥤 Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" },
-                { nome: "💧 Água Mineral", preco: 3.00, tipo: "bebida", ing: "" },
-                { nome: "🧃 Suco Natural", preco: 8.00, tipo: "bebida", ing: "" }
+                { nome: "🥤 Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" }
             ]
         };
         const precosMonteSua = {
@@ -1173,20 +1363,49 @@
             }
         }
 
-        let timerPressao; let tocouLongo = false;
-        function iniciarPressao(e, nome) {
+        const DURACAO_PRESSAO_ITEM = 3000;
+        let timerPressao; let intervaloPressao; let botaoPressionado = null; let tocouLongo = false;
+
+        function atualizarFeedbackPressao(botao, inicio) {
+            if (!botao) return;
+            const decorrido = Math.min(Date.now() - inicio, DURACAO_PRESSAO_ITEM);
+            const restante = Math.max(0, DURACAO_PRESSAO_ITEM - decorrido);
+            const contador = botao.querySelector('.press-progress-value');
+            botao.style.setProperty('--press-progress', `${(decorrido / DURACAO_PRESSAO_ITEM) * 100}%`);
+            if (contador) contador.textContent = Math.max(1, Math.ceil(restante / 1000));
+        }
+
+        function iniciarPressao(e) {
             if (typeof e.button === 'number' && e.button !== 0) return;
-            clearTimeout(timerPressao);
+            cancelarPressao();
             tocouLongo = false;
+            botaoPressionado = e.currentTarget;
+            const nome = botaoPressionado.dataset.nome;
+            const inicio = Date.now();
+            botaoPressionado.classList.add('em-pressao');
+            botaoPressionado.style.setProperty('--press-progress', '0%');
+            atualizarFeedbackPressao(botaoPressionado, inicio);
+            intervaloPressao = setInterval(() => atualizarFeedbackPressao(botaoPressionado, inicio), 50);
             timerPressao = setTimeout(() => {
+                clearInterval(intervaloPressao);
                 tocouLongo = true;
                 ignorarProximoClickProduto = nome;
                 if(navigator.vibrate) navigator.vibrate(50);
                 alternarEsgotadoMenuTracker(nome);
-            }, 550);
+                cancelarPressao();
+            }, DURACAO_PRESSAO_ITEM);
         }
+
         function cancelarPressao() {
             clearTimeout(timerPressao);
+            clearInterval(intervaloPressao);
+            if (botaoPressionado) {
+                botaoPressionado.classList.remove('em-pressao');
+                botaoPressionado.style.removeProperty('--press-progress');
+                const contador = botaoPressionado.querySelector('.press-progress-value');
+                if (contador) contador.textContent = '3';
+            }
+            botaoPressionado = null;
         }
         function carregarDisponibilidadeCardapio() {
             if (typeof google === 'undefined') return;
@@ -1199,6 +1418,7 @@
                     }
                     if (termoPesquisa.length > 0) renderizarPesquisa();
                     else if (abaAtivaCatalogo) renderizarCatalogo(abaAtivaCatalogo);
+                    if (document.getElementById('view-itens').classList.contains('active')) renderizarTelaItens();
                 })
                 .withFailureHandler(function(erro) {
                     console.error("Não foi possível carregar os itens esgotados:", erro);
@@ -1246,7 +1466,7 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" aria-disabled="${esgotado}" onclick='clickProduto(${JSON.stringify(prod)})' oncontextmenu="alternarEsgotado(event, '${prod.nome}')" onpointerdown="iniciarPressao(event, '${prod.nome}')" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span></button>`;
+            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" aria-disabled="${esgotado}" onclick='clickProduto(${JSON.stringify(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">3</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
         };
 
         function pesquisarProdutos() {
@@ -1506,10 +1726,14 @@
                 let htmlItens = ''; let indicesAgrupados = new Set();
                 pedido.itens.forEach((item, idx) => {
                     if (item.tipo === 'bebida') return; if (indicesAgrupados.has(idx)) return; if (item.pronto) return;
-                    let ingredientesHtml = item.ing ? `<span class="ingredientes">${item.ing}</span>` : ''; let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${item.obs}</span>` : ''; let extrasHtml = '';
+                    let ingredientesHtml = item.ing ? `<span class="ingredientes">${item.ing}</span>` : '';
+                    let personalizacoesHtml = item.personalizacoes && item.personalizacoes.length
+                        ? `<span class="ingredientes" style="color:#74c0fc; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAR: ${item.personalizacoes.join(', ')}</span>`
+                        : '';
+                    let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${item.obs}</span>` : ''; let extrasHtml = '';
                     for (let i = idx + 1; i < pedido.itens.length; i++) { let proximoItem = pedido.itens[i]; if (proximoItem.tipo === 'extra') { if(!proximoItem.pronto) { let nomeDoExtra = (proximoItem.nome === '+ Adicional' && proximoItem.obs) ? proximoItem.obs : proximoItem.nome; let obsDoExtra = (proximoItem.nome !== '+ Adicional' && proximoItem.obs) ? ` - ${proximoItem.obs}` : ''; extrasHtml += `<div style="color: #ffc107; font-weight: bold; font-size: 0.95rem; margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffc107;">➕ Adicional: ${nomeDoExtra}${obsDoExtra}</div>`; } indicesAgrupados.add(i); } else if (proximoItem.tipo !== 'bebida') { break; } }
                     let nomeExibicao = item.tipo === 'extra' ? `⚠️ Adicional Avulso: ${item.obs || item.nome}` : item.nome;
-                    htmlItens += `<div class="item-producao"><div class="info-prod"><strong>${item.quantidade}x ${nomeExibicao}</strong>${ingredientesHtml}${obsHtml}${extrasHtml}</div><button class="btn-check-item" onclick="marcarItemEExtrasPronto('${pedido.numero}', ${idx})">✅ Concluir</button></div>`;
+                    htmlItens += `<div class="item-producao"><div class="info-prod"><strong>${item.quantidade}x ${nomeExibicao}</strong>${ingredientesHtml}${personalizacoesHtml}${obsHtml}${extrasHtml}</div><button class="btn-check-item" onclick="marcarItemEExtrasPronto('${pedido.numero}', ${idx})">✅ Concluir</button></div>`;
                 });
                 if(htmlItens !== '') {
                     let badgePagamento = pedido.timestamp ? `<span class="badge-status-cozinha badge-pago">PAGO</span>` : `<span class="badge-status-cozinha badge-pendente">PENDENTE</span>`; let badgeOrigem = pedido.origem === 'Online' ? `<span class="badge-status-cozinha" style="background: #339af0; margin-right: 5px; font-size: 0.85rem; padding: 3px 8px;">📲 APP</span> ` : '';
@@ -2023,6 +2247,7 @@
                         </div>
                         <button style="background:transparent; color:var(--text-muted); border:1px solid var(--border); padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="removerItemCarrinho(${index})">🗑️ Remover</button>
                     </div>
+                    ${item.tipo === 'tapioca' ? renderizarOpcoesTapioca(item, index) : ''}
                     <input type="text" class="input-obs" placeholder="Observações (ex: sem cebola)" value="${item.obs || ''}" onchange="atualizarObs(${index}, this.value)" style="margin-top:5px;">
                 </div>`;
             });
@@ -2275,6 +2500,8 @@
             }
         }
     </script>
+    <script src="./eliel.js"></script>
+    <script src="./configuracao.js"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">
 
