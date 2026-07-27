@@ -809,6 +809,8 @@ function executarAcaoApi_(action, args) {
   const acoesPublicas = [
     "carregarDadosNuvem",
     "obterDisponibilidadeCardapio",
+    "obterCatalogoCardapio",
+    "obterStatusCardapio",
     "registrarPedidoOnline"
   ];
 
@@ -835,7 +837,16 @@ function executarAcaoApi_(action, args) {
     "salvarFechamentoDiaPlanilha",
     "salvarMultiplosFechamentos",
     "salvarDisponibilidadeCardapio",
-    "excluirContadorTapiocasHoje"
+    "inicializarCatalogoConfiguracao",
+    "salvarItemCatalogo",
+    "removerItemCatalogo",
+    "excluirContadorTapiocasHoje",
+    "obterRelatorioEliel",
+    "registrarAcessoRelatorioEliel",
+    "obterConfiguracoesRelatorioEliel",
+    "salvarConfiguracoesRelatorioEliel",
+    "fecharMesRelatorioEliel",
+    "obterAvisosPdv"
   ];
 
   const permitidas = acoesPublicas.concat(acoesAdministrativas);
@@ -866,6 +877,9 @@ function registrarPedidoOnline(pedidoJSON) {
     const diaSemana = Number(
       Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "u")
     );
+    const horaAtual = Number(
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "H")
+    );
     const rotasPorDia = {
       1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
       2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
@@ -881,9 +895,32 @@ function registrarPedidoOnline(pedidoJSON) {
     const itemEsgotado = (pedido.itens || []).find(function(item) {
       return itensIndisponiveis.indexOf(item.nome) !== -1;
     });
+    const catalogoSalvo = props.getProperty(CHAVE_CATALOGO_CARDAPIO_);
+    if (catalogoSalvo) {
+      const catalogo = normalizarCatalogo_(JSON.parse(catalogoSalvo));
+      const itensCatalogo = {};
+      CATEGORIAS_CATALOGO_.forEach(function(categoria) {
+        catalogo[categoria].forEach(function(item) {
+          itensCatalogo[item.nome] = item;
+        });
+      });
+      (pedido.itens || []).forEach(function(item) {
+        const cadastrado = itensCatalogo[item.nome];
+        if (!cadastrado && String(item.nome || "").indexOf("Monte Sua:") !== 0) {
+          throw new Error("O item '" + item.nome + "' não está mais disponível no cardápio.");
+        }
+        if (cadastrado) item.preco = cadastrado.preco;
+      });
+      pedido.total = (pedido.itens || []).reduce(function(total, item) {
+        return total + ((Number(item.quantidade) || 1) * (Number(item.preco) || 0));
+      }, 0);
+    }
 
     if (diaSemana < 1 || diaSemana > 5) {
       throw new Error("O cardápio on-line funciona somente de segunda a sexta-feira.");
+    }
+    if (horaAtual < 18 || horaAtual >= 22) {
+      throw new Error("O cardápio digital funciona das 18h às 22h.");
     }
     if (!rotasPermitidas.some(function(rota) { return endereco.indexOf(rota) === 0; })) {
       throw new Error("O endereço informado não pertence à rota disponível hoje.");
@@ -916,6 +953,13 @@ function registrarPedidoOnline(pedidoJSON) {
 
 function obterDisponibilidadeCardapio() {
   const props = PropertiesService.getScriptProperties();
+  const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const dataPausa = props.getProperty("cardapio_pausa_data") || "";
+  if (dataPausa !== hoje) {
+    props.setProperty("cardapio_itens_indisponiveis", "[]");
+    props.setProperty("cardapio_pausa_data", hoje);
+    return "[]";
+  }
   return props.getProperty("cardapio_itens_indisponiveis") || "[]";
 }
 
@@ -936,9 +980,583 @@ function salvarDisponibilidadeCardapio(itensJSON) {
     PropertiesService
       .getScriptProperties()
       .setProperty("cardapio_itens_indisponiveis", JSON.stringify(itensNormalizados));
+    PropertiesService
+      .getScriptProperties()
+      .setProperty(
+        "cardapio_pausa_data",
+        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")
+      );
 
     return JSON.stringify(itensNormalizados);
   } finally {
     lock.releaseLock();
   }
+}
+
+// =========================================================
+// CONFIGURAÇÃO GERAL DO CARDÁPIO E AUDITORIA
+// =========================================================
+const CHAVE_CATALOGO_CARDAPIO_ = "cardapio_catalogo_configurado";
+const ABA_LOG_CONFIGURACAO_ = "log_configuração";
+const CATEGORIAS_CATALOGO_ = [
+  "salgadas",
+  "especiais",
+  "doces_tradicionais",
+  "doces_avela",
+  "doces_nutella",
+  "bebidas"
+];
+
+function normalizarResponsavelConfiguracao_(responsavel) {
+  const nome = String(responsavel || "").trim().replace(/\s+/g, " ");
+  if (nome.length < 2) {
+    throw new Error("Informe o nome de quem está realizando a configuração.");
+  }
+  return nome.substring(0, 100);
+}
+
+function normalizarCatalogo_(catalogo) {
+  const resultado = {};
+  CATEGORIAS_CATALOGO_.forEach(function(categoria) {
+    const lista = catalogo && Array.isArray(catalogo[categoria])
+      ? catalogo[categoria]
+      : [];
+    resultado[categoria] = lista.map(function(item) {
+      return {
+        nome: String(item && item.nome || "").trim(),
+        preco: Math.max(0, Number(item && item.preco) || 0),
+        tipo: item && item.tipo === "bebida" ? "bebida" : "tapioca",
+        ing: String(item && item.ing || "").trim()
+      };
+    }).filter(function(item) {
+      return item.nome && item.preco > 0;
+    });
+  });
+  return resultado;
+}
+
+function catalogoConfigurado_(catalogoPadraoJSON) {
+  const props = PropertiesService.getScriptProperties();
+  const salvo = props.getProperty(CHAVE_CATALOGO_CARDAPIO_);
+  if (salvo) return normalizarCatalogo_(JSON.parse(salvo));
+  return normalizarCatalogo_(JSON.parse(catalogoPadraoJSON || "{}"));
+}
+
+function salvarCatalogoConfigurado_(catalogo) {
+  const normalizado = normalizarCatalogo_(catalogo);
+  PropertiesService.getScriptProperties()
+    .setProperty(CHAVE_CATALOGO_CARDAPIO_, JSON.stringify(normalizado));
+  return normalizado;
+}
+
+function obterCatalogoCardapio(catalogoPadraoJSON) {
+  return JSON.stringify(catalogoConfigurado_(catalogoPadraoJSON));
+}
+
+function obterAbaLogConfiguracao_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let aba = ss.getSheetByName(ABA_LOG_CONFIGURACAO_);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_LOG_CONFIGURACAO_);
+    aba.appendRow([
+      "Data e hora",
+      "Responsável",
+      "Ação",
+      "Item",
+      "Categoria",
+      "Antes",
+      "Depois"
+    ]);
+    aba.setFrozenRows(1);
+    aba.getRange(1, 1, 1, 7).setFontWeight("bold");
+  }
+  return aba;
+}
+
+function registrarLogConfiguracao_(responsavel, acao, item, categoria, antes, depois) {
+  obterAbaLogConfiguracao_().appendRow([
+    new Date(),
+    responsavel,
+    acao,
+    item || "-",
+    categoria || "-",
+    antes ? JSON.stringify(antes) : "-",
+    depois ? JSON.stringify(depois) : "-"
+  ]);
+}
+
+function inicializarCatalogoConfiguracao(catalogoPadraoJSON, responsavel) {
+  const nome = normalizarResponsavelConfiguracao_(responsavel);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    let catalogo = catalogoConfigurado_(catalogoPadraoJSON);
+    if (!PropertiesService.getScriptProperties().getProperty(CHAVE_CATALOGO_CARDAPIO_)) {
+      catalogo = salvarCatalogoConfigurado_(catalogo);
+    }
+    registrarLogConfiguracao_(nome, "ACESSO À CONFIGURAÇÃO", "-", "-", null, null);
+    return JSON.stringify(catalogo);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function validarItemCatalogo_(item) {
+  const nome = String(item && item.nome || "").trim().replace(/\s+/g, " ");
+  const categoria = String(item && item.categoria || "").trim();
+  const preco = Number(item && item.preco);
+  if (nome.length < 2) throw new Error("Informe um nome válido para o item.");
+  if (CATEGORIAS_CATALOGO_.indexOf(categoria) === -1) {
+    throw new Error("Selecione uma categoria válida.");
+  }
+  if (!isFinite(preco) || preco <= 0) {
+    throw new Error("Informe um preço maior que zero.");
+  }
+  return {
+    nome: nome.substring(0, 140),
+    preco: Math.round(preco * 100) / 100,
+    tipo: categoria === "bebidas" || item.tipo === "bebida" ? "bebida" : "tapioca",
+    ing: String(item.ing || "").trim().substring(0, 500),
+    categoria: categoria
+  };
+}
+
+function localizarItemCatalogo_(catalogo, nome) {
+  const alvo = String(nome || "").trim().toLocaleLowerCase();
+  for (let i = 0; i < CATEGORIAS_CATALOGO_.length; i++) {
+    const categoria = CATEGORIAS_CATALOGO_[i];
+    const indice = catalogo[categoria].findIndex(function(item) {
+      return item.nome.toLocaleLowerCase() === alvo;
+    });
+    if (indice !== -1) {
+      return { categoria: categoria, indice: indice, item: catalogo[categoria][indice] };
+    }
+  }
+  return null;
+}
+
+function salvarItemCatalogo(itemJSON, nomeOriginal, responsavel) {
+  const nomeResponsavel = normalizarResponsavelConfiguracao_(responsavel);
+  const itemRecebido = validarItemCatalogo_(JSON.parse(itemJSON || "{}"));
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const catalogo = catalogoConfigurado_("{}");
+    const original = nomeOriginal ? localizarItemCatalogo_(catalogo, nomeOriginal) : null;
+    const duplicado = localizarItemCatalogo_(catalogo, itemRecebido.nome);
+    if (duplicado && (!original ||
+        duplicado.categoria !== original.categoria ||
+        duplicado.indice !== original.indice)) {
+      throw new Error("Já existe um item com esse nome no cardápio.");
+    }
+
+    let antes = null;
+    if (original) {
+      antes = Object.assign({ categoria: original.categoria }, original.item);
+      catalogo[original.categoria].splice(original.indice, 1);
+    }
+
+    const itemSalvo = {
+      nome: itemRecebido.nome,
+      preco: itemRecebido.preco,
+      tipo: itemRecebido.tipo,
+      ing: itemRecebido.ing
+    };
+    catalogo[itemRecebido.categoria].push(itemSalvo);
+    catalogo[itemRecebido.categoria].sort(function(a, b) {
+      return a.nome.localeCompare(b.nome, "pt-BR");
+    });
+    salvarCatalogoConfigurado_(catalogo);
+
+    if (original && String(nomeOriginal) !== itemRecebido.nome) {
+      const props = PropertiesService.getScriptProperties();
+      const pausados = JSON.parse(props.getProperty("cardapio_itens_indisponiveis") || "[]");
+      props.setProperty(
+        "cardapio_itens_indisponiveis",
+        JSON.stringify(pausados.map(function(nome) {
+          return nome === nomeOriginal ? itemRecebido.nome : nome;
+        }))
+      );
+    }
+
+    registrarLogConfiguracao_(
+      nomeResponsavel,
+      original ? "ITEM EDITADO" : "ITEM CRIADO",
+      itemRecebido.nome,
+      itemRecebido.categoria,
+      antes,
+      Object.assign({ categoria: itemRecebido.categoria }, itemSalvo)
+    );
+    return JSON.stringify(catalogo);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function removerItemCatalogo(nomeItem, responsavel) {
+  const nomeResponsavel = normalizarResponsavelConfiguracao_(responsavel);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const catalogo = catalogoConfigurado_("{}");
+    const encontrado = localizarItemCatalogo_(catalogo, nomeItem);
+    if (!encontrado) throw new Error("O item não foi encontrado no cardápio.");
+
+    const antes = Object.assign({ categoria: encontrado.categoria }, encontrado.item);
+    catalogo[encontrado.categoria].splice(encontrado.indice, 1);
+    salvarCatalogoConfigurado_(catalogo);
+
+    const props = PropertiesService.getScriptProperties();
+    const pausados = JSON.parse(props.getProperty("cardapio_itens_indisponiveis") || "[]");
+    props.setProperty(
+      "cardapio_itens_indisponiveis",
+      JSON.stringify(pausados.filter(function(nome) { return nome !== nomeItem; }))
+    );
+    registrarLogConfiguracao_(
+      nomeResponsavel,
+      "ITEM REMOVIDO",
+      encontrado.item.nome,
+      encontrado.categoria,
+      antes,
+      null
+    );
+    return JSON.stringify(catalogo);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =========================================================
+// RELATÓRIO ELIEL, FECHAMENTO MENSAL E AVISOS
+// =========================================================
+function normalizarNumero_(valor) {
+  if (typeof valor === "number") return valor;
+  const texto = String(valor == null ? "" : valor)
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  return Number(texto) || 0;
+}
+
+function extrairData_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) return valor;
+  const texto = String(valor || "");
+  let match = texto.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  match = texto.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const data = new Date(texto);
+  return isNaN(data.getTime()) ? null : data;
+}
+
+function pertenceAoMes_(data, mes, ano) {
+  return data && data.getMonth() + 1 === Number(mes) && data.getFullYear() === Number(ano);
+}
+
+function chaveMes_(mes, ano) {
+  return String(ano) + "-" + ("0" + Number(mes)).slice(-2);
+}
+
+function nomeDia_(dia) {
+  return ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"][dia];
+}
+
+function obterStatusCardapio() {
+  const agora = new Date();
+  const fuso = Session.getScriptTimeZone();
+  const dia = Number(Utilities.formatDate(agora, fuso, "u"));
+  const hora = Number(Utilities.formatDate(agora, fuso, "H"));
+  const aberto = dia >= 1 && dia <= 5 && hora >= 18 && hora < 22;
+  return JSON.stringify({
+    aberto: aberto,
+    diaSemana: dia,
+    hora: hora,
+    abreAs: "18:00",
+    fechaAs: "22:00"
+  });
+}
+
+function obterConfiguracoesRelatorioEliel() {
+  const padrao = {
+    combustivelCarro: 0,
+    salarioCozinha: 750,
+    salarioAuxCarro: 300,
+    manutencaoCarro: 200,
+    percentualCompra: 70,
+    percentualLucas: 25,
+    percentualEliel: 5,
+    taxaDebito: 2,
+    taxaCredito: 5,
+    taxaVr: 5.59
+  };
+  const salvo = PropertiesService.getScriptProperties().getProperty("relatorio_eliel_config");
+  if (!salvo) return JSON.stringify(padrao);
+  try {
+    return JSON.stringify(Object.assign(padrao, JSON.parse(salvo)));
+  } catch (_) {
+    return JSON.stringify(padrao);
+  }
+}
+
+function salvarConfiguracoesRelatorioEliel(configJSON) {
+  const config = JSON.parse(configJSON || "{}");
+  const soma = normalizarNumero_(config.percentualCompra) +
+    normalizarNumero_(config.percentualLucas) +
+    normalizarNumero_(config.percentualEliel);
+  if (Math.abs(soma - 100) > 0.01) {
+    throw new Error("Os percentuais de Compra, Lucas e Eliel precisam somar 100%.");
+  }
+  PropertiesService.getScriptProperties()
+    .setProperty("relatorio_eliel_config", JSON.stringify(config));
+  return obterConfiguracoesRelatorioEliel();
+}
+
+function obterRelatorioEliel(mes, ano, catalogoJSON) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historico = ss.getSheetByName("Historico_Diario");
+  const fechamentos = ss.getSheetByName("Fechamentos_Diarios");
+  const combustivel = ss.getSheetByName("Combustivel");
+  const config = JSON.parse(obterConfiguracoesRelatorioEliel());
+  const catalogo = JSON.parse(catalogoJSON || "[]");
+  const dias = {};
+  const semanas = {};
+  const produtos = {};
+  const produtosPorDia = {};
+  const rotas = {};
+  let faturamento = 0;
+  let credito = 0;
+  let debito = 0;
+  let vr = 0;
+  let totalTapiocas = 0;
+  let combustivelMes = 0;
+
+  if (historico) {
+    const dados = historico.getDataRange().getDisplayValues();
+    for (let i = 1; i < dados.length; i++) {
+      const data = extrairData_(dados[i][1]);
+      const tipo = String(dados[i][3] || "").toUpperCase();
+      const produto = String(dados[i][2] || "").trim();
+      const qtd = normalizarNumero_(dados[i][4]);
+      if (!pertenceAoMes_(data, mes, ano) || tipo !== "TAPIOCA" || !produto || qtd <= 0) continue;
+
+      const diaChave = Utilities.formatDate(data, Session.getScriptTimeZone(), "dd/MM/yyyy");
+      const semanaChave = "Semana " + Math.ceil(data.getDate() / 7);
+      const rota = nomeDia_(data.getDay());
+      dias[diaChave] = (dias[diaChave] || 0) + qtd;
+      semanas[semanaChave] = (semanas[semanaChave] || 0) + qtd;
+      produtos[produto] = (produtos[produto] || 0) + qtd;
+      produtosPorDia[produto] = produtosPorDia[produto] || {};
+      produtosPorDia[produto][rota] = (produtosPorDia[produto][rota] || 0) + qtd;
+      rotas[rota] = rotas[rota] || { rota: rota, total: 0, tapiocas: 0, produtos: {} };
+      rotas[rota].tapiocas += qtd;
+      rotas[rota].produtos[produto] = (rotas[rota].produtos[produto] || 0) + qtd;
+      totalTapiocas += qtd;
+    }
+  }
+
+  if (fechamentos) {
+    const dados = fechamentos.getDataRange().getDisplayValues();
+    for (let i = 1; i < dados.length; i++) {
+      const data = extrairData_(dados[i][0]);
+      if (!pertenceAoMes_(data, mes, ano)) continue;
+      const totalDia = normalizarNumero_(dados[i][1]);
+      const rota = nomeDia_(data.getDay());
+      faturamento += totalDia;
+      credito += normalizarNumero_(dados[i][4]);
+      debito += normalizarNumero_(dados[i][5]);
+      vr += normalizarNumero_(dados[i][6]);
+      rotas[rota] = rotas[rota] || { rota: rota, total: 0, tapiocas: 0, produtos: {} };
+      rotas[rota].total += totalDia;
+    }
+  }
+
+  if (combustivel) {
+    const dados = combustivel.getDataRange().getDisplayValues();
+    for (let i = 1; i < dados.length; i++) {
+      const data = extrairData_(dados[i][0]);
+      if (pertenceAoMes_(data, mes, ano)) combustivelMes += normalizarNumero_(dados[i][1]);
+    }
+  }
+
+  const rankingProdutos = Object.keys(produtos).map(function(nome) {
+    const porDia = produtosPorDia[nome] || {};
+    const melhorDia = Object.keys(porDia).sort(function(a, b) { return porDia[b] - porDia[a]; })[0] || "-";
+    return { produto: nome, quantidade: produtos[nome], melhorDia: melhorDia };
+  }).sort(function(a, b) { return b.quantidade - a.quantidade; });
+
+  const catalogoTapiocas = catalogo
+    .filter(function(item) { return item && item.tipo === "tapioca" && String(item.nome || "").indexOf("Avulso:") !== 0; })
+    .map(function(item) { return String(item.nome || "").trim(); })
+    .filter(function(nome, indice, lista) { return nome && lista.indexOf(nome) === indice; });
+  const menosVendidas = catalogoTapiocas.map(function(nome) {
+    const quantidade = produtos[nome] || 0;
+    let insight = "Revisar posição no cardápio e oferecer em combinação.";
+    if (quantidade === 0) insight = "Sem vendas: testar foto, destaque e oferta por tempo limitado.";
+    else if (quantidade <= 2) insight = "Baixa saída: oferecer como sugestão do dia e revisar a descrição.";
+    return { produto: nome, quantidade: quantidade, insight: insight };
+  }).sort(function(a, b) { return a.quantidade - b.quantidade; }).slice(0, 5);
+
+  const rankingRotas = Object.keys(rotas).map(function(nome) {
+    const rota = rotas[nome];
+    const top = Object.keys(rota.produtos).sort(function(a, b) {
+      return rota.produtos[b] - rota.produtos[a];
+    })[0] || "-";
+    return {
+      rota: rota.rota,
+      total: rota.total,
+      tapiocas: rota.tapiocas,
+      tapiocaMaisVendida: top
+    };
+  }).sort(function(a, b) { return b.total - a.total; });
+
+  const taxas = debito * normalizarNumero_(config.taxaDebito) / 100 +
+    credito * normalizarNumero_(config.taxaCredito) / 100 +
+    vr * normalizarNumero_(config.taxaVr) / 100;
+  const subtotal = faturamento - taxas;
+  const custos = {
+    combustivelCarro: combustivelMes || normalizarNumero_(config.combustivelCarro),
+    salarioCozinha: normalizarNumero_(config.salarioCozinha),
+    salarioAuxCarro: normalizarNumero_(config.salarioAuxCarro),
+    manutencaoCarro: normalizarNumero_(config.manutencaoCarro)
+  };
+  const totalCustos = custos.combustivelCarro + custos.salarioCozinha +
+    custos.salarioAuxCarro + custos.manutencaoCarro;
+  const liquido = subtotal - totalCustos;
+  const distribuicao = {
+    compra: Math.max(0, liquido) * normalizarNumero_(config.percentualCompra) / 100,
+    lucas: Math.max(0, liquido) * normalizarNumero_(config.percentualLucas) / 100,
+    eliel: Math.max(0, liquido) * normalizarNumero_(config.percentualEliel) / 100
+  };
+
+  const chave = chaveMes_(mes, ano);
+  const relatorio = {
+    mes: Number(mes),
+    ano: Number(ano),
+    chave: chave,
+    totalTapiocas: totalTapiocas,
+    porDia: Object.keys(dias).map(function(dia) { return { dia: dia, quantidade: dias[dia] }; }),
+    porSemana: Object.keys(semanas).map(function(semana) { return { semana: semana, quantidade: semanas[semana] }; }),
+    rankingProdutos: rankingProdutos,
+    top3: rankingProdutos.slice(0, 3),
+    menosVendidas: menosVendidas,
+    rotas: rankingRotas,
+    melhorRota: rankingRotas[0] || null,
+    faturamento: faturamento,
+    taxas: taxas,
+    subtotal: subtotal,
+    custos: custos,
+    totalCustos: totalCustos,
+    liquido: liquido,
+    distribuicao: distribuicao,
+    configuracoes: config
+  };
+  return JSON.stringify(relatorio);
+}
+
+function obterAbaRelatorioEliel_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let aba = ss.getSheetByName("Relatorio Eliel");
+  if (!aba) {
+    aba = ss.insertSheet("Relatorio Eliel");
+    aba.appendRow([
+      "Mês", "Fechado em", "Faturamento", "Taxas", "Subtotal", "Combustível",
+      "Salário Cozinha", "Salário Aux. Carro", "Manutenção Carro", "Líquido",
+      "Compra", "Lucas", "Eliel", "Tapiocas", "Melhor Rota", "Top 3",
+      "Cinco Menos Vendidas", "Dados Completos"
+    ]);
+    aba.getRange(1, 1, 1, 18).setFontWeight("bold").setBackground("#ff6b5f").setFontColor("#ffffff");
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+function registrarAcessoRelatorioEliel(mes, ano) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let aba = ss.getSheetByName("Log Relatorio Eliel");
+  if (!aba) {
+    aba = ss.insertSheet("Log Relatorio Eliel");
+    aba.appendRow(["Data e hora", "Evento", "Mês referência"]);
+    aba.getRange("A1:C1").setFontWeight("bold").setBackground("#333333").setFontColor("#ffffff");
+  }
+  aba.appendRow([new Date(), "ACESSO AO RELATÓRIO", chaveMes_(mes, ano)]);
+
+  const anterior = new Date(Number(ano), Number(mes) - 2, 1);
+  const chaveAnterior = chaveMes_(anterior.getMonth() + 1, anterior.getFullYear());
+  const relatorio = obterAbaRelatorioEliel_();
+  const valores = relatorio.getLastRow() > 1
+    ? relatorio.getRange(2, 1, relatorio.getLastRow() - 1, 1).getDisplayValues().flat()
+    : [];
+  let temDadosAnterior = false;
+  const fechamentos = ss.getSheetByName("Fechamentos_Diarios");
+  if (fechamentos) {
+    const dados = fechamentos.getDataRange().getDisplayValues();
+    temDadosAnterior = dados.slice(1).some(function(linha) {
+      return pertenceAoMes_(extrairData_(linha[0]), anterior.getMonth() + 1, anterior.getFullYear()) &&
+        normalizarNumero_(linha[1]) > 0;
+    });
+  }
+  return JSON.stringify({
+    mesAnteriorPendente: temDadosAnterior && valores.indexOf(chaveAnterior) === -1,
+    chaveAnterior: chaveAnterior
+  });
+}
+
+function fecharMesRelatorioEliel(relatorioJSON) {
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(15000);
+    const dados = JSON.parse(relatorioJSON || "{}");
+    if (!dados.chave) throw new Error("Mês de referência inválido.");
+    const aba = obterAbaRelatorioEliel_();
+    const chaves = aba.getLastRow() > 1
+      ? aba.getRange(2, 1, aba.getLastRow() - 1, 1).getDisplayValues().flat()
+      : [];
+    if (chaves.indexOf(dados.chave) !== -1) {
+      throw new Error("O mês " + dados.chave + " já foi fechado.");
+    }
+    aba.appendRow([
+      dados.chave,
+      new Date(),
+      dados.faturamento,
+      dados.taxas,
+      dados.subtotal,
+      dados.custos.combustivelCarro,
+      dados.custos.salarioCozinha,
+      dados.custos.salarioAuxCarro,
+      dados.custos.manutencaoCarro,
+      dados.liquido,
+      dados.distribuicao.compra,
+      dados.distribuicao.lucas,
+      dados.distribuicao.eliel,
+      dados.totalTapiocas,
+      dados.melhorRota ? dados.melhorRota.rota : "-",
+      (dados.top3 || []).map(function(item) { return item.produto + " (" + item.quantidade + ")"; }).join(" | "),
+      (dados.menosVendidas || []).map(function(item) { return item.produto + " (" + item.quantidade + ")"; }).join(" | "),
+      JSON.stringify(dados)
+    ]);
+
+    let log = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Log Relatorio Eliel");
+    if (!log) {
+      log = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Log Relatorio Eliel");
+      log.appendRow(["Data e hora", "Evento", "Mês referência"]);
+    }
+    log.appendRow([new Date(), "FECHAMENTO DO MÊS", dados.chave]);
+
+    PropertiesService.getScriptProperties().setProperty("pdv_vendas_ativas", "[]");
+    PropertiesService.getScriptProperties().setProperty(
+      "pdv_aviso_pendente",
+      "O mês " + dados.chave + " foi fechado no Relatório Eliel. Os pedidos ativos foram zerados."
+    );
+    return JSON.stringify({ ok: true, chave: dados.chave });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function obterAvisosPdv() {
+  const props = PropertiesService.getScriptProperties();
+  const aviso = props.getProperty("pdv_aviso_pendente") || "";
+  if (aviso) props.deleteProperty("pdv_aviso_pendente");
+  return JSON.stringify({ mensagem: aviso });
 }

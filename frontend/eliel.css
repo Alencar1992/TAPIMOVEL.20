@@ -1,0 +1,587 @@
+.relatorio-eliel-view,
+.itens-view {
+    --eliel-surface: #171e22;
+    --eliel-surface-2: #20282d;
+    --eliel-line: #344047;
+    --eliel-accent: #ff6b5f;
+    --eliel-green: #55c78a;
+    gap: 16px;
+    padding-bottom: 110px;
+}
+
+.eliel-cabecalho,
+.itens-cabecalho {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.eliel-cabecalho h2,
+.itens-cabecalho h2 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.55rem, 4vw, 2.15rem);
+    letter-spacing: -0.03em;
+}
+
+.eliel-cabecalho p,
+.itens-cabecalho p {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+}
+
+.eliel-kicker {
+    color: var(--eliel-accent) !important;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.eliel-periodo {
+    min-width: min(100%, 380px);
+}
+
+.eliel-periodo label {
+    display: block;
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.eliel-periodo > div {
+    display: grid;
+    grid-template-columns: 1.25fr .9fr 44px;
+    gap: 8px;
+}
+
+.eliel-periodo .input-obs,
+.eliel-form-grid .input-obs {
+    min-height: 44px;
+    background: var(--eliel-surface);
+    border-color: var(--eliel-line);
+}
+
+.btn-eliel-icone,
+.btn-eliel-link {
+    border: 1px solid var(--eliel-line);
+    background: var(--eliel-surface-2);
+    color: #fff;
+    border-radius: 10px;
+    font: 700 .95rem/1 "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.eliel-aviso {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #342b17;
+    border: 1px solid #7b6329;
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.eliel-aviso[hidden] {
+    display: none;
+}
+
+.eliel-aviso div:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.eliel-aviso span {
+    color: #dacb9e;
+    font-size: .85rem;
+}
+
+.eliel-aviso-acoes {
+    display: flex;
+    gap: 8px;
+}
+
+.eliel-aviso button,
+.eliel-acoes button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    padding: 0 15px;
+    background: var(--eliel-accent);
+    color: #fff;
+    font: 700 .9rem/1 "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.eliel-aviso button.secundario {
+    background: transparent;
+    border: 1px solid #7b6329;
+}
+
+.eliel-loading {
+    min-height: 260px;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    color: var(--text-muted);
+}
+
+.eliel-loading[hidden],
+#elielConteudo[hidden] {
+    display: none;
+}
+
+#elielConteudo {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+}
+
+.eliel-metricas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    min-width: 0;
+}
+
+.eliel-metricas article,
+.eliel-painel {
+    background: var(--eliel-surface);
+    border: 1px solid var(--eliel-line);
+    border-radius: 14px;
+}
+
+.eliel-metricas article {
+    padding: 15px;
+    display: grid;
+    gap: 6px;
+}
+
+.eliel-metricas article.destaque {
+    border-color: rgba(85, 199, 138, .6);
+    background: #172720;
+}
+
+.eliel-metricas span {
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-weight: 650;
+}
+
+.eliel-metricas strong {
+    font-size: clamp(1.05rem, 3vw, 1.5rem);
+    color: #fff;
+}
+
+.eliel-metricas .destaque strong {
+    color: var(--eliel-green);
+}
+
+.eliel-painel {
+    padding: 17px;
+    min-width: 0;
+}
+
+.eliel-painel h3,
+.eliel-painel h4 {
+    margin: 0 0 12px;
+    color: #f6f8f9;
+}
+
+.eliel-painel h3 {
+    font-size: 1.05rem;
+}
+
+.eliel-painel h4 {
+    color: var(--text-muted);
+    font-size: .78rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.eliel-duas-colunas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
+}
+
+.eliel-titulo-linha,
+.eliel-total-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.eliel-titulo-linha p {
+    margin: -6px 0 14px;
+    color: var(--text-muted);
+    font-size: .82rem;
+}
+
+.eliel-titulo-linha > strong {
+    color: var(--eliel-green);
+    text-align: right;
+}
+
+.eliel-lista,
+.eliel-ranking,
+.eliel-insights {
+    display: grid;
+    gap: 8px;
+}
+
+.eliel-lista > div,
+.eliel-ranking > div,
+.eliel-insights > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.eliel-lista > div:last-child,
+.eliel-ranking > div:last-child,
+.eliel-insights > div:last-child {
+    border-bottom: 0;
+}
+
+.eliel-ranking .posicao {
+    width: 28px;
+    color: var(--eliel-accent);
+    font-weight: 800;
+}
+
+.eliel-ranking .produto {
+    flex: 1;
+}
+
+.eliel-ranking small {
+    display: block;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.eliel-insights > div {
+    display: grid;
+}
+
+.eliel-insights strong {
+    color: #fff;
+}
+
+.eliel-insights p {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: .82rem;
+    line-height: 1.4;
+}
+
+.eliel-tabela-wrap {
+    overflow-x: auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.eliel-tabela {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    font-size: .86rem;
+}
+
+.eliel-tabela th,
+.eliel-tabela td {
+    padding: 11px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.eliel-tabela th {
+    color: var(--text-muted);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.eliel-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.eliel-form-grid label {
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-weight: 650;
+}
+
+.eliel-form-grid input {
+    margin-top: 6px;
+}
+
+.eliel-percentuais {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eliel-total-linha {
+    border-top: 1px solid var(--eliel-line);
+    margin-top: 12px;
+    padding-top: 12px;
+}
+
+.eliel-distribuicao {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.eliel-distribuicao > div {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.eliel-barra {
+    height: 8px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: #2c353a;
+}
+
+.eliel-barra i {
+    display: block;
+    height: 100%;
+    background: var(--eliel-accent);
+}
+
+.eliel-resumo {
+    color: #dfe4e7;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.eliel-acoes {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+    background: rgba(18, 24, 28, .95);
+    border: 1px solid var(--eliel-line);
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+}
+
+.eliel-acoes button {
+    background: var(--eliel-surface-2);
+    border: 1px solid var(--eliel-line);
+}
+
+.eliel-acoes button.perigo {
+    background: #b63e3e;
+    border-color: #d45a5a;
+}
+
+.itens-cabecalho > span {
+    color: var(--eliel-green);
+    font-weight: 750;
+}
+
+.itens-legenda {
+    display: flex;
+    gap: 18px;
+    color: var(--text-muted);
+    font-size: .82rem;
+}
+
+.itens-legenda span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.itens-legenda .status-dot {
+    position: static;
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.itens-legenda .disponivel {
+    background: var(--eliel-green);
+}
+
+.itens-legenda .indisponivel {
+    background: var(--eliel-accent);
+}
+
+.lista-gestao-itens {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 9px;
+}
+
+.gestao-item {
+    position: relative;
+    overflow: hidden;
+    min-height: 66px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+    border: 1px solid var(--eliel-line);
+    border-radius: 12px;
+    background: var(--eliel-surface);
+    color: var(--text);
+    text-align: left;
+    font: 650 .9rem/1.25 "Segoe UI", sans-serif;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.gestao-item small {
+    display: block;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.gestao-item .flag-item {
+    min-width: 92px;
+    padding: 8px 10px;
+    border-radius: 99px;
+    background: rgba(85, 199, 138, .13);
+    color: var(--eliel-green);
+    text-align: center;
+    font-size: .74rem;
+}
+
+.gestao-item.pausado {
+    border-color: rgba(255, 107, 95, .5);
+    opacity: .72;
+}
+
+.gestao-item.pausado .flag-item {
+    background: rgba(255, 107, 95, .13);
+    color: #ff857b;
+}
+
+.itens-instrucao {
+    color: var(--text-muted);
+    text-align: center;
+    font-size: .82rem;
+}
+
+.opcoes-tapioca {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.opcoes-tapioca-grupo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.opcoes-tapioca-grupo > span {
+    min-width: 78px;
+    color: var(--text-muted);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.opcao-emoji {
+    width: 42px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.opcao-emoji.ativa {
+    border-color: var(--success);
+    background: rgba(64, 192, 87, .18);
+}
+
+.opcao-emoji:disabled {
+    opacity: .28;
+    cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+    .eliel-cabecalho,
+    .itens-cabecalho {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .eliel-periodo {
+        min-width: 0;
+    }
+
+    .eliel-metricas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .eliel-duas-colunas {
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-acoes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 430px) {
+    .relatorio-eliel-view,
+    .itens-view {
+        padding: 12px;
+        padding-bottom: 118px;
+    }
+
+    .eliel-aviso {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .eliel-aviso-acoes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .eliel-metricas {
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-form-grid,
+    .eliel-percentuais {
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-acoes {
+        position: static;
+        grid-template-columns: 1fr;
+    }
+
+    .lista-gestao-itens {
+        grid-template-columns: 1fr;
+    }
+}

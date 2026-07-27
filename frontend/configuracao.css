@@ -1,0 +1,292 @@
+.configuracao-view {
+    --config-surface: #171e22;
+    --config-surface-2: #20282d;
+    --config-line: #344047;
+    --config-accent: #ff6b5f;
+    --config-green: #55c78a;
+    gap: 16px;
+    padding-bottom: 90px;
+}
+
+.config-identificacao {
+    max-width: 420px !important;
+    border-top: 5px solid var(--primary);
+}
+
+.config-identificacao h3,
+.config-editor-titulo h3 {
+    margin: 0;
+    color: #fff;
+}
+
+.config-identificacao > p,
+.config-editor-titulo p {
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.config-identificacao > label,
+.config-editor-modal form > label,
+.config-form-duplo label {
+    display: grid;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+.config-modal-icone {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.config-modal-acoes {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.config-modal-acoes .btn-acao {
+    margin: 0;
+    min-height: 48px;
+}
+
+.config-editor-modal {
+    max-width: 620px !important;
+    border-top: 5px solid var(--primary);
+}
+
+.config-editor-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.config-editor-titulo p {
+    margin: 5px 0 0;
+    font-size: .82rem;
+}
+
+.config-editor-titulo > button {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--config-line);
+    border-radius: 10px;
+    background: var(--config-surface-2);
+    color: #fff;
+    cursor: pointer;
+}
+
+.config-editor-modal form {
+    display: grid;
+    gap: 13px;
+}
+
+.config-editor-modal .input-obs {
+    margin: 0;
+    min-height: 46px;
+    background: var(--config-surface);
+    border-color: var(--config-line);
+    resize: vertical;
+}
+
+.config-form-duplo {
+    display: grid;
+    grid-template-columns: 1.35fr .65fr;
+    gap: 12px;
+}
+
+.config-cabecalho {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.config-cabecalho h2 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.55rem, 4vw, 2.15rem);
+    letter-spacing: -.03em;
+}
+
+.config-cabecalho p {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+}
+
+.config-operador {
+    min-width: 210px;
+    display: grid;
+    gap: 4px;
+    padding: 11px 14px;
+    border: 1px solid var(--config-line);
+    border-radius: 12px;
+    background: var(--config-surface);
+}
+
+.config-operador span {
+    color: var(--text-muted);
+    font-size: .72rem;
+}
+
+.config-operador strong {
+    color: var(--config-green);
+}
+
+.config-barra {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+.config-barra .barra-pesquisa {
+    margin: 0;
+}
+
+.config-btn-novo {
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--config-accent);
+    color: #fff;
+    font: 750 .92rem/1 "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.config-resumo {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: .82rem;
+}
+
+.config-resumo strong {
+    color: #fff;
+}
+
+.config-lista {
+    display: grid;
+    gap: 9px;
+}
+
+.config-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+    min-height: 76px;
+    padding: 12px 14px;
+    border: 1px solid var(--config-line);
+    border-radius: 12px;
+    background: var(--config-surface);
+}
+
+.config-item-info {
+    min-width: 0;
+}
+
+.config-item-info > span {
+    color: var(--config-accent);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.config-item-info strong {
+    display: block;
+    margin-top: 3px;
+    color: #fff;
+}
+
+.config-item-info p {
+    overflow: hidden;
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: .8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.config-item-preco {
+    color: var(--config-green);
+    white-space: nowrap;
+}
+
+.config-item-acoes {
+    display: flex;
+    gap: 7px;
+}
+
+.config-item-acoes button {
+    min-height: 40px;
+    padding: 0 13px;
+    border: 1px solid var(--config-line);
+    border-radius: 9px;
+    background: var(--config-surface-2);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.config-item-acoes button.remover {
+    border-color: rgba(255, 107, 95, .45);
+    color: #ff857b;
+}
+
+.config-vazio {
+    padding: 44px 20px;
+    border: 1px dashed var(--config-line);
+    border-radius: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .config-cabecalho {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .config-operador {
+        min-width: 0;
+    }
+
+    .config-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .config-item-acoes {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 430px) {
+    .configuracao-view {
+        padding: 12px;
+        padding-bottom: 100px;
+    }
+
+    .config-barra,
+    .config-form-duplo,
+    .config-modal-acoes {
+        grid-template-columns: 1fr;
+    }
+
+    .config-resumo {
+        display: grid;
+    }
+
+    .config-item {
+        gap: 10px;
+        padding: 12px;
+    }
+}
