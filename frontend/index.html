@@ -1339,6 +1339,10 @@
                     document.getElementById('loginAdminPin').value = '';
                     botao.disabled = false;
                     botao.textContent = 'Entrar com segurança';
+                    if (modoAcessoEsperado === 'admin' && sessao && sessao.perfil === 'eliel') {
+                        window.location.replace('./relatorio-eliel.html?origem=pdv');
+                        return;
+                    }
                     liberarAplicacaoAcesso(sessao);
                 })
                 .withFailureHandler(function(falha) {
