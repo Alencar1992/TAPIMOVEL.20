@@ -184,6 +184,7 @@
     <link rel="stylesheet" href="./professional.css">
     <link rel="stylesheet" href="./eliel.css">
     <link rel="stylesheet" href="./configuracao.css">
+    <link rel="stylesheet" href="./loading.css">
 </head>
 <body class="app-admin">
     <div id="modalErroSistema" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);justify-content:center;align-items:center;z-index:99999;font-family:sans-serif">
@@ -197,7 +198,20 @@
     </div>
     <script src="./investigador.js"></script>
 
-   <div id="loadingScreen"><div class="spinner"></div><h2 id="loadingText">Sincronizando...</h2></div>
+   <div id="loadingScreen" role="status" aria-live="polite" aria-busy="true">
+       <div class="tapioca-loading-card">
+           <div class="tapioca-loading-media">
+               <div class="taco-prep-animation" aria-hidden="true">
+                   <span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span>
+                   <span class="taco-emoji">🌮</span>
+               </div>
+           </div>
+           <h2 id="loadingText">Carregando cardápio...</h2>
+           <p class="tapioca-loading-hint">Preparando tudo para você</p>
+           <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+           <div class="tapioca-loading-bar" aria-hidden="true"></div>
+       </div>
+   </div>
    <div id="toast-container"></div>
 
     <div id="modalAlerta" class="modal-overlay" style="z-index: 4000;">
@@ -399,7 +413,13 @@
             </div>
         </div>
 
-        <div id="elielLoading" class="eliel-loading" hidden><div class="spinner"></div><p>Preparando o relatório...</p></div>
+        <div id="elielLoading" class="eliel-loading" hidden>
+            <div class="tapioca-inline-loader" role="status" aria-live="polite">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                <p>Atualizando relatório...</p>
+                <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+        </div>
         <div id="elielConteudo" hidden>
             <section class="eliel-metricas">
                 <article><span>Faturamento</span><strong id="elielFaturamento">R$ 0,00</strong></article>
@@ -525,8 +545,11 @@
         <button class="btn-acao" style="background: #20c997; color: #000; margin-bottom: 15px;" onclick="carregarEspelhoPlanilha()">🔄 Sincronizar Dados Agora</button>
 
         <div id="loadingEspelho" style="text-align:center; display:none; margin: 20px 0;">
-            <div class="spinner" style="width:30px; height:30px; margin: 0 auto; border-top-color: #20c997;"></div>
-            <p>Puxando dados do Google Sheets...</p>
+            <div class="tapioca-inline-loader" role="status" aria-live="polite">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                <p>Sincronizando dados do Google Sheets...</p>
+                <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
         </div>
 
         <div id="containerTabelaEspelho" style="overflow-x: auto; max-height: 50vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; display: none; background: var(--bg);">
@@ -598,8 +621,11 @@
         <button class="btn-acao" id="btnGerarRanking" style="background: #ff6b6b; color: white; margin-bottom: 20px;" onclick="gerarRankingAtual()">📊 Gerar Top Produtos</button>
 
         <div id="loadingRankings" style="text-align:center; display:none; margin: 20px 0;">
-            <div class="spinner" id="spinnerRankings" style="width:30px; height:30px; margin: 0 auto; border-top-color: #ff6b6b;"></div>
-            <p id="textoLoadingRankings">Analisando dados...</p>
+            <div class="tapioca-inline-loader" id="spinnerRankings" role="status" aria-live="polite">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                <p id="textoLoadingRankings">Analisando dados...</p>
+                <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
         </div>
 
         <div id="resultadoRankings" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -693,8 +719,11 @@
                 <button class="btn-acao" style="background: #ced4da; color: #000; margin-bottom: 15px;" onclick="buscarHistoricoFolgas()">🔎 Buscar na Planilha</button>
 
                 <div id="loadingFolgas" style="text-align:center; display:none; margin: 20px 0;">
-                    <div class="spinner" style="width:30px; height:30px; margin: 0 auto; border-top-color: #ced4da;"></div>
-                    <p>Buscando histórico...</p>
+                    <div class="tapioca-inline-loader" role="status" aria-live="polite">
+                        <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                        <p>Buscando histórico...</p>
+                        <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                    </div>
                 </div>
                 <div id="resultadoFolgas" style="max-height: 250px; overflow-y: auto; display: none; border: 1px solid var(--border); border-radius: 6px;"></div>
             </div>
@@ -707,8 +736,11 @@
     <div id="modalLiquidez" class="modal-overlay">
         <div class="modal-content" style="max-width: 480px;">
             <div id="loadingLiquidez" style="text-align:center; padding: 20px; display: none;">
-                <div class="spinner" style="width:30px; height:30px; margin: 0 auto 10px auto;"></div>
-                <p>Calculando dados da planilha...</p>
+                <div class="tapioca-inline-loader" role="status" aria-live="polite">
+                    <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                    <p>Calculando dados da planilha...</p>
+                    <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                </div>
             </div>
 
             <div id="conteudoLiquidez">
@@ -826,8 +858,11 @@
             <h3 style="color: #339af0; margin-top:0; text-align:center;">💰 Inteligência Salarial</h3>
 
             <div id="loadingEstimativa" style="text-align:center; padding: 20px; display: none;">
-                <div class="spinner" style="width:30px; height:30px; margin: 0 auto 10px auto; border-top-color: #339af0;"></div>
-                <p>Processando dias reais de trabalho...</p>
+                <div class="tapioca-inline-loader" role="status" aria-live="polite">
+                    <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
+                    <p>Processando dias reais de trabalho...</p>
+                    <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                </div>
             </div>
 
             <div id="conteudoEstimativa" style="display: none;">
@@ -2184,7 +2219,7 @@
             var mes = ("0" + (hoje.getMonth() + 1)).slice(-2);
             var ano = hoje.getFullYear().toString();
 
-            document.getElementById('listaCombustivel').innerHTML = '<div style="text-align:center;"><div class="spinner" style="width:20px;height:20px;border-top-color:#ff922b;margin:0 auto;"></div></div>';
+            document.getElementById('listaCombustivel').innerHTML = '<div class="tapioca-inline-loader" role="status" aria-live="polite"><div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div><p>Carregando histórico...</p><div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div></div>';
 
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {

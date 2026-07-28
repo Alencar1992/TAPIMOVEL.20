@@ -1,0 +1,320 @@
+:root {
+  --loader-accent: #ff6b6b;
+  --loader-surface: #171d21;
+  --loader-border: rgba(255, 107, 107, .38);
+  --loader-text: #f8fafb;
+  --loader-muted: #aeb8be;
+}
+
+#loadingScreen {
+  inset: 0;
+  width: auto;
+  height: auto;
+  padding: 20px;
+  box-sizing: border-box;
+  background: rgba(7, 11, 14, .84);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.tapioca-loading-card {
+  width: min(100%, 330px);
+  padding: 24px 20px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--loader-border);
+  border-top: 3px solid var(--loader-accent);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(255, 107, 107, .12), transparent 38%),
+    linear-gradient(180deg, #1c2328 0%, var(--loader-surface) 100%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .48), 0 0 30px rgba(255, 107, 107, .08);
+  color: var(--loader-text);
+  text-align: center;
+}
+
+.tapioca-loading-media {
+  display: grid;
+  place-items: center;
+  min-height: 108px;
+}
+
+.tapioca-loading-card h2 {
+  margin: 12px 8px 5px;
+  color: var(--loader-text);
+  font: 800 1.08rem/1.3 "Segoe UI", Tahoma, sans-serif;
+  letter-spacing: -.01em;
+}
+
+.tapioca-loading-hint {
+  margin: 0;
+  color: var(--loader-muted);
+  font: 600 .82rem/1.45 "Segoe UI", Tahoma, sans-serif;
+}
+
+.taco-prep-animation {
+  position: relative;
+  width: 116px;
+  height: 96px;
+  margin: 0 auto;
+  isolation: isolate;
+}
+
+.taco-prep-animation::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 5px;
+  width: 76px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .42);
+  filter: blur(3px);
+  transform: translateX(-50%) scale(.75);
+  animation: taco-shadow 1.9s ease-in-out infinite;
+}
+
+.taco-emoji {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  display: block;
+  font-size: 4.15rem;
+  line-height: 1;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, .4));
+  transform: translateX(-50%);
+  transform-origin: 50% 90%;
+  animation: taco-finish 1.9s cubic-bezier(.45, 0, .2, 1) infinite;
+}
+
+.taco-ingredient {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  opacity: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .25);
+  animation: taco-ingredient-drop 1.9s ease-in infinite;
+}
+
+.taco-ingredient:nth-child(1) {
+  margin-left: -29px;
+  background: #6fcf5b;
+  transform: rotate(22deg);
+  animation-delay: 0s;
+}
+
+.taco-ingredient:nth-child(2) {
+  margin-left: -8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6b5f;
+  animation-delay: .14s;
+}
+
+.taco-ingredient:nth-child(3) {
+  margin-left: 16px;
+  width: 11px;
+  height: 6px;
+  background: #ffd05a;
+  transform: rotate(-18deg);
+  animation-delay: .28s;
+}
+
+.taco-ingredient:nth-child(4) {
+  margin-left: 30px;
+  width: 7px;
+  height: 10px;
+  background: #7acb63;
+  transform: rotate(30deg);
+  animation-delay: .4s;
+}
+
+.tapioca-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.tapioca-loading-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--loader-accent);
+  animation: tapioca-dot 1.15s ease-in-out infinite;
+}
+
+.tapioca-loading-dots span:nth-child(2) {
+  animation-delay: .14s;
+}
+
+.tapioca-loading-dots span:nth-child(3) {
+  animation-delay: .28s;
+}
+
+.tapioca-loading-bar {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+}
+
+.tapioca-loading-bar::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: -45%;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--loader-accent), #ff9d8f);
+  animation: tapioca-bar 1.45s ease-in-out infinite;
+}
+
+.tapioca-inline-loader {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  width: min(100%, 220px);
+  margin: 0 auto;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 107, 107, .22);
+  border-radius: 15px;
+  background: rgba(23, 29, 33, .8);
+  color: var(--loader-muted);
+}
+
+.tapioca-inline-loader .taco-prep-animation {
+  width: 88px;
+  height: 68px;
+}
+
+.tapioca-inline-loader .taco-emoji {
+  bottom: 8px;
+  font-size: 3rem;
+}
+
+.tapioca-inline-loader .taco-ingredient {
+  top: 1px;
+  transform: scale(.82);
+}
+
+.tapioca-inline-loader p {
+  margin: 0;
+  color: inherit;
+  font: 700 .86rem/1.35 "Segoe UI", Tahoma, sans-serif;
+  text-align: center;
+}
+
+.tapioca-inline-loader .tapioca-loading-dots {
+  margin-top: 0;
+}
+
+@keyframes taco-ingredient-drop {
+  0%, 8% {
+    opacity: 0;
+    translate: 0 -10px;
+  }
+  16%, 36% {
+    opacity: 1;
+  }
+  46%, 100% {
+    opacity: 0;
+    translate: 0 45px;
+  }
+}
+
+@keyframes taco-finish {
+  0%, 18% {
+    opacity: .55;
+    transform: translateX(-50%) scale(.82) rotate(-5deg);
+  }
+  46%, 66% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) rotate(0);
+  }
+  76% {
+    transform: translateX(-50%) translateY(-10px) scale(1.05) rotate(4deg);
+  }
+  88%, 100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes taco-shadow {
+  0%, 46%, 100% {
+    opacity: .55;
+    transform: translateX(-50%) scale(.78);
+  }
+  76% {
+    opacity: .25;
+    transform: translateX(-50%) scale(.55);
+  }
+}
+
+@keyframes tapioca-dot {
+  0%, 60%, 100% {
+    opacity: .35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes tapioca-bar {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  #loadingScreen {
+    padding: 14px;
+  }
+
+  .tapioca-loading-card {
+    border-radius: 18px;
+    padding: 20px 14px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taco-ingredient {
+    display: none;
+  }
+
+  .taco-emoji,
+  .taco-prep-animation::before,
+  .tapioca-loading-dots span,
+  .tapioca-loading-bar::after {
+    animation: none;
+  }
+
+  .taco-emoji {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  .tapioca-loading-dots span {
+    opacity: .8;
+  }
+
+  .tapioca-loading-bar::after {
+    left: 0;
+    width: 55%;
+  }
+}
