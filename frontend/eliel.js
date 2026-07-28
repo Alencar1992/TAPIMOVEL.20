@@ -584,12 +584,16 @@
                 const aviso = JSON.parse(resposta || "{}");
                 if (aviso.mensagem) mostrarAlerta(escapar(aviso.mensagem));
             })
+            .withFailureHandler(function () {
+                // Avisos são informativos e não devem bloquear o acesso ao PDV.
+            })
             .obterAvisosPdv();
     }
+
+    window.verificarAvisoPdv = verificarAvisoPdv;
 
     window.addEventListener("DOMContentLoaded", function () {
         configurarFiltrosEliel();
         conectarRecalculo();
-        verificarAvisoPdv();
     });
 })();
