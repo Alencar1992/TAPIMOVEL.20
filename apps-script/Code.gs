@@ -2,9 +2,11 @@
 // 1. SEGURANÇA E PORTA DE ENTRADA DO APLICATIVO
 // =========================================================
 const CHAVE_PIN_ADMIN_ = "pdv_admin_pin_hash";
+const CHAVE_PIN_ELIEL_ = "pdv_eliel_pin_hash";
 const CHAVE_SESSAO_ADMIN_ = "pdv_admin_session_";
 const CHAVE_TENTATIVAS_LOGIN_ = "pdv_admin_login_attempts";
 const DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ = 14400;
+const NOME_PERFIL_ELIEL_ = "CEO Eliel";
 
 function obterDiaSessaoAdmin_() {
   return Utilities.formatDate(
@@ -42,7 +44,40 @@ function configurarPinAdministrador(pin) {
   return "PIN administrativo configurado com sucesso.";
 }
 
-function loginAdministrador(pin) {
+function configurarPinEliel(pin) {
+  const valor = String(pin || "");
+  if (!/^\d{6,12}$/.test(valor)) {
+    throw new Error("O PIN do CEO Eliel deve conter de 6 a 12 números.");
+  }
+  PropertiesService.getScriptProperties().setProperty(CHAVE_PIN_ELIEL_, hashSeguro_(valor));
+  CacheService.getScriptCache().remove(CHAVE_TENTATIVAS_LOGIN_);
+  return "PIN do CEO Eliel configurado com sucesso.";
+}
+
+function criarSessaoAcesso_(perfil, nome) {
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  const sessao = {
+    criadoEm: Date.now(),
+    dia: obterDiaSessaoAdmin_(),
+    perfil: perfil,
+    nome: nome
+  };
+  CacheService.getScriptCache().put(
+    CHAVE_SESSAO_ADMIN_ + hashSeguro_(token),
+    JSON.stringify(sessao),
+    DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_
+  );
+  return {
+    token: token,
+    diaSessao: sessao.dia,
+    inatividadeSegundos: DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_,
+    expiraEm: Date.now() + DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ * 1000,
+    perfil: perfil,
+    nome: nome
+  };
+}
+
+function loginAcesso(pin, perfilSolicitado) {
   const cache = CacheService.getScriptCache();
   const tentativas = Number(cache.get(CHAVE_TENTATIVAS_LOGIN_) || 0);
   if (tentativas >= 5) {
@@ -52,11 +87,18 @@ function loginAdministrador(pin) {
     );
   }
 
-  const hashConfigurado = PropertiesService.getScriptProperties().getProperty(CHAVE_PIN_ADMIN_);
+  const perfil = String(perfilSolicitado || "admin").toLowerCase() === "eliel"
+    ? "eliel"
+    : "admin";
+  const chavePin = perfil === "eliel" ? CHAVE_PIN_ELIEL_ : CHAVE_PIN_ADMIN_;
+  const nome = perfil === "eliel" ? NOME_PERFIL_ELIEL_ : "Administrador";
+  const hashConfigurado = PropertiesService.getScriptProperties().getProperty(chavePin);
   if (!hashConfigurado) {
     throw erroApi_(
-      "ADMIN_NOT_CONFIGURED",
-      "O PIN administrativo ainda não foi configurado no Apps Script."
+      perfil === "eliel" ? "ELIEL_NOT_CONFIGURED" : "ADMIN_NOT_CONFIGURED",
+      perfil === "eliel"
+        ? "O PIN do CEO Eliel ainda não foi configurado no Apps Script."
+        : "O PIN administrativo ainda não foi configurado no Apps Script."
     );
   }
 
@@ -66,24 +108,14 @@ function loginAdministrador(pin) {
   }
 
   cache.remove(CHAVE_TENTATIVAS_LOGIN_);
-  const token = Utilities.getUuid() + Utilities.getUuid();
-  cache.put(
-    CHAVE_SESSAO_ADMIN_ + hashSeguro_(token),
-    JSON.stringify({
-      criadoEm: Date.now(),
-      dia: obterDiaSessaoAdmin_()
-    }),
-    DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_
-  );
-  return {
-    token: token,
-    diaSessao: obterDiaSessaoAdmin_(),
-    inatividadeSegundos: DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_,
-    expiraEm: Date.now() + DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ * 1000
-  };
+  return criarSessaoAcesso_(perfil, nome);
 }
 
-function validarSessaoAdministrador(token) {
+function loginAdministrador(pin) {
+  return loginAcesso(pin, "admin");
+}
+
+function obterSessaoAcesso_(token, renovar) {
   if (!token) return false;
   const cache = CacheService.getScriptCache();
   const chave = CHAVE_SESSAO_ADMIN_ + hashSeguro_(token);
@@ -103,8 +135,24 @@ function validarSessaoAdministrador(token) {
     return false;
   }
 
-  cache.put(chave, sessaoSalva, DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_);
-  return true;
+  if (renovar !== false) {
+    cache.put(chave, sessaoSalva, DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_);
+  }
+  return {
+    perfil: sessao.perfil || "admin",
+    nome: sessao.nome || "Administrador",
+    diaSessao: sessao.dia,
+    inatividadeSegundos: DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_
+  };
+}
+
+function validarSessaoAcesso(token) {
+  return obterSessaoAcesso_(token, true);
+}
+
+function validarSessaoAdministrador(token) {
+  const sessao = obterSessaoAcesso_(token, true);
+  return Boolean(sessao && sessao.perfil === "admin");
 }
 
 function encerrarSessaoAdministrador(token) {
@@ -115,9 +163,11 @@ function encerrarSessaoAdministrador(token) {
 }
 
 function exigirSessaoAdministrador_(token) {
-  if (!validarSessaoAdministrador(token)) {
+  const sessao = obterSessaoAcesso_(token, true);
+  if (!sessao || sessao.perfil !== "admin") {
     throw erroApi_("AUTH_REQUIRED", "Acesso administrativo não autorizado.");
   }
+  return sessao;
 }
 
 function doGet(e) {
@@ -1000,9 +1050,21 @@ function executarAcaoApi_(action, args, token) {
     "obterCatalogoCardapio",
     "obterStatusCardapio",
     "registrarPedidoOnline",
+    "loginAcesso",
     "loginAdministrador",
+    "validarSessaoAcesso",
     "validarSessaoAdministrador",
     "encerrarSessaoAdministrador"
+  ];
+
+  const acoesEliel = [
+    "salvarDisponibilidadeCardapio",
+    "inicializarCatalogoConfiguracao",
+    "salvarItemCatalogo",
+    "removerItemCatalogo",
+    "obterRelatorioEliel",
+    "registrarAcessoRelatorioEliel",
+    "obterConfiguracoesRelatorioEliel"
   ];
 
   const acoesAdministrativas = [
@@ -1049,7 +1111,19 @@ function executarAcaoApi_(action, args, token) {
   }
 
   if (acoesAdministrativas.indexOf(action) !== -1) {
-    exigirSessaoAdministrador_(token);
+    const sessao = obterSessaoAcesso_(token, true);
+    if (!sessao) {
+      throw erroApi_("AUTH_REQUIRED", "Acesso não autorizado.");
+    }
+    if (sessao.perfil !== "admin" && acoesEliel.indexOf(action) === -1) {
+      throw erroApi_("PERMISSION_DENIED", "O perfil " + sessao.nome + " não possui permissão para esta ação.");
+    }
+    if (sessao.perfil === "eliel") {
+      if (action === "salvarDisponibilidadeCardapio") args[1] = NOME_PERFIL_ELIEL_;
+      if (action === "inicializarCatalogoConfiguracao") args[1] = NOME_PERFIL_ELIEL_;
+      if (action === "salvarItemCatalogo") args[2] = NOME_PERFIL_ELIEL_;
+      if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;
+    }
   }
 
   const fn = this[action];
@@ -1058,7 +1132,11 @@ function executarAcaoApi_(action, args, token) {
   }
 
   const argumentos = Array.isArray(args) ? args : [];
-  if (action === "validarSessaoAdministrador" || action === "encerrarSessaoAdministrador") {
+  if (
+    action === "validarSessaoAcesso" ||
+    action === "validarSessaoAdministrador" ||
+    action === "encerrarSessaoAdministrador"
+  ) {
     return { ok: true, data: fn.call(this, token) };
   }
   return { ok: true, data: fn.apply(this, argumentos) };
@@ -1411,7 +1489,7 @@ function obterDisponibilidadeCardapio() {
   return props.getProperty("cardapio_itens_indisponiveis") || "[]";
 }
 
-function salvarDisponibilidadeCardapio(itensJSON) {
+function salvarDisponibilidadeCardapio(itensJSON, responsavel) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
@@ -1425,6 +1503,8 @@ function salvarDisponibilidadeCardapio(itensJSON) {
       .map(function(nome) { return nome.trim(); })
       .filter(function(nome, indice, lista) { return lista.indexOf(nome) === indice; });
 
+    const props = PropertiesService.getScriptProperties();
+    const anteriores = JSON.parse(props.getProperty("cardapio_itens_indisponiveis") || "[]");
     PropertiesService
       .getScriptProperties()
       .setProperty("cardapio_itens_indisponiveis", JSON.stringify(itensNormalizados));
@@ -1434,6 +1514,20 @@ function salvarDisponibilidadeCardapio(itensJSON) {
         "cardapio_pausa_data",
         Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")
       );
+
+    if (responsavel) {
+      const nomeResponsavel = normalizarResponsavelConfiguracao_(responsavel);
+      anteriores
+        .filter(function(nome) { return itensNormalizados.indexOf(nome) === -1; })
+        .forEach(function(nome) {
+          registrarLogConfiguracao_(nomeResponsavel, "ITEM REATIVADO", nome, "-", null, { disponivel: true });
+        });
+      itensNormalizados
+        .filter(function(nome) { return anteriores.indexOf(nome) === -1; })
+        .forEach(function(nome) {
+          registrarLogConfiguracao_(nomeResponsavel, "ITEM PAUSADO", nome, "-", null, { disponivel: false });
+        });
+    }
 
     return JSON.stringify(itensNormalizados);
   } finally {
