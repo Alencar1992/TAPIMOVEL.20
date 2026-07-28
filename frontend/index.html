@@ -17,6 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="./config.js"></script>
     <script src="./api-client.js"></script>
+    <script src="./catalogo-base.js"></script>
     <script src="./catalogo-runtime.js"></script>
     <style>
         :root {
@@ -1045,81 +1046,8 @@
         }
         function travarSyncTemporariamente() { pausarSync = true; setTimeout(() => { pausarSync = false; }, 4000); }
 
-        const bdCatalogo = {
-            salgadas: [
-                { nome: "Bauru", preco: 14.00, tipo: "tapioca", ing: "Presunto, muçarela, tomate e orégano" },
-                { nome: "Caipira I", preco: 15.00, tipo: "tapioca", ing: "Frango, muçarela e milho" },
-                { nome: "Caipira II", preco: 15.00, tipo: "tapioca", ing: "Frango, catupiry e milho" },
-                { nome: "Pizza", preco: 13.00, tipo: "tapioca", ing: "Muçarela, tomate e oregano" },
-                { nome: "Peito de Peru c/ Queijo Branco e Tomate", preco: 15.00, tipo: "tapioca", ing: "Peito de peru, queijo branco e tomate" },
-                { nome: "Presunto, Queijo e Catupiry", preco: 16.00, tipo: "tapioca", ing: "Presunto, muçarela e catupiry" },
-                { nome: "Presunto e Queijo", preco: 14.00, tipo: "tapioca", ing: "Presunto e muçarela" },
-                { nome: "Paulistana", preco: 16.00, tipo: "tapioca", ing: "muçarela, bacon, Tomate e Cebola" },
-                { nome: "Três Queijos", preco: 15.00, tipo: "tapioca", ing: "Muçarela, catupiry e cheddar" },
-                { nome: "Dois Queijos", preco: 14.00, tipo: "tapioca", ing: "Muçarela, Catupiry OU Cheddar" },
-                { nome: "Baiana", preco: 18.00, tipo: "tapioca", ing: "Muçarela, calabresa, catupiry, M. de Pimenta, Tomate, Cebola e orégano" },
-                { nome: "Carne Seca, Muçarela e Catupiry", preco: 18.00, tipo: "tapioca", ing: "Carne seca, muçarela e catupiry" },
-                { nome: "Carne Seca, Muçarela e Cheddar", preco: 18.00, tipo: "tapioca", ing: "Carne seca, muçarela e cheddar" },
-                { nome: "Frango, Muçarela e Catupiry", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e catupiry" },
-                { nome: "Frango, Muçarela e Cheddar", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e cheddar" },
-                { nome: "Frango, Muçarela e Bacon", preco: 17.00, tipo: "tapioca", ing: "Frango, muçarela e bacon" },
-                { nome: "Frango Catupiry e Bacon", preco: 17.00, tipo: "tapioca", ing: "Frango, catupiry e bacon" },
-                { nome: "Calabresa, Muçarela e Catupiry", preco: 17.00, tipo: "tapioca", ing: "Calabresa, muçarela e catupiry" },
-                { nome: "Calabresa, Muçarela e Cheddar", preco: 17.00, tipo: "tapioca", ing: "Calabresa, muçarela e cheddar" }
+        const bdCatalogo = window.TapimovelCatalogoBase.criar();
 
-            ],
-            especiais: [
-                { nome: "Expresso I", preco: 20.00, tipo: "tapioca", ing: "Muçarela, frango, bacon e catupiry" },
-                { nome: "Expresso II", preco: 20.00, tipo: "tapioca", ing: "Muçarela, calabresa, bacon e catupiry" },
-                { nome: "A Moda I", preco: 21.00, tipo: "tapioca", ing: "Muçarela, calabresa, frango e catupiry" },
-                { nome: "A Moda II", preco: 22.00, tipo: "tapioca", ing: "Muçarela, presunto, frango, catupiry e cheddar" },
-                { nome: "Especial", preco: 24.00, tipo: "tapioca", ing: "Muçarela, presunto, calabresa, frango, catupiry e cheddar" },
-                { nome: "Tapi-Tudo", preco: 26.00, tipo: "tapioca", ing: "Muçarela, presunto, calabresa, cheddar, frango, catupiry e bacon" }
-            ],
-            doces_tradicionais: [
-                { nome: "Canelinha", preco: 10.00, tipo: "tapioca", ing: "Coco, leite cond e canela" },
-                { nome: "Beijinho", preco: 10.00, tipo: "tapioca", ing: "Coco e leite condensado" },
-                { nome: "SÓ COCO", preco: 10.00, tipo: "tapioca", ing: "SÓ COCO" },
-                { nome: "Banana Leite Cond. e Canela", preco: 12.00, tipo: "tapioca", ing: "Banana, Leite cond. e Canela" },
-                { nome: "Banana Chocolate ao Leite", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate ao Leite" },
-                { nome: "Brigadeiro", preco: 13.00, tipo: "tapioca", ing: "Chocolate ao Leite e granulado" },
-                { nome: "BRIGADEIRO C/ CHOCOLATE BRANCO", preco: 13.00, tipo: "tapioca", ing: "CHOCOLATE BRANCO E GRANULADO" },
-                { nome: "Prestígio", preco: 13.00, tipo: "tapioca", ing: "Coco e chocolate ao Leite" },
-                { nome: "Romeu e Julieta", preco: 14.00, tipo: "tapioca", ing: "Muçarela c/ Goiabada" },
-                { nome: "Coco c/ Doce de Leite", preco: 13.00, tipo: "tapioca", ing: "Coco c/ Doce de Leite" },
-                { nome: "Coco c/ Choc. e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Coco c/ Choc. e Leite Cond." },
-                { nome: "Morango c/ Leite Cond.", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Leite Cond." },
-                { nome: "Morango c/ Chocolate", preco: 13.00, tipo: "tapioca", ing: "Morango c/ Chocolate ao Leite" },
-                { nome: "Morango c/ Coco e Leite Cond.", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Coco e Leite Cond." },
-                { nome: "Paçoca c/ Doce de Leite", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Doce de Leite" },
-                { nome: "Paçoca c/ Chocolate", preco: 14.00, tipo: "tapioca", ing: "Paçoca c/ Chocolate ao Leite" },
-                { nome: "Queijadinha", preco: 14.00, tipo: "tapioca", ing: "Coco, muçarela e leite cond." },
-                { nome: "Castanha De Amendoim c/ Chocolate ao Leite", preco: 13.00, tipo: "tapioca", ing: "Castanha De Amendoim c/ Chocolate ao Leite" }
-            ],
-            doces_avela: [
-                { nome: "Banana Chocolate Avelã", preco: 13.00, tipo: "tapioca", ing: "Banana Chocolate Avelã" },
-                { nome: "Brigadeiro c/ Avelã e Granulado", preco: 13.00, tipo: "tapioca", ing: "Brigadeiro c/ Avelã e Granulado" },
-                { nome: "Prestígio de Avelã", preco: 14.00, tipo: "tapioca", ing: "Coco e chocolate avelã" },
-                { nome: "Paçoquinha I", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate avelã" },
-                { nome: "Paçoquinha II", preco: 14.00, tipo: "tapioca", ing: "Paçoca e chocolate branco" },
-                { nome: "Sensação (Morango/Avelã)", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Avelã" },
-                { nome: "Morango c/ Chocolate Branco", preco: 14.00, tipo: "tapioca", ing: "Morango c/ Chocolate Branco" },
-                { nome: "Bombom Sonho de Valsa c/ Avelã", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Avelã" },
-                { nome: "Bombom Sonho de Valsa c/ Branco", preco: 16.00, tipo: "tapioca", ing: "Bombom Sonho de Valsa c/ Branco" }
-            ],
-            doces_nutella: [
-                { nome: "NUTELLA", preco: 16.00, tipo: "tapioca", ing: "SÓ NUTELLA" },
-                { nome: "Ninho com Nutella", preco: 18.00, tipo: "tapioca", ing: "Ninho com Nutella" },
-                { nome: "Nutella com Coco", preco: 18.00, tipo: "tapioca", ing: "Nutella com Coco" },
-                { nome: "Nutella com M&M", preco: 19.00, tipo: "tapioca", ing: "Nutella com M&M" },
-                { nome: "Nutella com Morango", preco: 18.00, tipo: "tapioca", ing: "Nutella com Morango" },
-                { nome: "Nutella com Banana", preco: 18.00, tipo: "tapioca", ing: "Nutella com Banana" },
-                { nome: "Bombom S. de Valsa c/ Nutella", preco: 19.00, tipo: "tapioca", ing: "Bombom S. de Valsa c/ Nutella" }
-            ],
-            bebidas: [
-                { nome: "🥤 Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" }
-            ]
-        };
         const precosMonteSua = {
             'Calabresa': { 'Catupiry (Orig.)': 14.00, 'Cheddar': 14.00, 'Cream Cheese': 14.00, 'Muçarela': 14.00, 'Queijo Branco': 14.00 },
             'Frango': { 'Catupiry (Orig.)': 14.00, 'Cheddar': 14.00, 'Cream Cheese': 14.00, 'Muçarela': 14.00, 'Queijo Branco': 14.00 },
@@ -1393,28 +1321,7 @@
 
                         let antigas = historicoNuvem.filter(v => (v.timestamp && !ehHoje(v.timestamp)) || (v.timestampCriacao && !ehHoje(v.timestampCriacao)));
                         if (antigas.length > 0) {
-                            let diasAgrupados = {};
-                            antigas.forEach(p => {
-                                let dataStr = new Date(p.timestamp || p.timestampCriacao).toLocaleDateString('pt-BR');
-                                if(!diasAgrupados[dataStr]) diasAgrupados[dataStr] = { data: dataStr, total: 0, dinheiro: 0, pix: 0, credito: 0, debito: 0, vr: 0 };
-                                if (p.timestamp) {
-                                    diasAgrupados[dataStr].total += p.total;
-                                    let arrPag = p.pagamentosMistos || [{forma: p.formaPagamento, valor: p.total}];
-                                    arrPag.forEach(pag => {
-                                        if(pag.forma === 'Dinheiro') diasAgrupados[dataStr].dinheiro += pag.valor;
-                                        if(pag.forma === 'PIX') diasAgrupados[dataStr].pix += pag.valor;
-                                        if(pag.forma === 'Cartão de Crédito') diasAgrupados[dataStr].credito += pag.valor;
-                                        if(pag.forma === 'Cartão de Débito') diasAgrupados[dataStr].debito += pag.valor;
-                                        if(pag.forma === 'VR') diasAgrupados[dataStr].vr += pag.valor;
-                                    });
-                                }
-                            });
-                            let resumos = Object.values(diasAgrupados);
-                            if(google.script.run.salvarMultiplosFechamentos) {
-                                google.script.run.salvarMultiplosFechamentos(JSON.stringify(resumos));
-                            }
-                            historicoNuvem = historicoNuvem.filter(v => !antigas.includes(v));
-                            google.script.run.salvarNuvemCompleta(JSON.stringify(historicoNuvem));
+                            mostrarToast(`⚠️ ${antigas.length} pedido(s) de outra data foram preservados para conferência.`);
                         }
                         document.getElementById('loadingScreen').style.display = 'none';
                         atualizarTudo(); iniciarSyncEmTempoReal();
@@ -1787,7 +1694,8 @@
 
                     if(typeof google !== 'undefined') {
                         google.script.run
-                        .withSuccessHandler(function() {
+                        .withSuccessHandler(function(pedidoAtualizado) {
+                            historicoNuvem[index] = pedidoAtualizado;
                             limparCarrinho();
                             atualizarTudo();
                         })
@@ -1795,12 +1703,11 @@
                             alert("Erro ao atualizar pedido na nuvem: " + erro.message);
                             if(btnLancar) { btnLancar.disabled = false; btnLancar.textContent = "Salvar Alteração"; }
                         })
-                        .atualizarVendaRealTime(JSON.stringify(historicoNuvem[index]));
+                        .atualizarPedidoPdv(JSON.stringify(historicoNuvem[index]));
                     }
                 }
             } else {
                 let novoPedido = {
-                    numero: contadorPedidos++,
                     origem: "PDV",
                     itens: JSON.parse(JSON.stringify(carrinho)),
                     total: totalCarrinho,
@@ -1809,18 +1716,11 @@
                     timestampCriacao: new Date().getTime()
                 };
 
-                historicoNuvem.push(novoPedido);
-
                 if(typeof google !== 'undefined') {
                     google.script.run
-                    .withFailureHandler(function(erro) {
-                        alert("Erro ao lançar na Base de Vendas: " + erro.message);
-                        if(btnLancar) { btnLancar.disabled = false; btnLancar.textContent = "Lançar para Produção"; }
-                    })
-                    .lancarPedidoPlanilha(JSON.stringify(novoPedido));
-
-                    google.script.run
-                    .withSuccessHandler(function() {
+                    .withSuccessHandler(function(pedidoRegistrado) {
+                        historicoNuvem.push(pedidoRegistrado);
+                        contadorPedidos = Math.max(contadorPedidos, Number(pedidoRegistrado.numero) + 1);
                         limparCarrinho();
                         atualizarTudo();
                     })
@@ -1828,8 +1728,10 @@
                         alert("Erro ao sincronizar com a nuvem: " + erro.message);
                         if(btnLancar) { btnLancar.disabled = false; btnLancar.textContent = "Lançar para Produção"; }
                     })
-                    .salvarVendaRealTime(JSON.stringify(novoPedido));
+                    .registrarPedidoPdv(JSON.stringify(novoPedido));
                 } else {
+                    novoPedido.numero = contadorPedidos++;
+                    historicoNuvem.push(novoPedido);
                     limparCarrinho();
                     atualizarTudo();
                 }
