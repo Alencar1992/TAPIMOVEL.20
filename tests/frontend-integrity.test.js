@@ -91,7 +91,10 @@ test("sessão do navegador persiste somente no dia e expira por inatividade", ()
   );
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
 
-  assert.match(apiClient, /localStorage\.setItem\(TOKEN_KEY/);
+  assert.match(
+    apiClient,
+    /localStorage\.setItem\((?:TOKEN_KEY|sessionPrefix \+ "token")/
+  );
   assert.doesNotMatch(apiClient, /sessionStorage/);
   assert.match(apiClient, /sessionDay !== getLocalDay\(\)/);
   assert.match(apiClient, /4 \* 60 \* 60 \* 1000/);
@@ -117,6 +120,22 @@ test("acesso exclusivo do CEO Eliel limita navegação e mantém sessão separad
   assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao'\]/);
   assert.match(index, /\.loginAcesso\(pin, modoAcessoEsperado\)/);
   assert.match(index, /class="[^"]*eliel-admin-only[^"]*"[^>]*>Fechar e zerar mês/);
+});
+
+test("PIN do CEO Eliel no PDV preserva a sessão restrita e redireciona", () => {
+  const apiClient = fs.readFileSync(
+    path.join(root, "frontend/api-client.js"),
+    "utf8"
+  );
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.match(apiClient, /session\.perfil === "eliel" \? "eliel" : accessMode/);
+  assert.match(apiClient, /sessionPrefix \+ "token"/);
+  assert.match(
+    index,
+    /modoAcessoEsperado === 'admin' && sessao && sessao\.perfil === 'eliel'/
+  );
+  assert.match(index, /window\.location\.replace\('\.\/relatorio-eliel\.html\?origem=pdv'\)/);
 });
 
 test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => {
