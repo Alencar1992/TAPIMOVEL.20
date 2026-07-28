@@ -1237,6 +1237,9 @@
             document.getElementById('loadingText').textContent = 'Carregando cardápio...';
             pausarSync = false;
             iniciarAplicacaoAdmin();
+            if (typeof window.verificarAvisoPdv === 'function') {
+                window.verificarAvisoPdv();
+            }
         }
 
         function iniciarAutenticacaoAdmin() {
