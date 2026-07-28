@@ -80,7 +80,7 @@ test("avisos administrativos aguardam a autenticação", () => {
   );
   assert.match(
     index,
-    /function liberarAplicacaoAdmin\(\)[\s\S]{0,600}window\.verificarAvisoPdv\(\)/
+    /function liberarAplicacaoAcesso\(sessao\)[\s\S]{0,900}!acessoEhEliel\(\)[\s\S]{0,200}window\.verificarAvisoPdv\(\)/
   );
 });
 
@@ -97,4 +97,33 @@ test("sessão do navegador persiste somente no dia e expira por inatividade", ()
   assert.match(apiClient, /4 \* 60 \* 60 \* 1000/);
   assert.match(apiClient, /\["pointerdown", "keydown", "touchstart"\]/);
   assert.match(index, /expira após 4 horas sem uso/);
+});
+
+test("acesso exclusivo do CEO Eliel limita navegação e mantém sessão separada", () => {
+  const apiClient = fs.readFileSync(
+    path.join(root, "frontend/api-client.js"),
+    "utf8"
+  );
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const restricted = fs.readFileSync(
+    path.join(root, "frontend/relatorio-eliel.html"),
+    "utf8"
+  );
+
+  assert.match(restricted, /index\.html\?acesso=eliel/);
+  assert.match(apiClient, /"tapimovel_" \+ accessMode \+ "_"/);
+  assert.match(apiClient, /TOKEN_PROFILE_KEY/);
+  assert.match(index, /CEO Eliel/);
+  assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao'\]/);
+  assert.match(index, /\.loginAcesso\(pin, modoAcessoEsperado\)/);
+  assert.match(index, /class="[^"]*eliel-admin-only[^"]*"[^>]*>Fechar e zerar mês/);
+});
+
+test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => {
+  const configuracao = fs.readFileSync(
+    path.join(root, "frontend/configuracao.js"),
+    "utf8"
+  );
+  assert.match(configuracao, /sessao\.perfil === "eliel"/);
+  assert.match(configuracao, /responsavelAtual = "CEO Eliel"/);
 });

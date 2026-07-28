@@ -192,8 +192,8 @@
         <form id="formLoginAdmin" style="width:min(100%,390px);background:#1e1e1e;border:1px solid #3a3a3a;border-top:4px solid var(--primary);border-radius:18px;padding:28px;box-sizing:border-box;box-shadow:0 24px 70px rgba(0,0,0,.55)" autocomplete="off">
             <div aria-hidden="true" style="width:68px;height:68px;margin:0 auto 16px;display:grid;place-items:center;border-radius:20px;background:rgba(255,107,107,.12);font-size:2.1rem">🔐</div>
             <h1 id="loginAdminTitulo" style="margin:0;text-align:center;color:var(--text);font-size:1.55rem">Acesso ao PDV</h1>
-            <p style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
-            <label for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
+            <p id="loginAdminDescricao" style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
+            <label id="loginAdminLabel" for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
             <input id="loginAdminPin" type="password" inputmode="numeric" pattern="[0-9]{6,12}" minlength="6" maxlength="12" required aria-describedby="loginAdminErro" style="width:100%;box-sizing:border-box;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.2rem;letter-spacing:.18em;text-align:center">
             <p id="loginAdminErro" role="alert" style="min-height:20px;margin:9px 0;color:#ff8787;text-align:center;font-size:.9rem"></p>
             <button id="btnLoginAdmin" type="submit" class="btn-acao">Entrar com segurança</button>
@@ -304,6 +304,7 @@
     <header>
         <button class="menu-btn" onclick="abrirMenuLateral()">☰</button>
         <h1 class="header-title">TAPIMOVEL🌮🚗</h1>
+        <strong id="identidadeAcesso" hidden style="margin-left:auto;color:var(--primary);font-size:.92rem"></strong>
         <div class="top-counters">
             <button class="btn-top" id="btnTopoProd" onclick="mudarTela('view-producao')">👨‍🍳 Prod.</button>
             <button class="btn-top" id="btnTopoCaixa" onclick="mudarTela('view-painel')">📝 Caixa</button>
@@ -318,15 +319,15 @@
             <button onclick="fecharMenuLateral()" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">✖</button>
         </div>
 
-        <div class="menu-grupo">
+        <div class="menu-grupo menu-eliel">
             <button class="btn-categoria" onclick="abrirRestrito('relatorio-eliel')">📊 Relatório Eliel</button>
         </div>
 
-        <div class="menu-grupo">
+        <div class="menu-grupo menu-eliel">
             <button class="btn-categoria" onclick="abrirRestrito('itens')">📦 Itens</button>
         </div>
 
-        <div class="menu-grupo">
+        <div class="menu-grupo menu-eliel">
             <button class="btn-categoria" onclick="abrirRestrito('configuracao')">⚙️ Configuração</button>
         </div>
 
@@ -380,7 +381,7 @@
     </div>
 
     <div id="view-producao" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
         <h2 style="color: var(--primary);">👨‍🍳 Fila de Produção</h2>
         <div id="listaProducao"></div>
     </div>
@@ -422,7 +423,7 @@
         <div id="elielAvisoMesPendente" class="eliel-aviso" hidden>
             <div><strong>Mês anterior ainda não finalizado</strong><span id="elielAvisoMesTexto"></span></div>
             <div class="eliel-aviso-acoes">
-                <button type="button" onclick="abrirMesPendenteEliel()">Finalizar agora</button>
+                <button type="button" class="eliel-admin-only" onclick="abrirMesPendenteEliel()">Finalizar agora</button>
                 <button type="button" class="secundario" onclick="this.closest('.eliel-aviso').hidden=true">Fechar</button>
             </div>
         </div>
@@ -468,7 +469,7 @@
 
             <section class="eliel-duas-colunas">
                 <article class="eliel-painel">
-                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
+                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link eliel-admin-only" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
                     <div class="eliel-form-grid">
                         <label>Combustível carro<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
                         <label>Salário cozinha<input id="elielCustoCozinha" class="input-obs" inputmode="decimal"></label>
@@ -497,13 +498,13 @@
                 <button type="button" onclick="exportarRelatorioElielCsv()">Exportar CSV</button>
                 <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar XLSX</button>
                 <button type="button" onclick="gerarComparativoElielPdf()">Comparativo do mês anterior em PDF</button>
-                <button type="button" class="perigo" onclick="abrirFechamentoMesEliel()">Fechar e zerar mês</button>
+                <button type="button" class="perigo eliel-admin-only" onclick="abrirFechamentoMesEliel()">Fechar e zerar mês</button>
             </div>
         </div>
     </div>
 
     <div id="view-itens" class="app-view itens-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
         <div class="itens-cabecalho">
             <div><h2>Itens do cardápio</h2><p>Pausas valem apenas até a virada do dia.</p></div>
             <span id="itensResumo">0 disponíveis</span>
@@ -962,6 +963,46 @@
         let itensIndisponiveis = []; let termoPesquisa = ""; let pausarSync = false;
         let ignorarProximoClickProduto = null;
         let syncEmAndamento = false;
+        let sessaoAcessoAtual = null;
+        const modoAcessoEsperado = new URLSearchParams(window.location.search).get('acesso') === 'eliel'
+            ? 'eliel'
+            : 'admin';
+
+        function acessoEhEliel() {
+            return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'eliel');
+        }
+
+        function aplicarPerfilAcesso(sessao) {
+            sessaoAcessoAtual = sessao || null;
+            const eliel = acessoEhEliel();
+            document.body.classList.toggle('perfil-eliel', eliel);
+            document.querySelector('.top-counters').hidden = eliel;
+            document.querySelectorAll('#sidebar .menu-grupo:not(.menu-eliel)').forEach(function(grupo) {
+                grupo.hidden = eliel;
+            });
+            const identidade = document.getElementById('identidadeAcesso');
+            identidade.hidden = !eliel;
+            identidade.textContent = eliel ? 'CEO Eliel' : '';
+            document.querySelector('.header-title').textContent = eliel ? 'TAPIMÓVEL · CEO ELIEL' : 'TAPIMOVEL🌮🚗';
+            document.querySelectorAll('.eliel-admin-only').forEach(function(elemento) {
+                elemento.hidden = eliel;
+            });
+            [
+                'elielCustoCombustivel', 'elielCustoCozinha', 'elielCustoAux',
+                'elielCustoManutencao', 'elielPercCompra', 'elielPercLucas', 'elielPercEliel'
+            ].forEach(function(id) {
+                const campo = document.getElementById(id);
+                if (campo) campo.readOnly = eliel;
+            });
+        }
+
+        function voltarInicioAcesso() {
+            if (acessoEhEliel()) {
+                abrirRelatorioEliel();
+                return;
+            }
+            mudarTela('view-catalogo');
+        }
 
         function mostrarConfirmacaoPagamento(numero) {
             const aviso = document.getElementById('avisoPagamento');
@@ -995,6 +1036,10 @@
 
         function abrirRestrito(acao) {
             fecharMenuLateral();
+            if (acessoEhEliel() && ['relatorio-eliel', 'itens', 'configuracao'].indexOf(acao) === -1) {
+                mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
+                return;
+            }
             if(acao === 'relatorio-eliel') abrirRelatorioEliel();
             else if(acao === 'itens') abrirTelaItens();
             else if(acao === 'configuracao') solicitarAcessoConfiguracao();
@@ -1229,18 +1274,33 @@
             document.getElementById('loadingScreen').style.display = 'none';
             document.getElementById('loginAdmin').style.display = 'flex';
             document.getElementById('loginAdminErro').textContent = mensagem || '';
+            const eliel = modoAcessoEsperado === 'eliel';
+            document.getElementById('loginAdminTitulo').textContent = eliel ? 'Acesso CEO Eliel' : 'Acesso ao PDV';
+            document.getElementById('loginAdminDescricao').textContent = eliel
+                ? 'Acesse Relatório Eliel, Itens e Configuração com seu PIN exclusivo.'
+                : 'Informe o PIN administrativo para acessar pedidos, relatórios e configurações.';
+            document.getElementById('loginAdminLabel').textContent = eliel ? 'PIN do CEO Eliel' : 'PIN administrativo';
             setTimeout(function() { document.getElementById('loginAdminPin').focus(); }, 80);
         }
 
-        function liberarAplicacaoAdmin() {
+        function liberarAplicacaoAcesso(sessao) {
+            aplicarPerfilAcesso(sessao);
             document.getElementById('loginAdmin').style.display = 'none';
             document.getElementById('loadingScreen').style.display = 'flex';
             document.getElementById('loadingText').textContent = 'Carregando cardápio...';
             pausarSync = false;
-            iniciarAplicacaoAdmin();
-            if (typeof window.verificarAvisoPdv === 'function') {
+            if (acessoEhEliel()) {
+                iniciarAplicacaoEliel();
+            } else {
+                iniciarAplicacaoAdmin();
+            }
+            if (!acessoEhEliel() && typeof window.verificarAvisoPdv === 'function') {
                 window.verificarAvisoPdv();
             }
+        }
+
+        function liberarAplicacaoAdmin() {
+            liberarAplicacaoAcesso({ perfil: 'admin', nome: 'Administrador' });
         }
 
         function iniciarAutenticacaoAdmin() {
@@ -1249,14 +1309,17 @@
                 return;
             }
             google.script.run
-                .withSuccessHandler(function(valida) {
-                    if (valida === true) liberarAplicacaoAdmin();
-                    else mostrarLoginAdmin('Sua sessão expirou. Entre novamente.');
+                .withSuccessHandler(function(sessao) {
+                    if (sessao && sessao.perfil === modoAcessoEsperado) liberarAplicacaoAcesso(sessao);
+                    else {
+                        window.TapimovelAuth.clear();
+                        mostrarLoginAdmin('Sua sessão expirou. Entre novamente.');
+                    }
                 })
                 .withFailureHandler(function() {
                     mostrarLoginAdmin('Não foi possível validar a sessão.');
                 })
-                .validarSessaoAdministrador();
+                .validarSessaoAcesso();
         }
 
         document.getElementById('formLoginAdmin').addEventListener('submit', function(evento) {
@@ -1272,18 +1335,18 @@
             botao.textContent = 'Verificando...';
             erro.textContent = '';
             google.script.run
-                .withSuccessHandler(function() {
+                .withSuccessHandler(function(sessao) {
                     document.getElementById('loginAdminPin').value = '';
                     botao.disabled = false;
                     botao.textContent = 'Entrar com segurança';
-                    liberarAplicacaoAdmin();
+                    liberarAplicacaoAcesso(sessao);
                 })
                 .withFailureHandler(function(falha) {
                     botao.disabled = false;
                     botao.textContent = 'Entrar com segurança';
                     erro.textContent = falha.message || 'Não foi possível entrar.';
                 })
-                .loginAdministrador(pin);
+                .loginAcesso(pin, modoAcessoEsperado);
         });
 
         window.addEventListener('tapimovel:auth-required', function(evento) {
@@ -1347,6 +1410,23 @@
             }
         }
 
+        function iniciarAplicacaoEliel() {
+            document.getElementById('loadingText').textContent = 'Preparando acesso do CEO Eliel...';
+            carregarDisponibilidadeCardapio();
+            google.script.run
+                .withSuccessHandler(function(resposta) {
+                    const catalogo = JSON.parse(resposta || '{}');
+                    TapimovelCatalogo.substituir(bdCatalogo, catalogo);
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    abrirRelatorioEliel();
+                })
+                .withFailureHandler(function(erro) {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    mostrarAlerta('Não foi possível preparar o acesso.<br><small>' + erro.message + '</small>');
+                })
+                .obterCatalogoCardapio(JSON.stringify(TapimovelCatalogo.copiar(bdCatalogo)));
+        }
+
         function abrirMenuLateral() {
             document.querySelectorAll('.submenu').forEach(sub => {
                 sub.style.display = 'none';
@@ -1361,6 +1441,13 @@
         function fecharMenuLateral() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').style.display = 'none'; }
 
         function mudarTela(idTela) {
+            if (
+                acessoEhEliel() &&
+                ['view-relatorio-eliel', 'view-itens', 'view-configuracao'].indexOf(idTela) === -1
+            ) {
+                mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
+                return;
+            }
             document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
             document.getElementById(idTela).classList.add('active');
 

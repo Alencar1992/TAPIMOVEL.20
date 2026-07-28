@@ -1,9 +1,15 @@
 (function () {
   "use strict";
 
-  var TOKEN_KEY = "tapimovel_admin_token";
-  var TOKEN_DAY_KEY = "tapimovel_admin_token_day";
-  var TOKEN_LAST_ACTIVITY_KEY = "tapimovel_admin_last_activity";
+  var accessMode = new URLSearchParams(window.location.search).get("acesso") === "eliel"
+    ? "eliel"
+    : "admin";
+  var STORAGE_PREFIX = "tapimovel_" + accessMode + "_";
+  var TOKEN_KEY = STORAGE_PREFIX + "token";
+  var TOKEN_DAY_KEY = STORAGE_PREFIX + "token_day";
+  var TOKEN_LAST_ACTIVITY_KEY = STORAGE_PREFIX + "last_activity";
+  var TOKEN_PROFILE_KEY = STORAGE_PREFIX + "profile";
+  var TOKEN_NAME_KEY = STORAGE_PREFIX + "name";
   var DEFAULT_INACTIVITY_MS = 4 * 60 * 60 * 1000;
   var inactivityMs = DEFAULT_INACTIVITY_MS;
 
@@ -37,12 +43,16 @@
     localStorage.setItem(TOKEN_KEY, String(session.token));
     localStorage.setItem(TOKEN_DAY_KEY, String(session.diaSessao || getLocalDay()));
     localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(Date.now()));
+    localStorage.setItem(TOKEN_PROFILE_KEY, String(session.perfil || accessMode));
+    localStorage.setItem(TOKEN_NAME_KEY, String(session.nome || ""));
   }
 
   function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(TOKEN_DAY_KEY);
     localStorage.removeItem(TOKEN_LAST_ACTIVITY_KEY);
+    localStorage.removeItem(TOKEN_PROFILE_KEY);
+    localStorage.removeItem(TOKEN_NAME_KEY);
   }
 
   function registerActivity() {
@@ -103,7 +113,7 @@
                 apiError.code = payload && payload.code;
                 throw apiError;
               }
-              if (prop === "loginAdministrador") saveToken(payload.data);
+              if (prop === "loginAcesso" || prop === "loginAdministrador") saveToken(payload.data);
               if (prop === "encerrarSessaoAdministrador") clearToken();
               if (typeof successHandler === "function") successHandler(payload.data);
               return payload.data;
@@ -135,6 +145,14 @@
   });
   window.TapimovelAuth = {
     clear: clearToken,
-    hasToken: function () { return Boolean(getToken()); }
+    hasToken: function () { return Boolean(getToken()); },
+    getAccessMode: function () { return accessMode; },
+    getSession: function () {
+      if (!getToken()) return null;
+      return {
+        perfil: localStorage.getItem(TOKEN_PROFILE_KEY) || accessMode,
+        nome: localStorage.getItem(TOKEN_NAME_KEY) || ""
+      };
+    }
   };
 })();

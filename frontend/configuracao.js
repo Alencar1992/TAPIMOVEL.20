@@ -50,6 +50,26 @@
 
   window.solicitarAcessoConfiguracao = function () {
     fecharMenuLateral();
+    var sessao = window.TapimovelAuth && window.TapimovelAuth.getSession
+      ? window.TapimovelAuth.getSession()
+      : null;
+    if (sessao && sessao.perfil === "eliel") {
+      responsavelAtual = "CEO Eliel";
+      google.script.run
+        .withSuccessHandler(function (resposta) {
+          atualizarCatalogo(resposta);
+          document.getElementById("configResponsavelAtual").textContent = responsavelAtual;
+          mudarTela("view-configuracao");
+        })
+        .withFailureHandler(function (erro) {
+          mostrarAlerta("Não foi possível abrir a configuração.<br><small>" + escapar(erro.message) + "</small>");
+        })
+        .inicializarCatalogoConfiguracao(
+          JSON.stringify(TapimovelCatalogo.copiar(bdCatalogo)),
+          responsavelAtual
+        );
+      return;
+    }
     var modal = document.getElementById("modalIdentificacaoConfig");
     var campo = document.getElementById("configResponsavel");
     campo.value = responsavelAtual;
@@ -96,7 +116,7 @@
     responsavelAtual = "";
     document.getElementById("configResponsavelAtual").textContent = "—";
     document.getElementById("configResponsavel").value = "";
-    mudarTela("view-catalogo");
+    voltarInicioAcesso();
   };
 
   window.renderizarConfiguracao = function () {
