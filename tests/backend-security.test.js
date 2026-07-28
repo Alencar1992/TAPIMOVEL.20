@@ -158,6 +158,68 @@ test("sessão administrativa é invalidada na mudança do dia", () => {
   assert.equal(context.validarSessaoAdministrador(session.token), false);
 });
 
+test("CEO Eliel recebe sessão própria e identidade fixa", () => {
+  const { context } = createContext();
+  context.configurarPinEliel("654321");
+  const session = context.loginAcesso("654321", "eliel");
+
+  assert.equal(session.perfil, "eliel");
+  assert.equal(session.nome, "CEO Eliel");
+  assert.equal(context.validarSessaoAdministrador(session.token), false);
+  assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
+});
+
+test("CEO Eliel acessa somente relatório, itens e configuração", () => {
+  const { context } = createContext();
+  context.configurarPinEliel("654321");
+  const session = context.loginAcesso("654321", "eliel");
+
+  context.obterRelatorioEliel = () => "RELATORIO";
+  context.salvarDisponibilidadeCardapio = (_itens, responsavel) => responsavel;
+  context.inicializarCatalogoConfiguracao = (_catalogo, responsavel) => responsavel;
+  context.salvarItemCatalogo = (_item, _original, responsavel) => responsavel;
+  context.removerItemCatalogo = (_item, responsavel) => responsavel;
+
+  assert.equal(
+    context.executarAcaoApi_("obterRelatorioEliel", [], session.token).data,
+    "RELATORIO"
+  );
+  assert.equal(
+    context.executarAcaoApi_("salvarDisponibilidadeCardapio", ["[]"], session.token).data,
+    "CEO Eliel"
+  );
+  assert.equal(
+    context.executarAcaoApi_("inicializarCatalogoConfiguracao", ["{}"], session.token).data,
+    "CEO Eliel"
+  );
+  assert.equal(
+    context.executarAcaoApi_("salvarItemCatalogo", ["{}", ""], session.token).data,
+    "CEO Eliel"
+  );
+  assert.equal(
+    context.executarAcaoApi_("removerItemCatalogo", ["Bauru"], session.token).data,
+    "CEO Eliel"
+  );
+});
+
+test("CEO Eliel não acessa PDV nem ações críticas do relatório", () => {
+  const { context } = createContext();
+  context.configurarPinEliel("654321");
+  const session = context.loginAcesso("654321", "eliel");
+
+  [
+    "carregarDadosNuvem",
+    "registrarPedidoPdv",
+    "salvarConfiguracoesRelatorioEliel",
+    "fecharMesRelatorioEliel"
+  ].forEach(action => {
+    assert.throws(
+      () => context.executarAcaoApi_(action, [], session.token),
+      error => error.code === "PERMISSION_DENIED"
+    );
+  });
+});
+
 test("preço e tipo do cliente são ignorados em favor do catálogo", () => {
   const { context } = createContext();
   const normalized = context.normalizarPedidoOnline_(onlineOrder(), catalog());
