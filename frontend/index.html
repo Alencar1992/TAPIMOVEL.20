@@ -201,7 +201,10 @@
    <div id="loadingScreen" role="status" aria-live="polite" aria-busy="true">
        <div class="tapioca-loading-card">
            <div class="tapioca-loading-media">
-               <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+               <div class="taco-prep-animation" aria-hidden="true">
+                   <span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span>
+                   <span class="taco-emoji">🌮</span>
+               </div>
            </div>
            <h2 id="loadingText">Carregando cardápio...</h2>
            <p class="tapioca-loading-hint">Preparando tudo para você</p>
@@ -412,7 +415,7 @@
 
         <div id="elielLoading" class="eliel-loading" hidden>
             <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                 <p>Atualizando relatório...</p>
                 <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
@@ -543,7 +546,7 @@
 
         <div id="loadingEspelho" style="text-align:center; display:none; margin: 20px 0;">
             <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                 <p>Sincronizando dados do Google Sheets...</p>
                 <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
@@ -619,7 +622,7 @@
 
         <div id="loadingRankings" style="text-align:center; display:none; margin: 20px 0;">
             <div class="tapioca-inline-loader" id="spinnerRankings" role="status" aria-live="polite">
-                <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                 <p id="textoLoadingRankings">Analisando dados...</p>
                 <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
@@ -717,7 +720,7 @@
 
                 <div id="loadingFolgas" style="text-align:center; display:none; margin: 20px 0;">
                     <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                        <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                        <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                         <p>Buscando histórico...</p>
                         <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
                     </div>
@@ -734,7 +737,7 @@
         <div class="modal-content" style="max-width: 480px;">
             <div id="loadingLiquidez" style="text-align:center; padding: 20px; display: none;">
                 <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                    <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                    <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                     <p>Calculando dados da planilha...</p>
                     <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
                 </div>
@@ -856,7 +859,7 @@
 
             <div id="loadingEstimativa" style="text-align:center; padding: 20px; display: none;">
                 <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                    <img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100">
+                    <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
                     <p>Processando dias reais de trabalho...</p>
                     <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
                 </div>
@@ -2216,7 +2219,7 @@
             var mes = ("0" + (hoje.getMonth() + 1)).slice(-2);
             var ano = hoje.getFullYear().toString();
 
-            document.getElementById('listaCombustivel').innerHTML = '<div class="tapioca-inline-loader" role="status" aria-live="polite"><img src="./assets/loading/tapioca-preparo.gif" alt="" width="220" height="100"><p>Carregando histórico...</p><div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div></div>';
+            document.getElementById('listaCombustivel').innerHTML = '<div class="tapioca-inline-loader" role="status" aria-live="polite"><div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div><p>Carregando histórico...</p><div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div></div>';
 
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {
