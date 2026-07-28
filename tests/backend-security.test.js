@@ -8,6 +8,7 @@ const path = require("node:path");
 function createContext() {
   const properties = new Map();
   const cache = new Map();
+  let currentDay = "2026-07-28";
   const lock = { waitLock() {}, releaseLock() {} };
   const context = {
     console,
@@ -34,7 +35,7 @@ function createContext() {
         return crypto.randomUUID();
       },
       formatDate(_date, _timezone, format) {
-        if (format === "yyyy-MM-dd") return "2026-07-28";
+        if (format === "yyyy-MM-dd") return currentDay;
         if (format === "u") return "2";
         if (format === "H") return "19";
         if (format === "HH:mm") return "19:30";
@@ -85,7 +86,11 @@ function createContext() {
     "utf8"
   );
   vm.runInContext(code, context, { filename: "Code.gs" });
-  return { context, properties };
+  return {
+    context,
+    properties,
+    setCurrentDay(day) { currentDay = day; }
+  };
 }
 
 function catalog() {
@@ -138,6 +143,18 @@ test("login cria sessão temporária e PIN incorreto é recusado", () => {
   const session = context.loginAdministrador("123456");
   assert.equal(context.validarSessaoAdministrador(session.token), true);
   context.encerrarSessaoAdministrador(session.token);
+  assert.equal(context.validarSessaoAdministrador(session.token), false);
+});
+
+test("sessão administrativa é invalidada na mudança do dia", () => {
+  const { context, setCurrentDay } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAdministrador("123456");
+  assert.equal(session.diaSessao, "2026-07-28");
+  assert.equal(session.inatividadeSegundos, 14400);
+  assert.equal(context.validarSessaoAdministrador(session.token), true);
+
+  setCurrentDay("2026-07-29");
   assert.equal(context.validarSessaoAdministrador(session.token), false);
 });
 

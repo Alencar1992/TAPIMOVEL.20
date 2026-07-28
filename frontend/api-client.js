@@ -2,26 +2,52 @@
   "use strict";
 
   var TOKEN_KEY = "tapimovel_admin_token";
-  var TOKEN_EXPIRY_KEY = "tapimovel_admin_token_expiry";
+  var TOKEN_DAY_KEY = "tapimovel_admin_token_day";
+  var TOKEN_LAST_ACTIVITY_KEY = "tapimovel_admin_last_activity";
+  var DEFAULT_INACTIVITY_MS = 4 * 60 * 60 * 1000;
+  var inactivityMs = DEFAULT_INACTIVITY_MS;
+
+  function getLocalDay() {
+    var now = new Date();
+    return [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0")
+    ].join("-");
+  }
 
   function getToken() {
-    var expiry = Number(sessionStorage.getItem(TOKEN_EXPIRY_KEY) || 0);
-    if (expiry && Date.now() >= expiry) {
+    var token = localStorage.getItem(TOKEN_KEY) || "";
+    var sessionDay = localStorage.getItem(TOKEN_DAY_KEY) || "";
+    var lastActivity = Number(localStorage.getItem(TOKEN_LAST_ACTIVITY_KEY) || 0);
+    var inactive = !lastActivity || Date.now() - lastActivity >= inactivityMs;
+    if (!token || sessionDay !== getLocalDay() || inactive) {
       clearToken();
       return "";
     }
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return token;
   }
 
   function saveToken(session) {
     if (!session || !session.token) return;
-    sessionStorage.setItem(TOKEN_KEY, String(session.token));
-    sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(Number(session.expiraEm) || 0));
+    inactivityMs = Math.max(
+      60 * 1000,
+      Number(session.inatividadeSegundos || 0) * 1000 || DEFAULT_INACTIVITY_MS
+    );
+    localStorage.setItem(TOKEN_KEY, String(session.token));
+    localStorage.setItem(TOKEN_DAY_KEY, String(session.diaSessao || getLocalDay()));
+    localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(Date.now()));
   }
 
   function clearToken() {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_DAY_KEY);
+    localStorage.removeItem(TOKEN_LAST_ACTIVITY_KEY);
+  }
+
+  function registerActivity() {
+    if (!getToken()) return;
+    localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(Date.now()));
   }
 
   function emitAuthRequired(message) {
@@ -104,6 +130,9 @@
   window.google = window.google || {};
   window.google.script = window.google.script || {};
   window.google.script.run = createRunner();
+  ["pointerdown", "keydown", "touchstart"].forEach(function (eventName) {
+    window.addEventListener(eventName, registerActivity, { passive: true });
+  });
   window.TapimovelAuth = {
     clear: clearToken,
     hasToken: function () { return Boolean(getToken()); }

@@ -83,3 +83,18 @@ test("avisos administrativos aguardam a autenticação", () => {
     /function liberarAplicacaoAdmin\(\)[\s\S]{0,600}window\.verificarAvisoPdv\(\)/
   );
 });
+
+test("sessão do navegador persiste somente no dia e expira por inatividade", () => {
+  const apiClient = fs.readFileSync(
+    path.join(root, "frontend/api-client.js"),
+    "utf8"
+  );
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.match(apiClient, /localStorage\.setItem\(TOKEN_KEY/);
+  assert.doesNotMatch(apiClient, /sessionStorage/);
+  assert.match(apiClient, /sessionDay !== getLocalDay\(\)/);
+  assert.match(apiClient, /4 \* 60 \* 60 \* 1000/);
+  assert.match(apiClient, /\["pointerdown", "keydown", "touchstart"\]/);
+  assert.match(index, /expira após 4 horas sem uso/);
+});
