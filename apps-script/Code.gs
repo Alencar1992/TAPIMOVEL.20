@@ -4,7 +4,15 @@
 const CHAVE_PIN_ADMIN_ = "pdv_admin_pin_hash";
 const CHAVE_SESSAO_ADMIN_ = "pdv_admin_session_";
 const CHAVE_TENTATIVAS_LOGIN_ = "pdv_admin_login_attempts";
-const DURACAO_SESSAO_ADMIN_SEGUNDOS_ = 21600;
+const DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ = 14400;
+
+function obterDiaSessaoAdmin_() {
+  return Utilities.formatDate(
+    new Date(),
+    Session.getScriptTimeZone(),
+    "yyyy-MM-dd"
+  );
+}
 
 function hashSeguro_(valor) {
   const bytes = Utilities.computeDigest(
@@ -61,20 +69,42 @@ function loginAdministrador(pin) {
   const token = Utilities.getUuid() + Utilities.getUuid();
   cache.put(
     CHAVE_SESSAO_ADMIN_ + hashSeguro_(token),
-    JSON.stringify({ criadoEm: Date.now() }),
-    DURACAO_SESSAO_ADMIN_SEGUNDOS_
+    JSON.stringify({
+      criadoEm: Date.now(),
+      dia: obterDiaSessaoAdmin_()
+    }),
+    DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_
   );
   return {
     token: token,
-    expiraEm: Date.now() + DURACAO_SESSAO_ADMIN_SEGUNDOS_ * 1000
+    diaSessao: obterDiaSessaoAdmin_(),
+    inatividadeSegundos: DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_,
+    expiraEm: Date.now() + DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ * 1000
   };
 }
 
 function validarSessaoAdministrador(token) {
   if (!token) return false;
-  return Boolean(
-    CacheService.getScriptCache().get(CHAVE_SESSAO_ADMIN_ + hashSeguro_(token))
-  );
+  const cache = CacheService.getScriptCache();
+  const chave = CHAVE_SESSAO_ADMIN_ + hashSeguro_(token);
+  const sessaoSalva = cache.get(chave);
+  if (!sessaoSalva) return false;
+
+  let sessao;
+  try {
+    sessao = JSON.parse(sessaoSalva);
+  } catch (erro) {
+    cache.remove(chave);
+    return false;
+  }
+
+  if (!sessao || sessao.dia !== obterDiaSessaoAdmin_()) {
+    cache.remove(chave);
+    return false;
+  }
+
+  cache.put(chave, sessaoSalva, DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_);
+  return true;
 }
 
 function encerrarSessaoAdministrador(token) {
