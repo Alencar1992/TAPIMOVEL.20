@@ -169,6 +169,19 @@ test("CEO Eliel recebe sessão própria e identidade fixa", () => {
   assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
 });
 
+test("PIN do CEO Eliel informado no PDV cria somente sessão restrita", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("123456");
+  context.configurarPinEliel("654321");
+
+  const session = context.loginAcesso("654321", "admin");
+
+  assert.equal(session.perfil, "eliel");
+  assert.equal(session.nome, "CEO Eliel");
+  assert.equal(context.validarSessaoAdministrador(session.token), false);
+  assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
+});
+
 test("CEO Eliel acessa somente relatório, itens e configuração", () => {
   const { context } = createContext();
   context.configurarPinEliel("654321");

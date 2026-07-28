@@ -36,15 +36,17 @@
 
   function saveToken(session) {
     if (!session || !session.token) return;
+    var sessionMode = session.perfil === "eliel" ? "eliel" : accessMode;
+    var sessionPrefix = "tapimovel_" + sessionMode + "_";
     inactivityMs = Math.max(
       60 * 1000,
       Number(session.inatividadeSegundos || 0) * 1000 || DEFAULT_INACTIVITY_MS
     );
-    localStorage.setItem(TOKEN_KEY, String(session.token));
-    localStorage.setItem(TOKEN_DAY_KEY, String(session.diaSessao || getLocalDay()));
-    localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(Date.now()));
-    localStorage.setItem(TOKEN_PROFILE_KEY, String(session.perfil || accessMode));
-    localStorage.setItem(TOKEN_NAME_KEY, String(session.nome || ""));
+    localStorage.setItem(sessionPrefix + "token", String(session.token));
+    localStorage.setItem(sessionPrefix + "token_day", String(session.diaSessao || getLocalDay()));
+    localStorage.setItem(sessionPrefix + "last_activity", String(Date.now()));
+    localStorage.setItem(sessionPrefix + "profile", String(session.perfil || sessionMode));
+    localStorage.setItem(sessionPrefix + "name", String(session.nome || ""));
   }
 
   function clearToken() {
