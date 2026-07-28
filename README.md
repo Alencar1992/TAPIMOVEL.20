@@ -5,6 +5,7 @@ Sistema web responsivo da Expresso Tapiocaria para operação do cardápio, pedi
 ## Acessos
 
 - [Painel administrativo](https://alencar1992.github.io/TAPIMOVEL.20/frontend/index.html)
+- [Acesso restrito do CEO Eliel](https://alencar1992.github.io/TAPIMOVEL.20/frontend/relatorio-eliel.html)
 - [Cardápio do cliente](https://alencar1992.github.io/TAPIMOVEL.20/frontend/cliente.html)
 - O endereço principal do GitHub Pages redireciona automaticamente para o painel administrativo.
 
