@@ -92,7 +92,7 @@ function exigirSessaoAdministrador_(token) {
 
 function doGet(e) {
   try {
-    if (e.parameter && e.parameter.action) {
+    if (e && e.parameter && e.parameter.action) {
       const permitidasViaGet = [
         "obterDisponibilidadeCardapio",
         "obterCatalogoCardapio",
@@ -814,6 +814,22 @@ function buscarTopProdutosBackend(mes, ano) {
 // =========================================================
 function buscarDadosEspelhoBackend(nomeAba) {
   try {
+    const abasPermitidas = [
+      "Fechamentos_Diarios",
+      "Tapiocas Diária",
+      "Base de Vendas",
+      "Historico_Diario",
+      "Combustivel",
+      "Dias_Nao_Trabalhados",
+      "Fechamentos_Mensais",
+      "Vendas_hoje",
+      "Resumo Semanal",
+      "Liquidez Mensal",
+      "Pedidos Cancelados"
+    ];
+    if (abasPermitidas.indexOf(String(nomeAba || "")) === -1) {
+      throw new Error("A aba solicitada não está disponível no espelho.");
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(nomeAba);
 
@@ -963,6 +979,8 @@ function executarAcaoApi_(action, args, token) {
     "salvarNuvemCompleta",
     "salvarVendaRealTime",
     "atualizarVendaRealTime",
+    "registrarPedidoPdv",
+    "atualizarPedidoPdv",
     "excluirVendaRealTime",
     "removerDaBaseDeVendasBackend",
     "lancarPedidoPlanilha",
@@ -1133,6 +1151,130 @@ function normalizarPedidoOnline_(pedidoRecebido, catalogo) {
   };
 }
 
+function normalizarPedidoPdv_(pedidoRecebido) {
+  if (!pedidoRecebido || typeof pedidoRecebido !== "object" || Array.isArray(pedidoRecebido)) {
+    throw erroApi_("INVALID_ORDER", "Pedido do PDV inválido.");
+  }
+  if (!Array.isArray(pedidoRecebido.itens) ||
+      pedidoRecebido.itens.length < 1 ||
+      pedidoRecebido.itens.length > 50) {
+    throw erroApi_("INVALID_ORDER", "O pedido deve conter entre 1 e 50 itens.");
+  }
+  const tipos = ["tapioca", "bebida", "extra"];
+  const itens = pedidoRecebido.itens.map(function(item) {
+    const quantidade = Number(item && item.quantidade);
+    const preco = Number(item && item.preco);
+    const tipo = String(item && item.tipo || "");
+    if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 20) {
+      throw erroApi_("INVALID_ORDER", "A quantidade de cada item deve ser de 1 a 20.");
+    }
+    if (!isFinite(preco) || preco <= 0 || preco > 1000) {
+      throw erroApi_("INVALID_ORDER", "O preço do item é inválido.");
+    }
+    if (tipos.indexOf(tipo) === -1) {
+      throw erroApi_("INVALID_ORDER", "O tipo do item é inválido.");
+    }
+    return {
+      nome: textoPedidoSeguro_(item.nome, 140, true),
+      preco: Math.round(preco * 100) / 100,
+      tipo: tipo,
+      ing: textoPedidoSeguro_(item.ing, 500, false),
+      quantidade: quantidade,
+      obs: textoPedidoSeguro_(item.obs, 300, false),
+      pronto: item.pronto === true,
+      personalizacoes: Array.isArray(item.personalizacoes)
+        ? item.personalizacoes.slice(0, 20).map(function(valor) {
+            return textoPedidoSeguro_(valor, 100, false);
+          })
+        : []
+    };
+  });
+  return {
+    origem: "PDV",
+    itens: itens,
+    total: itens.reduce(function(total, item) {
+      return total + item.quantidade * item.preco;
+    }, 0),
+    produzido: itens.filter(function(item) {
+      return item.tipo !== "bebida";
+    }).every(function(item) {
+      return item.pronto;
+    })
+  };
+}
+
+function registrarPedidoPdv(pedidoJSON) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const pedido = normalizarPedidoPdv_(JSON.parse(pedidoJSON || "{}"));
+    const props = PropertiesService.getScriptProperties();
+    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    const numerosHoje = ativos.filter(function(item) {
+      const ts = item.timestampCriacao || item.timestamp;
+      return ts && Utilities.formatDate(
+        new Date(ts),
+        Session.getScriptTimeZone(),
+        "yyyy-MM-dd"
+      ) === hoje;
+    }).map(function(item) {
+      return Number(item.numero) || 0;
+    });
+    pedido.numero = (numerosHoje.length ? Math.max.apply(null, numerosHoje) : 0) + 1;
+    pedido.timestampCriacao = Date.now();
+    pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
+    ativos.push(pedido);
+    lancarPedidoPlanilha(JSON.stringify(pedido));
+    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
+    return pedido;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function atualizarPedidoPdv(pedidoJSON) {
+  const recebido = JSON.parse(pedidoJSON || "{}");
+  const numero = Number(recebido.numero);
+  if (!Number.isInteger(numero) || numero < 1) {
+    throw erroApi_("INVALID_ORDER", "Número do pedido inválido.");
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const props = PropertiesService.getScriptProperties();
+    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const indice = ativos.findIndex(function(item) {
+      return Number(item.numero) === numero;
+    });
+    if (indice === -1) {
+      throw erroApi_("ORDER_NOT_FOUND", "O pedido não foi encontrado.");
+    }
+    const pedidoAnterior = ativos[indice];
+    const pedido = normalizarPedidoPdv_(recebido);
+    pedido.numero = numero;
+    pedido.timestampCriacao = ativos[indice].timestampCriacao;
+    pedido.hora = ativos[indice].hora;
+    try {
+      removerDaBaseDeVendasBackend(numero);
+      lancarPedidoPlanilha(JSON.stringify(pedido));
+    } catch (erro) {
+      try {
+        removerDaBaseDeVendasBackend(numero);
+        lancarPedidoPlanilha(JSON.stringify(pedidoAnterior));
+      } catch (erroRestauracao) {
+        console.error("Falha ao restaurar pedido após erro de atualização:", erroRestauracao);
+      }
+      throw erro;
+    }
+    ativos[indice] = pedido;
+    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
+    return pedido;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function registrarPedidoOnline(pedidoJSON) {
   const lock = LockService.getScriptLock();
   try {
@@ -1215,8 +1357,8 @@ function registrarPedidoOnline(pedidoJSON) {
     pedido.timestampCriacao = Date.now();
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
     ativos.push(pedido);
-    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
     lancarPedidoPlanilha(JSON.stringify(pedido));
+    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
     const resultado = { numero: pedido.numero, pedido: pedido };
     cache.put(chaveDuplicidade, JSON.stringify(resultado), 120);
     cache.put(chaveLimite, String(quantidadeRecente + 1), 600);
@@ -1283,7 +1425,7 @@ const CATEGORIAS_CATALOGO_ = [
 ];
 
 function normalizarResponsavelConfiguracao_(responsavel) {
-  const nome = String(responsavel || "").trim().replace(/\s+/g, " ");
+  const nome = textoPedidoSeguro_(responsavel, 100, true);
   if (nome.length < 2) {
     throw new Error("Informe o nome de quem está realizando a configuração.");
   }
@@ -1298,10 +1440,10 @@ function normalizarCatalogo_(catalogo) {
       : [];
     resultado[categoria] = lista.map(function(item) {
       return {
-        nome: String(item && item.nome || "").trim(),
+        nome: textoPedidoSeguro_(item && item.nome, 140, false),
         preco: Math.max(0, Number(item && item.preco) || 0),
         tipo: item && item.tipo === "bebida" ? "bebida" : "tapioca",
-        ing: String(item && item.ing || "").trim()
+        ing: textoPedidoSeguro_(item && item.ing, 500, false)
       };
     }).filter(function(item) {
       return item.nome && item.preco > 0;
@@ -1351,12 +1493,12 @@ function obterAbaLogConfiguracao_() {
 function registrarLogConfiguracao_(responsavel, acao, item, categoria, antes, depois) {
   obterAbaLogConfiguracao_().appendRow([
     new Date(),
-    responsavel,
-    acao,
-    item || "-",
-    categoria || "-",
-    antes ? JSON.stringify(antes) : "-",
-    depois ? JSON.stringify(depois) : "-"
+    valorSeguroPlanilha_(String(responsavel || "-")),
+    valorSeguroPlanilha_(String(acao || "-")),
+    valorSeguroPlanilha_(String(item || "-")),
+    valorSeguroPlanilha_(String(categoria || "-")),
+    antes ? valorSeguroPlanilha_(JSON.stringify(antes)) : "-",
+    depois ? valorSeguroPlanilha_(JSON.stringify(depois)) : "-"
   ]);
 }
 
@@ -1377,7 +1519,7 @@ function inicializarCatalogoConfiguracao(catalogoPadraoJSON, responsavel) {
 }
 
 function validarItemCatalogo_(item) {
-  const nome = String(item && item.nome || "").trim().replace(/\s+/g, " ");
+  const nome = textoPedidoSeguro_(item && item.nome, 140, false);
   const categoria = String(item && item.categoria || "").trim();
   const preco = Number(item && item.preco);
   if (nome.length < 2) throw new Error("Informe um nome válido para o item.");
@@ -1391,7 +1533,7 @@ function validarItemCatalogo_(item) {
     nome: nome.substring(0, 140),
     preco: Math.round(preco * 100) / 100,
     tipo: categoria === "bebidas" || item.tipo === "bebida" ? "bebida" : "tapioca",
-    ing: String(item.ing || "").trim().substring(0, 500),
+    ing: textoPedidoSeguro_(item.ing, 500, false),
     categoria: categoria
   };
 }
