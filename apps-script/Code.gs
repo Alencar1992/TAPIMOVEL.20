@@ -976,6 +976,7 @@ function executarAcaoApi_(action, args, token) {
   ];
 
   const acoesAdministrativas = [
+    "carregarDadosNuvem",
     "salvarNuvemCompleta",
     "salvarVendaRealTime",
     "atualizarVendaRealTime",
