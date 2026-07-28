@@ -187,6 +187,18 @@
     <link rel="stylesheet" href="./loading.css">
 </head>
 <body class="app-admin">
+    <section id="loginAdmin" aria-labelledby="loginAdminTitulo" style="display:none;position:fixed;inset:0;z-index:20000;background:radial-gradient(circle at top,#30272a 0,#121212 48%);align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+        <form id="formLoginAdmin" style="width:min(100%,390px);background:#1e1e1e;border:1px solid #3a3a3a;border-top:4px solid var(--primary);border-radius:18px;padding:28px;box-sizing:border-box;box-shadow:0 24px 70px rgba(0,0,0,.55)" autocomplete="off">
+            <div aria-hidden="true" style="width:68px;height:68px;margin:0 auto 16px;display:grid;place-items:center;border-radius:20px;background:rgba(255,107,107,.12);font-size:2.1rem">🔐</div>
+            <h1 id="loginAdminTitulo" style="margin:0;text-align:center;color:var(--text);font-size:1.55rem">Acesso ao PDV</h1>
+            <p style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
+            <label for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
+            <input id="loginAdminPin" type="password" inputmode="numeric" pattern="[0-9]{6,12}" minlength="6" maxlength="12" required aria-describedby="loginAdminErro" style="width:100%;box-sizing:border-box;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.2rem;letter-spacing:.18em;text-align:center">
+            <p id="loginAdminErro" role="alert" style="min-height:20px;margin:9px 0;color:#ff8787;text-align:center;font-size:.9rem"></p>
+            <button id="btnLoginAdmin" type="submit" class="btn-acao">Entrar com segurança</button>
+            <a href="./cliente.html" style="display:block;margin-top:16px;text-align:center;color:var(--text-muted)">Abrir cardápio do cliente</a>
+        </form>
+    </section>
     <div id="modalErroSistema" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);justify-content:center;align-items:center;z-index:99999;font-family:sans-serif">
         <div style="background:#1e1e1e;padding:20px;border-radius:8px;width:95%;max-width:450px;border-top:5px solid #dc3545;box-shadow:0 10px 30px rgba(0,0,0,.5);box-sizing:border-box">
             <div style="font-size:3rem;text-align:center;margin-bottom:10px">🐞</div>
@@ -1118,11 +1130,19 @@
         };
 
         const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const escaparHtml = (valor) => String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        })[caractere]);
+        const jsonSeguroAtributo = (valor) => JSON.stringify(valor)
+            .replace(/&/g, '\\u0026')
+            .replace(/'/g, '\\u0027')
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e');
         const ehHoje = (timestamp) => { if (!timestamp) return false; const d = new Date(timestamp), h = new Date(); return d.getDate()===h.getDate() && d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear(); };
 
         function mostrarToast(mensagem) {
             let container = document.getElementById('toast-container'); let toast = document.createElement('div');
-            toast.className = 'toast'; toast.innerHTML = mensagem; container.appendChild(toast);
+            toast.className = 'toast'; toast.textContent = mensagem; container.appendChild(toast);
             setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease-out forwards'; setTimeout(() => toast.remove(), 300); }, 2000);
         }
 
@@ -1273,7 +1293,74 @@
             loopSync();
         }
 
-        window.onload = function() {
+        function mostrarLoginAdmin(mensagem) {
+            clearTimeout(syncAtivo);
+            syncAtivo = null;
+            pausarSync = true;
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('loginAdmin').style.display = 'flex';
+            document.getElementById('loginAdminErro').textContent = mensagem || '';
+            setTimeout(function() { document.getElementById('loginAdminPin').focus(); }, 80);
+        }
+
+        function liberarAplicacaoAdmin() {
+            document.getElementById('loginAdmin').style.display = 'none';
+            document.getElementById('loadingScreen').style.display = 'flex';
+            document.getElementById('loadingText').textContent = 'Carregando cardápio...';
+            pausarSync = false;
+            iniciarAplicacaoAdmin();
+        }
+
+        function iniciarAutenticacaoAdmin() {
+            if (!window.TapimovelAuth || !window.TapimovelAuth.hasToken()) {
+                mostrarLoginAdmin('');
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(function(valida) {
+                    if (valida === true) liberarAplicacaoAdmin();
+                    else mostrarLoginAdmin('Sua sessão expirou. Entre novamente.');
+                })
+                .withFailureHandler(function() {
+                    mostrarLoginAdmin('Não foi possível validar a sessão.');
+                })
+                .validarSessaoAdministrador();
+        }
+
+        document.getElementById('formLoginAdmin').addEventListener('submit', function(evento) {
+            evento.preventDefault();
+            const pin = document.getElementById('loginAdminPin').value.trim();
+            const botao = document.getElementById('btnLoginAdmin');
+            const erro = document.getElementById('loginAdminErro');
+            if (!/^\d{6,12}$/.test(pin)) {
+                erro.textContent = 'Digite um PIN de 6 a 12 números.';
+                return;
+            }
+            botao.disabled = true;
+            botao.textContent = 'Verificando...';
+            erro.textContent = '';
+            google.script.run
+                .withSuccessHandler(function() {
+                    document.getElementById('loginAdminPin').value = '';
+                    botao.disabled = false;
+                    botao.textContent = 'Entrar com segurança';
+                    liberarAplicacaoAdmin();
+                })
+                .withFailureHandler(function(falha) {
+                    botao.disabled = false;
+                    botao.textContent = 'Entrar com segurança';
+                    erro.textContent = falha.message || 'Não foi possível entrar.';
+                })
+                .loginAdministrador(pin);
+        });
+
+        window.addEventListener('tapimovel:auth-required', function(evento) {
+            mostrarLoginAdmin(evento.detail && evento.detail.message);
+        });
+
+        window.onload = iniciarAutenticacaoAdmin;
+
+        function iniciarAplicacaoAdmin() {
             try {
                 let dataHoje = new Date();
                 carregarDisponibilidadeCardapio();
@@ -1347,7 +1434,7 @@
             } catch (fatalError) {
                 document.getElementById('loadingText').innerHTML = "Erro Crítico de Tela. Recarregue.<br><small style='color:var(--danger);'>" + fatalError.message + "</small>";
             }
-        };
+        }
 
         function abrirMenuLateral() {
             document.querySelectorAll('.submenu').forEach(sub => {
@@ -1501,7 +1588,7 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${prod.nome}" aria-disabled="${esgotado}" onclick='clickProduto(${JSON.stringify(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${prod.nome}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">3</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
+            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">3</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
         };
 
         function pesquisarProdutos() {
@@ -1526,7 +1613,7 @@
             let filtrados = todos.filter(p => p.nome.toLowerCase().includes(termoPesquisa) || (p.ing && p.ing.toLowerCase().includes(termoPesquisa)));
 
             if (filtrados.length === 0) {
-                grid.innerHTML = `<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; margin-top: 20px;">Não encontrei nada com "<b>${termoPesquisa}</b>".</p>`;
+                grid.innerHTML = `<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; margin-top: 20px;">Não encontrei nada com "<b>${escaparHtml(termoPesquisa)}</b>".</p>`;
                 return;
             }
             grid.innerHTML = filtrados.map(gerarHtmlProduto).join('');
@@ -1761,13 +1848,14 @@
                 let htmlItens = ''; let indicesAgrupados = new Set();
                 pedido.itens.forEach((item, idx) => {
                     if (item.tipo === 'bebida') return; if (indicesAgrupados.has(idx)) return; if (item.pronto) return;
-                    let ingredientesHtml = item.ing ? `<span class="ingredientes">${item.ing}</span>` : '';
+                    let ingredientesHtml = item.ing ? `<span class="ingredientes">${escaparHtml(item.ing)}</span>` : '';
                     let personalizacoesHtml = item.personalizacoes && item.personalizacoes.length
-                        ? `<span class="ingredientes" style="color:#74c0fc; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAR: ${item.personalizacoes.join(', ')}</span>`
+                        ? `<span class="ingredientes" style="color:#74c0fc; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAR: ${item.personalizacoes.map(escaparHtml).join(', ')}</span>`
                         : '';
-                    let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${item.obs}</span>` : ''; let extrasHtml = '';
-                    for (let i = idx + 1; i < pedido.itens.length; i++) { let proximoItem = pedido.itens[i]; if (proximoItem.tipo === 'extra') { if(!proximoItem.pronto) { let nomeDoExtra = (proximoItem.nome === '+ Adicional' && proximoItem.obs) ? proximoItem.obs : proximoItem.nome; let obsDoExtra = (proximoItem.nome !== '+ Adicional' && proximoItem.obs) ? ` - ${proximoItem.obs}` : ''; extrasHtml += `<div style="color: #ffc107; font-weight: bold; font-size: 0.95rem; margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffc107;">➕ Adicional: ${nomeDoExtra}${obsDoExtra}</div>`; } indicesAgrupados.add(i); } else if (proximoItem.tipo !== 'bebida') { break; } }
+                    let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${escaparHtml(item.obs)}</span>` : ''; let extrasHtml = '';
+                    for (let i = idx + 1; i < pedido.itens.length; i++) { let proximoItem = pedido.itens[i]; if (proximoItem.tipo === 'extra') { if(!proximoItem.pronto) { let nomeDoExtra = (proximoItem.nome === '+ Adicional' && proximoItem.obs) ? proximoItem.obs : proximoItem.nome; let obsDoExtra = (proximoItem.nome !== '+ Adicional' && proximoItem.obs) ? ` - ${proximoItem.obs}` : ''; extrasHtml += `<div style="color: #ffc107; font-weight: bold; font-size: 0.95rem; margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffc107;">➕ Adicional: ${escaparHtml(nomeDoExtra)}${escaparHtml(obsDoExtra)}</div>`; } indicesAgrupados.add(i); } else if (proximoItem.tipo !== 'bebida') { break; } }
                     let nomeExibicao = item.tipo === 'extra' ? `⚠️ Adicional Avulso: ${item.obs || item.nome}` : item.nome;
+                    nomeExibicao = escaparHtml(nomeExibicao);
                     htmlItens += `<div class="item-producao"><div class="info-prod"><strong>${item.quantidade}x ${nomeExibicao}</strong>${ingredientesHtml}${personalizacoesHtml}${obsHtml}${extrasHtml}</div><button class="btn-check-item" onclick="marcarItemEExtrasPronto('${pedido.numero}', ${idx})">✅ Concluir</button></div>`;
                 });
                 if(htmlItens !== '') {
@@ -1805,7 +1893,7 @@
             let htmlBuffer = '';
             pendentesPainel.forEach(pedido => {
                 const statusHtml = pedido.produzido ? '<span class="status-badge status-pronto">✓ PRONTO</span>' : '<span class="status-badge status-preparo">⏳ COZINHA</span>';
-                const itensTxt = pedido.itens.map(i => `${i.quantidade}x ${i.nome}`).join(', ');
+                const itensTxt = pedido.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
                 htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel"><button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar</button><button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')">💳 Pagar</button></div></div>`;
             });
             lista.innerHTML = htmlBuffer;
@@ -1910,8 +1998,8 @@
 
             let htmlBuffer = '';
             vendasHoje.forEach(v => {
-                const itensTxt = v.itens.map(i => `${i.quantidade}x ${i.nome}`).join(', ');
-                htmlBuffer += `<div class="card-historico"><div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom: 4px;"><span>Pedido #${v.numero} - ✅</span><span>${formatarMoeda(v.total)}</span></div><div style="font-size:0.85rem; color:#e0e0e0; margin-bottom: 6px; line-height: 1.3;">${itensTxt}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:0.8rem; color:var(--text-muted);">Pago no ${v.formaPagamento} às ${new Date(v.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><button onclick="reabrirPedido('${v.numero}')" style="background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">🔄 Reabrir / Editar</button></div></div>`;
+                const itensTxt = v.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
+                htmlBuffer += `<div class="card-historico"><div style="display:flex;justify-content:space-between;font-weight:bold;margin-bottom:4px"><span>Pedido #${Number(v.numero) || 0} - ✅</span><span>${formatarMoeda(Number(v.total) || 0)}</span></div><div style="font-size:.85rem;color:#e0e0e0;margin-bottom:6px;line-height:1.3">${itensTxt}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.8rem;color:var(--text-muted)">Pago no ${escaparHtml(v.formaPagamento)} às ${new Date(v.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><button onclick="reabrirPedido('${Number(v.numero) || 0}')" style="background:var(--edit);color:white;border:none;padding:6px 12px;border-radius:4px;font-weight:bold;cursor:pointer;font-size:.8rem">🔄 Reabrir / Editar</button></div></div>`;
             });
             lista.innerHTML = htmlBuffer;
         }
@@ -2345,7 +2433,7 @@
                         }
 
                         let headHtml = '<tr>';
-                        dados[0].forEach(col => { headHtml += `<th>${col}</th>`; });
+                        dados[0].forEach(col => { headHtml += `<th>${escaparHtml(col)}</th>`; });
                         headHtml += '</tr>';
                         headEl.innerHTML = headHtml;
 
@@ -2354,7 +2442,7 @@
                             bodyHtml += '<tr>';
                             dados[i].forEach(celula => {
                                 let valor = celula !== undefined && celula !== null ? celula : '';
-                                bodyHtml += `<td>${valor}</td>`;
+                                bodyHtml += `<td>${escaparHtml(valor)}</td>`;
                             });
                             bodyHtml += '</tr>';
                         }
@@ -2362,7 +2450,7 @@
 
                     } catch(e) {
                         document.getElementById('headEspelho').innerHTML = '';
-                        document.getElementById('bodyEspelho').innerHTML = `<tr><td style="color:var(--danger);">Erro ao formatar espelho: ${e.message}</td></tr>`;
+                        document.getElementById('bodyEspelho').innerHTML = `<tr><td style="color:var(--danger);">Erro ao formatar espelho: ${escaparHtml(e.message)}</td></tr>`;
                     }
                 })
                 .withFailureHandler(function(erro) {
@@ -2447,23 +2535,23 @@
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 1.2rem; font-weight: bold; color: var(--primary); min-width: 30px;">${medalha}</span>
                                     <div>
-                                        <strong style="display: block; color: var(--text);">${item.produto}</strong>
-                                        <small style="color: var(--text-muted);">${item.quantidade} unidades vendidas</small>
+                                        <strong style="display: block; color: var(--text);">${escaparHtml(item.produto)}</strong>
+                                        <small style="color: var(--text-muted);">${Number(item.quantidade) || 0} unidades vendidas</small>
                                     </div>
                                 </div>
                                 <div style="text-align: right;">
-                                    <strong style="color: var(--success);">${formatarMoeda(item.totalArrecadado)}</strong>
+                                    <strong style="color: var(--success);">${formatarMoeda(Number(item.totalArrecadado) || 0)}</strong>
                                 </div>
                             </div>`;
                         });
                         divResult.innerHTML = html;
                     } catch(e) {
-                        divResult.innerHTML = `<p style="color:var(--danger); text-align:center;">Erro ao desenhar: ${e.message}</p>`;
+                        divResult.innerHTML = `<p style="color:var(--danger); text-align:center;">Erro ao desenhar: ${escaparHtml(e.message)}</p>`;
                     }
                 })
                 .withFailureHandler(function(erro) {
                     loading.style.display = 'none';
-                    divResult.innerHTML = `<p style="color:var(--danger); text-align:center; border: 1px solid var(--danger); padding: 10px; border-radius: 6px;"><b>Erro:</b><br>${erro.message}</p>`;
+                    divResult.innerHTML = `<p style="color:var(--danger); text-align:center; border: 1px solid var(--danger); padding: 10px; border-radius: 6px;"><b>Erro:</b><br>${escaparHtml(erro.message)}</p>`;
                 })
                 .buscarTopProdutosBackend(mes, ano);
             }
@@ -2503,10 +2591,10 @@
                                     <span style="font-size: 2rem;">${icone}</span>
                                     <div>
                                         <div style="font-size: 0.8rem; color: var(--text-muted);">${index + 1}º Lugar</div>
-                                        <strong style="color: ${corTexto}; font-size: ${tamanhoFonte};">${item.rota}</strong>
+                                    <strong style="color: ${corTexto}; font-size: ${tamanhoFonte};">${escaparHtml(item.rota)}</strong>
                                     </div>
                                 </div>
-                                <strong style="font-size: 1.2rem; color: var(--success);">${formatarMoeda(item.total)}</strong>
+                                <strong style="font-size: 1.2rem; color: var(--success);">${formatarMoeda(Number(item.total) || 0)}</strong>
                             </div>`;
                         });
                         divResult.innerHTML = html;

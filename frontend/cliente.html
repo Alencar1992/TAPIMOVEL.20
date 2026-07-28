@@ -268,6 +268,14 @@
         let horaAtualInt = new Date().getHours();
         let lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt >= 18 && horaAtualInt < 22;
         const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const escaparHtml = (valor) => String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        })[caractere]);
+        const jsonSeguroAtributo = (valor) => JSON.stringify(valor)
+            .replace(/&/g, '\\u0026')
+            .replace(/'/g, '\\u0027')
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e');
 
         window.onload = () => {
             carregarConfiguracoesDia();
@@ -402,11 +410,11 @@
                 let indisponivel = esgotado || !lojaAberta;
                 let imagem = obterImagemProduto(p);
                 let foto = imagem
-                    ? `<img class="card-image" src="${imagem}" alt="Foto ilustrativa de ${p.nome}" loading="lazy" decoding="async">`
+                    ? `<img class="card-image" src="${imagem}" alt="Foto ilustrativa de ${escaparHtml(p.nome)}" loading="lazy" decoding="async">`
                     : `<div class="card-image card-image-placeholder" aria-hidden="true">🥤</div>`;
                 let selo = esgotado ? '<span class="sold-out-label">Esgotado</span>' : '';
                 let textoBotao = esgotado ? 'Esgotado' : (lojaAberta ? 'Adicionar' : 'Fechado hoje');
-                return `<article class="card ${esgotado ? 'esgotado' : ''}">${badge}${selo}${foto}<div class="card-body"><div><h3>${p.nome}</h3><p class="ing">${p.ing || 'Bebida gelada'}</p></div><div class="card-footer"><p class="price">${formatar(p.preco)}</p><button type="button" class="btn-add" ${indisponivel ? 'disabled' : ''} onclick='prepararItem(${JSON.stringify(p)})'>${textoBotao}</button></div></div></article>`;
+                return `<article class="card ${esgotado ? 'esgotado' : ''}">${badge}${selo}${foto}<div class="card-body"><div><h3>${escaparHtml(p.nome)}</h3><p class="ing">${escaparHtml(p.ing || 'Bebida gelada')}</p></div><div class="card-footer"><p class="price">${formatar(p.preco)}</p><button type="button" class="btn-add" ${indisponivel ? 'disabled' : ''} onclick='prepararItem(${jsonSeguroAtributo(p)})'>${textoBotao}</button></div></div></article>`;
             };
 
             if(cat === 'salgadas') grid.innerHTML = bdCatalogo.salgadas.map(gerarCard).join('');
@@ -425,7 +433,7 @@
             ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(q => {
                 let pr = precosMonteSua[carne][q];
                 let pObj = { nome: `Monte Sua: ${carne} c/ ${q}`, preco: pr, tipo: 'tapioca', ing: `${carne} e ${q}` };
-                html += `<div class="card"><h3>${q}</h3><p class="price">${formatar(pr)}</p><button class="btn-add" onclick='prepararItem(${JSON.stringify(pObj)})'>Adicionar</button></div>`;
+                html += `<div class="card"><h3>${q}</h3><p class="price">${formatar(pr)}</p><button class="btn-add" onclick='prepararItem(${jsonSeguroAtributo(pObj)})'>Adicionar</button></div>`;
             });
             html += `<button class="btn-large btn-close" style="grid-column: 1/-1;" onclick="mudarAba('monte', document.querySelectorAll('.tab')[3])">⬅️ Voltar para Carnes</button>`;
             grid.innerHTML = html;
@@ -472,7 +480,7 @@
             let total = 0;
             carrinho.forEach((item, idx) => {
                 total += item.preco;
-                lista.innerHTML += `<div class="cart-item"><div><span>1x ${item.nome}</span>${item.obs ? `<small>Obs: ${item.obs}</small>` : ''}</div><div style="display:flex; align-items:center; gap:10px;"><span>${formatar(item.preco)}</span><span style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removerItem(${idx})">🗑️</span></div></div>`;
+                lista.innerHTML += `<div class="cart-item"><div><span>1x ${escaparHtml(item.nome)}</span>${item.obs ? `<small>Obs: ${escaparHtml(item.obs)}</small>` : ''}</div><div style="display:flex; align-items:center; gap:10px;"><span>${formatar(item.preco)}</span><span style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removerItem(${idx})">🗑️</span></div></div>`;
             });
             document.getElementById('checkoutTotal').textContent = formatar(total);
             document.getElementById('modalCheckout').style.display = 'flex';

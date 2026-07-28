@@ -1,22 +1,127 @@
 // =========================================================
-// 1. PORTA DE ENTRADA DO APLICATIVO (ROTEADOR)
+// 1. SEGURANÇA E PORTA DE ENTRADA DO APLICATIVO
 // =========================================================
-function doGet(e) {
-  if (e.parameter && e.parameter.action) {
-    return responderApi_(executarAcaoApi_(e.parameter.action, []));
+const CHAVE_PIN_ADMIN_ = "pdv_admin_pin_hash";
+const CHAVE_SESSAO_ADMIN_ = "pdv_admin_session_";
+const CHAVE_TENTATIVAS_LOGIN_ = "pdv_admin_login_attempts";
+const DURACAO_SESSAO_ADMIN_SEGUNDOS_ = 21600;
+
+function hashSeguro_(valor) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(valor || ""),
+    Utilities.Charset.UTF_8
+  );
+  return bytes.map(function(byte) {
+    const normalizado = byte < 0 ? byte + 256 : byte;
+    return ("0" + normalizado.toString(16)).slice(-2);
+  }).join("");
+}
+
+function erroApi_(codigo, mensagem) {
+  const erro = new Error(mensagem);
+  erro.code = codigo;
+  return erro;
+}
+
+function configurarPinAdministrador(pin) {
+  const valor = String(pin || "");
+  if (!/^\d{6,12}$/.test(valor)) {
+    throw new Error("O PIN administrativo deve conter de 6 a 12 números.");
+  }
+  PropertiesService.getScriptProperties().setProperty(CHAVE_PIN_ADMIN_, hashSeguro_(valor));
+  CacheService.getScriptCache().remove(CHAVE_TENTATIVAS_LOGIN_);
+  return "PIN administrativo configurado com sucesso.";
+}
+
+function loginAdministrador(pin) {
+  const cache = CacheService.getScriptCache();
+  const tentativas = Number(cache.get(CHAVE_TENTATIVAS_LOGIN_) || 0);
+  if (tentativas >= 5) {
+    throw erroApi_(
+      "LOGIN_BLOCKED",
+      "Muitas tentativas de acesso. Aguarde 10 minutos e tente novamente."
+    );
   }
 
-  if (e.parameter && e.parameter.modo === 'cliente') {
-    return HtmlService.createHtmlOutputFromFile('Cliente')
-      .setTitle('Cardápio - Expresso Tapiocaria')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  const hashConfigurado = PropertiesService.getScriptProperties().getProperty(CHAVE_PIN_ADMIN_);
+  if (!hashConfigurado) {
+    throw erroApi_(
+      "ADMIN_NOT_CONFIGURED",
+      "O PIN administrativo ainda não foi configurado no Apps Script."
+    );
   }
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('projeto_melhoria_TAPIMOVEL_2.0')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
+  if (hashSeguro_(pin) !== hashConfigurado) {
+    cache.put(CHAVE_TENTATIVAS_LOGIN_, String(tentativas + 1), 600);
+    throw erroApi_("INVALID_CREDENTIALS", "PIN inválido.");
+  }
+
+  cache.remove(CHAVE_TENTATIVAS_LOGIN_);
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  cache.put(
+    CHAVE_SESSAO_ADMIN_ + hashSeguro_(token),
+    JSON.stringify({ criadoEm: Date.now() }),
+    DURACAO_SESSAO_ADMIN_SEGUNDOS_
+  );
+  return {
+    token: token,
+    expiraEm: Date.now() + DURACAO_SESSAO_ADMIN_SEGUNDOS_ * 1000
+  };
+}
+
+function validarSessaoAdministrador(token) {
+  if (!token) return false;
+  return Boolean(
+    CacheService.getScriptCache().get(CHAVE_SESSAO_ADMIN_ + hashSeguro_(token))
+  );
+}
+
+function encerrarSessaoAdministrador(token) {
+  if (token) {
+    CacheService.getScriptCache().remove(CHAVE_SESSAO_ADMIN_ + hashSeguro_(token));
+  }
+  return true;
+}
+
+function exigirSessaoAdministrador_(token) {
+  if (!validarSessaoAdministrador(token)) {
+    throw erroApi_("AUTH_REQUIRED", "Acesso administrativo não autorizado.");
+  }
+}
+
+function doGet(e) {
+  try {
+    if (e.parameter && e.parameter.action) {
+      const permitidasViaGet = [
+        "obterDisponibilidadeCardapio",
+        "obterCatalogoCardapio",
+        "obterStatusCardapio"
+      ];
+      if (permitidasViaGet.indexOf(e.parameter.action) === -1) {
+        return responderApi_({
+          ok: false,
+          code: "METHOD_NOT_ALLOWED",
+          error: "Esta ação exige uma requisição POST."
+        });
+      }
+      return responderApi_(executarAcaoApi_(e.parameter.action, [], ""));
+    }
+
+    return responderApi_({
+      ok: true,
+      data: {
+        servico: "Tapimóvel 2.0 API",
+        status: "online"
+      }
+    });
+  } catch (erro) {
+    return responderApi_({
+      ok: false,
+      code: erro && erro.code ? erro.code : "SERVER_ERROR",
+      error: erro && erro.message ? erro.message : String(erro)
+    });
+  }
 }
 
 function include(filename) {
@@ -37,6 +142,7 @@ function salvarNuvemCompleta(historicoJSON) {
     PropertiesService.getScriptProperties().setProperty("pdv_vendas_ativas", historicoJSON);
   } catch(e) {
     console.error("Erro salvarNuvemCompleta: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -53,6 +159,7 @@ function salvarVendaRealTime(pedidoJSON) {
     c.setProperty("pdv_vendas_ativas", JSON.stringify(a));
   } catch (e) {
     console.error("Erro salvarVendaRealTime: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -72,6 +179,7 @@ function atualizarVendaRealTime(pedidoJSON) {
     }
   } catch (e) {
     console.error("Erro atualizarVendaRealTime: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -87,6 +195,7 @@ function excluirVendaRealTime(num) {
     c.setProperty("pdv_vendas_ativas", JSON.stringify(n));
   } catch (e) {
     console.error("Erro excluirVendaRealTime: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -109,6 +218,7 @@ function removerDaBaseDeVendasBackend(idPedido) {
     }
   } catch(e) {
     console.error("Erro removerDaBaseDeVendasBackend: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -127,13 +237,24 @@ function lancarPedidoPlanilha(pedidoJSON) {
     }
     let matrizItens = [];
     p.itens.forEach(i => {
-      matrizItens.push(["#" + p.numero, p.hora, i.nome, i.tipo.toUpperCase(), i.quantidade, i.preco, (i.quantidade * i.preco), "AGUARDANDO FINALIZAÇÃO", i.obs || "-"]);
+      matrizItens.push([
+        "#" + p.numero,
+        valorSeguroPlanilha_(String(p.hora || "")),
+        valorSeguroPlanilha_(String(i.nome || "")),
+        valorSeguroPlanilha_(String(i.tipo || "").toUpperCase()),
+        Number(i.quantidade) || 0,
+        Number(i.preco) || 0,
+        (Number(i.quantidade) || 0) * (Number(i.preco) || 0),
+        "AGUARDANDO FINALIZAÇÃO",
+        valorSeguroPlanilha_(String(i.obs || "-"))
+      ]);
     });
     if (matrizItens.length > 0) {
       aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
     }
   } catch(e) {
     console.error("Erro lancarPedidoPlanilha: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -152,13 +273,24 @@ function moverParaHistorico(pedidoJSON) {
     }
     let matrizItens = [];
     p.itens.forEach(i => {
-      matrizItens.push(["#" + p.numero, p.dataExibicao, i.nome, i.tipo.toUpperCase(), i.quantidade, i.preco, (i.quantidade * i.preco), p.formaPagamento, i.obs || "-"]);
+      matrizItens.push([
+        "#" + p.numero,
+        valorSeguroPlanilha_(String(p.dataExibicao || "")),
+        valorSeguroPlanilha_(String(i.nome || "")),
+        valorSeguroPlanilha_(String(i.tipo || "").toUpperCase()),
+        Number(i.quantidade) || 0,
+        Number(i.preco) || 0,
+        (Number(i.quantidade) || 0) * (Number(i.preco) || 0),
+        valorSeguroPlanilha_(String(p.formaPagamento || "")),
+        valorSeguroPlanilha_(String(i.obs || "-"))
+      ]);
     });
     if (matrizItens.length > 0) {
       aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
     }
   } catch(e) {
     console.error("Erro moverParaHistorico: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -177,13 +309,20 @@ function moverParaCancelados(pedidoJSON) {
     }
     let matrizItens = [];
     p.itens.forEach(i => {
-      matrizItens.push(["#" + p.numero, p.dataExibicao, i.nome, i.quantidade, (i.quantidade * i.preco)]);
+      matrizItens.push([
+        "#" + p.numero,
+        valorSeguroPlanilha_(String(p.dataExibicao || "")),
+        valorSeguroPlanilha_(String(i.nome || "")),
+        Number(i.quantidade) || 0,
+        (Number(i.quantidade) || 0) * (Number(i.preco) || 0)
+      ]);
     });
     if (matrizItens.length > 0) {
       aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
     }
   } catch(e) {
     console.error("Erro moverParaCancelados: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -207,6 +346,7 @@ function reabrirPedidoBackend(pedidoJSON) {
     }
   } catch(e) {
     console.error("Erro reabrirPedidoBackend: ", e);
+    throw e;
   } finally {
     lock.releaseLock();
   }
@@ -759,10 +899,13 @@ function excluirContadorTapiocasHoje(dataHoje) {
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    return responderApi_(executarAcaoApi_(body.action, body.args || []));
+    return responderApi_(
+      executarAcaoApi_(body.action, body.args || [], String(body.token || ""))
+    );
   } catch (erro) {
     return responderApi_({
       ok: false,
+      code: erro && erro.code ? erro.code : "SERVER_ERROR",
       error: erro && erro.message ? erro.message : String(erro)
     });
   }
@@ -805,13 +948,15 @@ function salvarMultiplosFechamentos(resumosJSON) {
   }
 }
 
-function executarAcaoApi_(action, args) {
+function executarAcaoApi_(action, args, token) {
   const acoesPublicas = [
-    "carregarDadosNuvem",
     "obterDisponibilidadeCardapio",
     "obterCatalogoCardapio",
     "obterStatusCardapio",
-    "registrarPedidoOnline"
+    "registrarPedidoOnline",
+    "loginAdministrador",
+    "validarSessaoAdministrador",
+    "encerrarSessaoAdministrador"
   ];
 
   const acoesAdministrativas = [
@@ -851,15 +996,23 @@ function executarAcaoApi_(action, args) {
 
   const permitidas = acoesPublicas.concat(acoesAdministrativas);
   if (!action || permitidas.indexOf(action) === -1) {
-    throw new Error("Ação não permitida: " + action);
+    throw erroApi_("ACTION_NOT_ALLOWED", "Ação não permitida: " + action);
+  }
+
+  if (acoesAdministrativas.indexOf(action) !== -1) {
+    exigirSessaoAdministrador_(token);
   }
 
   const fn = this[action];
   if (typeof fn !== "function") {
-    throw new Error("Função não encontrada no backend: " + action);
+    throw erroApi_("ACTION_NOT_FOUND", "Função não encontrada no backend: " + action);
   }
 
-  return { ok: true, data: fn.apply(this, Array.isArray(args) ? args : []) };
+  const argumentos = Array.isArray(args) ? args : [];
+  if (action === "validarSessaoAdministrador" || action === "encerrarSessaoAdministrador") {
+    return { ok: true, data: fn.call(this, token) };
+  }
+  return { ok: true, data: fn.apply(this, argumentos) };
 }
 
 function responderApi_(payload) {
@@ -868,12 +1021,125 @@ function responderApi_(payload) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function textoPedidoSeguro_(valor, limite, obrigatorio) {
+  const texto = String(valor == null ? "" : valor)
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/[<>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, limite);
+  if (obrigatorio && !texto) {
+    throw erroApi_("INVALID_ORDER", "O pedido contém um campo obrigatório vazio.");
+  }
+  return texto;
+}
+
+function valorSeguroPlanilha_(valor) {
+  if (typeof valor !== "string") return valor;
+  const texto = valor.replace(/[\u0000-\u001F\u007F]/g, " ").substring(0, 1000);
+  return /^[=+\-@]/.test(texto.trim()) ? "'" + texto : texto;
+}
+
+function precoMonteSua_(nome) {
+  const combinacoes = {
+    "Calabresa": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+    "Frango": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+    "Carne Seca": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+    "Salame": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+    "Bacon": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 },
+    "Peito de Peru": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 }
+  };
+  const match = String(nome || "").match(/^Monte Sua: (.+) c\/ (.+)$/);
+  if (!match || !combinacoes[match[1]] || combinacoes[match[1]][match[2]] == null) {
+    throw erroApi_("INVALID_ORDER", "A combinação do Monte a Sua não é válida.");
+  }
+  return combinacoes[match[1]][match[2]];
+}
+
+function normalizarPedidoOnline_(pedidoRecebido, catalogo) {
+  if (!pedidoRecebido || typeof pedidoRecebido !== "object" || Array.isArray(pedidoRecebido)) {
+    throw erroApi_("INVALID_ORDER", "Pedido inválido.");
+  }
+  if (!Array.isArray(pedidoRecebido.itens) ||
+      pedidoRecebido.itens.length < 1 ||
+      pedidoRecebido.itens.length > 30) {
+    throw erroApi_("INVALID_ORDER", "O pedido deve conter entre 1 e 30 itens.");
+  }
+
+  const itensCatalogo = {};
+  CATEGORIAS_CATALOGO_.forEach(function(categoria) {
+    (catalogo[categoria] || []).forEach(function(item) {
+      itensCatalogo[item.nome] = item;
+    });
+  });
+
+  const itens = pedidoRecebido.itens.map(function(item) {
+    const nome = textoPedidoSeguro_(item && item.nome, 140, true);
+    const quantidade = Number(item && item.quantidade);
+    if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 20) {
+      throw erroApi_("INVALID_ORDER", "A quantidade de cada item deve ser de 1 a 20.");
+    }
+
+    const cadastrado = itensCatalogo[nome];
+    let preco = 0;
+    let tipo = "tapioca";
+    let ingredientes = "";
+    if (cadastrado) {
+      preco = Number(cadastrado.preco);
+      tipo = cadastrado.tipo === "bebida" ? "bebida" : "tapioca";
+      ingredientes = textoPedidoSeguro_(cadastrado.ing, 500, false);
+    } else if (nome.indexOf("Monte Sua:") === 0) {
+      preco = precoMonteSua_(nome);
+      ingredientes = textoPedidoSeguro_(item.ing, 500, false);
+    } else {
+      throw erroApi_(
+        "INVALID_ORDER",
+        "O item '" + nome + "' não está disponível no cardápio."
+      );
+    }
+
+    return {
+      nome: nome,
+      preco: Math.round(preco * 100) / 100,
+      tipo: tipo,
+      ing: ingredientes,
+      quantidade: quantidade,
+      obs: textoPedidoSeguro_(item.obs, 300, false),
+      pronto: false
+    };
+  });
+
+  const pagamentos = [
+    "PIX",
+    "Cartão de Crédito",
+    "Cartão de Débito",
+    "VR (Vale Refeição)"
+  ];
+  let pagamento = textoPedidoSeguro_(pedidoRecebido.pagamentoDesejado, 100, true);
+  if (pagamento.indexOf("Dinheiro (") !== 0 && pagamentos.indexOf(pagamento) === -1) {
+    throw erroApi_("INVALID_ORDER", "A forma de pagamento é inválida.");
+  }
+
+  return {
+    origem: "Online",
+    nomeCliente: textoPedidoSeguro_(pedidoRecebido.nomeCliente, 100, true),
+    enderecoCliente: textoPedidoSeguro_(pedidoRecebido.enderecoCliente, 180, true),
+    pagamentoDesejado: pagamento,
+    itens: itens,
+    total: itens.reduce(function(total, item) {
+      return total + item.quantidade * item.preco;
+    }, 0),
+    produzido: false
+  };
+}
+
 function registrarPedidoOnline(pedidoJSON) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
-    const pedido = JSON.parse(pedidoJSON);
     const props = PropertiesService.getScriptProperties();
+    const catalogo = catalogoConfigurado_("{}");
+    const pedido = normalizarPedidoOnline_(JSON.parse(pedidoJSON || "{}"), catalogo);
     const diaSemana = Number(
       Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "u")
     );
@@ -895,27 +1161,6 @@ function registrarPedidoOnline(pedidoJSON) {
     const itemEsgotado = (pedido.itens || []).find(function(item) {
       return itensIndisponiveis.indexOf(item.nome) !== -1;
     });
-    const catalogoSalvo = props.getProperty(CHAVE_CATALOGO_CARDAPIO_);
-    if (catalogoSalvo) {
-      const catalogo = normalizarCatalogo_(JSON.parse(catalogoSalvo));
-      const itensCatalogo = {};
-      CATEGORIAS_CATALOGO_.forEach(function(categoria) {
-        catalogo[categoria].forEach(function(item) {
-          itensCatalogo[item.nome] = item;
-        });
-      });
-      (pedido.itens || []).forEach(function(item) {
-        const cadastrado = itensCatalogo[item.nome];
-        if (!cadastrado && String(item.nome || "").indexOf("Monte Sua:") !== 0) {
-          throw new Error("O item '" + item.nome + "' não está mais disponível no cardápio.");
-        }
-        if (cadastrado) item.preco = cadastrado.preco;
-      });
-      pedido.total = (pedido.itens || []).reduce(function(total, item) {
-        return total + ((Number(item.quantidade) || 1) * (Number(item.preco) || 0));
-      }, 0);
-    }
-
     if (diaSemana < 1 || diaSemana > 5) {
       throw new Error("O cardápio on-line funciona somente de segunda a sexta-feira.");
     }
@@ -927,6 +1172,33 @@ function registrarPedidoOnline(pedidoJSON) {
     }
     if (itemEsgotado) {
       throw new Error("O item '" + itemEsgotado.nome + "' está esgotado no momento.");
+    }
+
+    const cache = CacheService.getScriptCache();
+    const assinatura = hashSeguro_(JSON.stringify({
+      nome: pedido.nomeCliente.toLocaleLowerCase(),
+      endereco: pedido.enderecoCliente.toLocaleLowerCase(),
+      pagamento: pedido.pagamentoDesejado,
+      itens: pedido.itens.map(function(item) {
+        return [item.nome, item.quantidade, item.obs];
+      })
+    }));
+    const chaveDuplicidade = "pdv_pedido_duplicado_" + assinatura;
+    const pedidoExistente = cache.get(chaveDuplicidade);
+    if (pedidoExistente) {
+      return JSON.parse(pedidoExistente);
+    }
+
+    const chaveLimite = "pdv_pedido_limite_" + hashSeguro_(
+      pedido.nomeCliente.toLocaleLowerCase() + "|" +
+      pedido.enderecoCliente.toLocaleLowerCase()
+    );
+    const quantidadeRecente = Number(cache.get(chaveLimite) || 0);
+    if (quantidadeRecente >= 3) {
+      throw erroApi_(
+        "RATE_LIMITED",
+        "Limite de pedidos atingido. Aguarde 10 minutos antes de tentar novamente."
+      );
     }
 
     const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
@@ -945,7 +1217,10 @@ function registrarPedidoOnline(pedidoJSON) {
     ativos.push(pedido);
     props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
     lancarPedidoPlanilha(JSON.stringify(pedido));
-    return { numero: pedido.numero, pedido: pedido };
+    const resultado = { numero: pedido.numero, pedido: pedido };
+    cache.put(chaveDuplicidade, JSON.stringify(resultado), 120);
+    cache.put(chaveLimite, String(quantidadeRecente + 1), 600);
+    return resultado;
   } finally {
     lock.releaseLock();
   }
