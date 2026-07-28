@@ -69,3 +69,17 @@ test("regra de pausa diária permanece implementada", () => {
     /if \(dataPausa !== hoje\) \{[\s\S]*cardapio_itens_indisponiveis", "\[\]"/
   );
 });
+
+test("avisos administrativos aguardam a autenticação", () => {
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.doesNotMatch(
+    eliel,
+    /DOMContentLoaded[\s\S]{0,300}verificarAvisoPdv\(\)/
+  );
+  assert.match(
+    index,
+    /function liberarAplicacaoAdmin\(\)[\s\S]{0,600}window\.verificarAvisoPdv\(\)/
+  );
+});
