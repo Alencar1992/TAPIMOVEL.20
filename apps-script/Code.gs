@@ -87,12 +87,13 @@ function loginAcesso(pin, perfilSolicitado) {
     );
   }
 
-  const perfil = String(perfilSolicitado || "admin").toLowerCase() === "eliel"
+  let perfil = String(perfilSolicitado || "admin").toLowerCase() === "eliel"
     ? "eliel"
     : "admin";
-  const chavePin = perfil === "eliel" ? CHAVE_PIN_ELIEL_ : CHAVE_PIN_ADMIN_;
-  const nome = perfil === "eliel" ? NOME_PERFIL_ELIEL_ : "Administrador";
-  const hashConfigurado = PropertiesService.getScriptProperties().getProperty(chavePin);
+  const propriedades = PropertiesService.getScriptProperties();
+  const hashInformado = hashSeguro_(pin);
+  let chavePin = perfil === "eliel" ? CHAVE_PIN_ELIEL_ : CHAVE_PIN_ADMIN_;
+  let hashConfigurado = propriedades.getProperty(chavePin);
   if (!hashConfigurado) {
     throw erroApi_(
       perfil === "eliel" ? "ELIEL_NOT_CONFIGURED" : "ADMIN_NOT_CONFIGURED",
@@ -102,13 +103,26 @@ function loginAcesso(pin, perfilSolicitado) {
     );
   }
 
-  if (hashSeguro_(pin) !== hashConfigurado) {
+  if (
+    perfil === "admin" &&
+    hashInformado !== hashConfigurado &&
+    hashInformado === propriedades.getProperty(CHAVE_PIN_ELIEL_)
+  ) {
+    perfil = "eliel";
+    chavePin = CHAVE_PIN_ELIEL_;
+    hashConfigurado = propriedades.getProperty(chavePin);
+  }
+
+  if (hashInformado !== hashConfigurado) {
     cache.put(CHAVE_TENTATIVAS_LOGIN_, String(tentativas + 1), 600);
     throw erroApi_("INVALID_CREDENTIALS", "PIN inválido.");
   }
 
   cache.remove(CHAVE_TENTATIVAS_LOGIN_);
-  return criarSessaoAcesso_(perfil, nome);
+  return criarSessaoAcesso_(
+    perfil,
+    perfil === "eliel" ? NOME_PERFIL_ELIEL_ : "Administrador"
+  );
 }
 
 function loginAdministrador(pin) {
