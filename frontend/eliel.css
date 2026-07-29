@@ -1,12 +1,19 @@
 .relatorio-eliel-view,
 .itens-view {
-    --eliel-surface: #171e22;
-    --eliel-surface-2: #20282d;
-    --eliel-line: #344047;
-    --eliel-accent: #ff6b5f;
-    --eliel-green: #55c78a;
+    --eliel-surface: rgba(20, 22, 22, .82);
+    --eliel-surface-2: rgba(31, 34, 33, .88);
+    --eliel-line: rgba(255, 255, 255, .15);
+    --eliel-accent: #e8b84f;
+    --eliel-green: #7ed957;
     gap: 16px;
     padding-bottom: 110px;
+}
+
+.relatorio-eliel-view {
+    background:
+        radial-gradient(circle at 50% -15%, rgba(232, 184, 79, .08), transparent 35%),
+        #000;
+    color: #f5f5f0;
 }
 
 .eliel-cabecalho,
@@ -390,6 +397,596 @@
     border-color: #d45a5a;
 }
 
+/* Relatório Eliel · Premium Executivo */
+.relatorio-eliel-view .nav-voltar {
+    width: max-content;
+    margin-bottom: 2px;
+    border-color: var(--eliel-line);
+    border-radius: 12px;
+    background: rgba(22, 24, 24, .72);
+    backdrop-filter: blur(18px);
+}
+
+.relatorio-eliel-view .eliel-cabecalho {
+    padding: 8px 4px 4px;
+}
+
+.relatorio-eliel-view .eliel-kicker {
+    color: var(--eliel-accent) !important;
+}
+
+.relatorio-eliel-view .eliel-painel,
+.relatorio-eliel-view .eliel-metricas button,
+.relatorio-eliel-view .eliel-acoes {
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .015)),
+        rgba(10, 12, 12, .84);
+    border: 1px solid var(--eliel-line);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .07),
+        0 14px 40px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(22px) saturate(125%);
+}
+
+.relatorio-eliel-view .eliel-painel {
+    border-radius: 18px;
+    padding: clamp(16px, 2.1vw, 24px);
+}
+
+.eliel-resumo-executivo {
+    overflow: hidden;
+    position: relative;
+}
+
+.eliel-resumo-executivo::after {
+    content: "";
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    right: -100px;
+    top: -140px;
+    border-radius: 50%;
+    background: rgba(126, 217, 87, .08);
+    filter: blur(35px);
+    pointer-events: none;
+}
+
+#elielResumoStatus {
+    color: var(--eliel-green);
+    font-size: .78rem;
+}
+
+#elielResumoStatus.negativo {
+    color: #ff6b6b;
+}
+
+.eliel-equacao {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) auto minmax(120px, .8fr) auto minmax(170px, 1fr) auto minmax(200px, 1.2fr);
+    align-items: center;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+.eliel-equacao > div {
+    display: grid;
+    gap: 7px;
+}
+
+.eliel-equacao span,
+.eliel-combustivel-resumo span {
+    color: #a9afaa;
+    font-size: .77rem;
+    font-weight: 650;
+}
+
+.eliel-equacao strong {
+    color: #f8f9f5;
+    font-size: clamp(1.05rem, 2.1vw, 1.65rem);
+}
+
+.eliel-equacao > b {
+    color: #808681;
+    font-size: 1.25rem;
+}
+
+.eliel-equacao .resultado {
+    border-left: 1px solid var(--eliel-line);
+    padding-left: 18px;
+}
+
+.eliel-equacao .resultado strong {
+    color: var(--eliel-green);
+    font-size: clamp(1.45rem, 3vw, 2.35rem);
+    text-shadow: 0 0 28px rgba(126, 217, 87, .2);
+}
+
+.eliel-combustivel-resumo {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    max-width: 720px;
+    margin-top: 18px;
+    border: 1px solid rgba(232, 184, 79, .2);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(232, 184, 79, .035);
+}
+
+.eliel-combustivel-resumo > div {
+    display: grid;
+    gap: 4px;
+    padding: 12px 15px;
+    border-right: 1px solid var(--eliel-line);
+}
+
+.eliel-combustivel-resumo > div:last-child {
+    border-right: 0;
+}
+
+.eliel-combustivel-resumo strong {
+    color: var(--eliel-accent);
+}
+
+.relatorio-eliel-view .eliel-metricas button {
+    min-width: 0;
+    min-height: 98px;
+    display: grid;
+    gap: 6px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    color: #fff;
+    text-align: left;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    cursor: pointer;
+    transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+
+.relatorio-eliel-view .eliel-metricas button:hover,
+.relatorio-eliel-view .eliel-metricas button:focus-visible,
+.relatorio-eliel-view .eliel-metricas button.ativo {
+    border-color: rgba(232, 184, 79, .72);
+    background:
+        linear-gradient(135deg, rgba(232, 184, 79, .16), rgba(255, 255, 255, .02)),
+        rgba(10, 12, 12, .92);
+    transform: translateY(-2px);
+    outline: none;
+}
+
+.relatorio-eliel-view .eliel-metricas button.destaque {
+    border-color: rgba(126, 217, 87, .45);
+}
+
+.relatorio-eliel-view .eliel-metricas button span {
+    color: #aeb4af;
+    font-size: .78rem;
+    font-weight: 650;
+}
+
+.relatorio-eliel-view .eliel-metricas button strong {
+    font-size: clamp(1.1rem, 2.4vw, 1.55rem);
+}
+
+.relatorio-eliel-view .eliel-metricas button small {
+    color: #767d78;
+    font-size: .7rem;
+    font-weight: 600;
+}
+
+.relatorio-eliel-view .eliel-metricas button.destaque strong {
+    color: var(--eliel-green);
+}
+
+.eliel-detalhe-metrica[hidden] {
+    display: none;
+}
+
+.eliel-detalhe-metrica {
+    animation: elielDetalheEntrada .22s ease both;
+}
+
+@keyframes elielDetalheEntrada {
+    from { opacity: 0; transform: translateY(-7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.eliel-detalhe-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+}
+
+.eliel-detalhe-cabecalho h3,
+.eliel-detalhe-cabecalho p {
+    margin: 0;
+}
+
+.eliel-detalhe-cabecalho p {
+    margin-top: 4px;
+    color: #89908b;
+    font-size: .82rem;
+}
+
+.eliel-detalhe-cabecalho > strong {
+    color: var(--eliel-accent);
+    font-size: 1.35rem;
+}
+
+.eliel-detalhe-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.eliel-detalhe-grid > div {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 11px;
+    background: rgba(255,255,255,.025);
+}
+
+.eliel-detalhe-grid span {
+    color: #8d948f;
+    font-size: .75rem;
+}
+
+.eliel-calculo-detalhe {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.eliel-calculo-detalhe span {
+    display: grid;
+    gap: 3px;
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 750;
+}
+
+.eliel-calculo-detalhe small {
+    color: #858c87;
+    font-size: .7rem;
+    font-weight: 600;
+}
+
+.eliel-bloco-visual {
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+}
+
+.eliel-podio {
+    min-height: 285px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 8px;
+    padding-top: 12px;
+}
+
+.eliel-podio-item {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.eliel-podio-item.posicao-1 {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.eliel-podio-item.posicao-2 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.eliel-podio-item.posicao-3 {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.eliel-podio-item img {
+    width: 100%;
+    max-width: 190px;
+    height: 100px;
+    object-fit: cover;
+    object-position: center 52%;
+    border-radius: 14px 14px 5px 5px;
+    filter: saturate(.9) contrast(1.06);
+    mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+
+.eliel-podio-item.posicao-1 img {
+    height: 125px;
+}
+
+.eliel-medalha {
+    display: grid;
+    place-items: center;
+    min-width: 34px;
+    height: 34px;
+    margin-bottom: -8px;
+    z-index: 1;
+    border: 1px solid rgba(232, 184, 79, .55);
+    border-radius: 50%;
+    background: #16150f;
+    color: var(--eliel-accent);
+    font-size: 1rem;
+    font-weight: 850;
+    box-shadow: 0 0 20px rgba(232, 184, 79, .16);
+}
+
+.eliel-podio-item > div {
+    width: 100%;
+    box-sizing: border-box;
+    display: grid;
+    gap: 4px;
+    min-height: 88px;
+    margin-top: -13px;
+    padding: 20px 8px 10px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px 10px 3px 3px;
+    background: linear-gradient(180deg, rgba(232,184,79,.1), rgba(255,255,255,.025));
+}
+
+.eliel-podio-item strong {
+    color: #f2f2ee;
+    font-size: .82rem;
+    line-height: 1.2;
+}
+
+.eliel-podio-item > div > span {
+    color: var(--eliel-accent);
+    font-size: .78rem;
+    font-weight: 750;
+}
+
+.eliel-podio-item small {
+    color: #757b77;
+    font-size: .65rem;
+}
+
+.eliel-segmentado {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--eliel-line);
+    border-radius: 10px;
+    background: rgba(255,255,255,.025);
+}
+
+.eliel-segmentado button {
+    min-height: 31px;
+    border: 0;
+    border-radius: 7px;
+    padding: 0 12px;
+    background: transparent;
+    color: #929893;
+    font: 700 .72rem/1 "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.eliel-segmentado button.ativo {
+    background: rgba(232, 184, 79, .14);
+    color: var(--eliel-accent);
+    box-shadow: inset 0 0 0 1px rgba(232,184,79,.45);
+}
+
+.eliel-grafico {
+    min-height: 245px;
+}
+
+.eliel-grafico svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.eliel-grafico svg text {
+    fill: #747b76;
+    font: 12px "Segoe UI", sans-serif;
+}
+
+.eliel-grafico .grade {
+    stroke: rgba(255,255,255,.07);
+    stroke-width: 1;
+}
+
+.eliel-grafico .barra {
+    fill: rgba(126,217,87,.48);
+    stroke: rgba(126,217,87,.9);
+    stroke-width: 1;
+    transition: fill .2s ease;
+}
+
+.eliel-grafico g:hover .barra,
+.eliel-grafico g:focus .barra {
+    fill: rgba(126,217,87,.8);
+}
+
+.eliel-grafico .linha-faturamento {
+    fill: none;
+    stroke: var(--eliel-accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 5px rgba(232,184,79,.4));
+}
+
+.eliel-grafico circle {
+    fill: #080909;
+    stroke: var(--eliel-accent);
+    stroke-width: 3;
+}
+
+.eliel-grafico-legenda {
+    display: flex;
+    gap: 15px;
+    color: #858c87;
+    font-size: .7rem;
+}
+
+.eliel-grafico-legenda span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.eliel-grafico-legenda i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+}
+
+.eliel-grafico-legenda i.unidades {
+    background: var(--eliel-green);
+}
+
+.eliel-grafico-legenda i.faturamento {
+    width: 14px;
+    height: 2px;
+    border-radius: 99px;
+    background: var(--eliel-accent);
+}
+
+.eliel-tabela-comparativo {
+    min-width: 680px;
+}
+
+.eliel-produto-mini {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.eliel-produto-mini img {
+    width: 44px;
+    height: 31px;
+    border-radius: 7px;
+    object-fit: cover;
+}
+
+.eliel-tendencia {
+    display: inline-flex;
+    min-width: 82px;
+    justify-content: center;
+    padding: 5px 8px;
+    border-radius: 99px;
+    font-size: .7rem;
+    font-weight: 750;
+}
+
+.eliel-tendencia.cresceu {
+    background: rgba(126,217,87,.1);
+    color: var(--eliel-green);
+}
+
+.eliel-tendencia.caiu {
+    background: rgba(255,107,107,.1);
+    color: #ff7777;
+}
+
+.eliel-tendencia.sem-vendas,
+.eliel-tendencia.estavel {
+    background: rgba(255,255,255,.06);
+    color: #9ca29e;
+}
+
+.eliel-rotas {
+    display: grid;
+    gap: 7px;
+}
+
+.eliel-rota {
+    display: grid;
+    grid-template-columns: 32px minmax(115px, .8fr) minmax(160px, 2fr) auto 64px minmax(145px, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px 11px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.eliel-rota:last-child {
+    border-bottom: 0;
+}
+
+.eliel-rota-posicao {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(232,184,79,.12);
+    color: var(--eliel-accent);
+    font-weight: 850;
+}
+
+.eliel-rota-nome,
+.eliel-rota-campea span {
+    display: grid;
+    gap: 2px;
+}
+
+.eliel-rota-nome small,
+.eliel-rota-campea span > span {
+    color: #777e79;
+    font-size: .68rem;
+}
+
+.eliel-rota-barra {
+    height: 9px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255,255,255,.07);
+}
+
+.eliel-rota-barra i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #b28a36, var(--eliel-accent));
+}
+
+.eliel-rota-participacao {
+    color: var(--eliel-green);
+    font-weight: 750;
+}
+
+.eliel-rota-campea {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.eliel-rota-campea img {
+    width: 42px;
+    height: 30px;
+    border-radius: 7px;
+    object-fit: cover;
+}
+
+.eliel-rota-campea strong {
+    font-size: .75rem;
+}
+
+.eliel-regra-combustivel {
+    margin: 12px 0 0;
+    color: #858c87;
+    font-size: .74rem;
+    line-height: 1.45;
+}
+
+.eliel-vazio {
+    color: #7b827d;
+    text-align: center;
+}
+
 .itens-cabecalho > span {
     color: var(--eliel-green);
     font-weight: 750;
@@ -545,6 +1142,40 @@
         grid-template-columns: 1fr;
     }
 
+    .eliel-equacao {
+        grid-template-columns: 1fr auto 1fr;
+    }
+
+    .eliel-equacao > div:nth-of-type(3),
+    .eliel-equacao > b:nth-of-type(3) {
+        margin-top: 8px;
+    }
+
+    .eliel-equacao .resultado {
+        border-left: 0;
+        padding-left: 0;
+    }
+
+    .eliel-combustivel-resumo {
+        max-width: none;
+    }
+
+    .eliel-detalhe-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .eliel-rota {
+        grid-template-columns: 32px minmax(110px, 1fr) minmax(130px, 1.5fr) auto;
+    }
+
+    .eliel-rota-participacao {
+        grid-column: 2;
+    }
+
+    .eliel-rota-campea {
+        grid-column: 3 / 5;
+    }
+
     .eliel-acoes {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -568,7 +1199,27 @@
     }
 
     .eliel-metricas {
-        grid-template-columns: 1fr;
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 5px;
+    }
+
+    .relatorio-eliel-view .eliel-metricas button {
+        flex: 0 0 82%;
+        min-height: 104px;
+        scroll-snap-align: center;
+        background: #0d1010 !important;
+        color: #fff !important;
+        backdrop-filter: none;
+    }
+
+    .relatorio-eliel-view .eliel-metricas button.ativo {
+        background: linear-gradient(135deg, rgba(232, 184, 79, .18), #0d1010) !important;
+    }
+
+    .relatorio-eliel-view .eliel-metricas button.destaque {
+        background: linear-gradient(135deg, rgba(126, 217, 87, .12), #0d1010) !important;
     }
 
     .eliel-form-grid,
@@ -579,6 +1230,115 @@
     .eliel-acoes {
         position: static;
         grid-template-columns: 1fr;
+    }
+
+    .eliel-equacao {
+        grid-template-columns: 1fr auto 1fr;
+        gap: 10px 7px;
+    }
+
+    .eliel-equacao > div:nth-of-type(3),
+    .eliel-equacao > b:nth-of-type(3) {
+        margin-top: 0;
+    }
+
+    .eliel-equacao > div:nth-of-type(3) {
+        grid-column: 1;
+    }
+
+    .eliel-equacao > b:nth-of-type(3) {
+        grid-column: 2;
+    }
+
+    .eliel-equacao .resultado {
+        grid-column: 3;
+    }
+
+    .eliel-equacao strong {
+        font-size: .92rem;
+    }
+
+    .eliel-equacao .resultado strong {
+        font-size: 1.15rem;
+    }
+
+    .eliel-combustivel-resumo {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .eliel-combustivel-resumo > div:first-child {
+        grid-column: 1 / -1;
+        border-right: 0;
+        border-bottom: 1px solid var(--eliel-line);
+    }
+
+    .eliel-detalhe-cabecalho {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .eliel-detalhe-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-podio {
+        min-height: 245px;
+        gap: 4px;
+    }
+
+    .eliel-podio-item img {
+        height: 70px;
+    }
+
+    .eliel-podio-item.posicao-1 img {
+        height: 92px;
+    }
+
+    .eliel-podio-item > div {
+        min-height: 100px;
+        padding-inline: 4px;
+    }
+
+    .eliel-podio-item strong {
+        font-size: .7rem;
+    }
+
+    .eliel-podio-item small {
+        display: none;
+    }
+
+    .eliel-titulo-linha {
+        align-items: flex-start;
+    }
+
+    .eliel-segmentado {
+        flex-shrink: 0;
+    }
+
+    .eliel-grafico {
+        min-height: 190px;
+        overflow-x: auto;
+    }
+
+    .eliel-grafico svg {
+        min-width: 620px;
+    }
+
+    .eliel-rota {
+        grid-template-columns: 28px 1fr auto;
+        gap: 8px;
+    }
+
+    .eliel-rota-barra {
+        grid-column: 2 / 4;
+    }
+
+    .eliel-rota-participacao {
+        grid-column: 2;
+    }
+
+    .eliel-rota-campea {
+        grid-column: 2 / 4;
     }
 
     .lista-gestao-itens {

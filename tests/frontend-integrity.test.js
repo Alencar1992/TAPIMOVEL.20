@@ -146,3 +146,19 @@ test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => 
   assert.match(configuracao, /sessao\.perfil === "eliel"/);
   assert.match(configuracao, /responsavelAtual = "CEO Eliel"/);
 });
+
+test("Relatório Eliel premium mantém indicadores interativos e gráficos responsivos", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "frontend/eliel.css"), "utf8");
+
+  assert.match(html, /Resumo de lucros do mês/);
+  assert.match(html, /alternarDetalheMetricaEliel\('taxas'/);
+  assert.match(html, /mudarGraficoEliel\('semana'/);
+  assert.match(eliel, /detalhesTaxas/);
+  assert.match(eliel, /combustivelTrailer/);
+  assert.match(eliel, /mesesComparacao/);
+  assert.match(css, /backdrop-filter:\s*blur/);
+  assert.match(css, /\.eliel-podio/);
+  assert.match(css, /@media \(max-width: 430px\)/);
+});

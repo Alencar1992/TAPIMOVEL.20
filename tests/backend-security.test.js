@@ -295,3 +295,13 @@ test("pausas são zeradas no dia seguinte e mantidas no mesmo dia", () => {
     ["Bauru"]
   );
 });
+
+test("combustível do Relatório Eliel é dividido em 80% carro e 20% trailer", () => {
+  const { context } = createContext();
+  const rateio = context.dividirCombustivelRelatorioEliel_(1000);
+
+  assert.equal(rateio.total, 1000);
+  assert.equal(rateio.carro, 800);
+  assert.equal(rateio.trailer, 200);
+  assert.equal(rateio.carro + rateio.trailer, rateio.total);
+});

@@ -7,6 +7,7 @@
     let intervaloGestaoItem = null;
     let botaoGestaoPressionado = null;
     let nomeItemPressionado = "";
+    let agrupamentoGraficoEliel = "dia";
     const DURACAO_PRESSAO_GESTAO_ITEM = 3000;
 
     const meses = [
@@ -126,11 +127,125 @@
             .obterRelatorioEliel(mes, ano, JSON.stringify(catalogoCompleto()));
     };
 
-    function desenharLista(id, itens, rotulo, valor) {
-        const elemento = document.getElementById(id);
-        elemento.innerHTML = itens.length
-            ? itens.map(item => `<div><span>${escapar(item[rotulo])}</span><strong>${escapar(item[valor])}</strong></div>`).join("")
-            : '<p style="color:var(--text-muted)">Sem vendas registradas.</p>';
+    function imagemTapioca(nome) {
+        const valor = String(nome || "").toLowerCase();
+        if (/(coco|beijinho|queijadinha)/.test(valor)) return "./assets/menu/tapioca-coco.webp";
+        if (/(frango)/.test(valor)) return "./assets/menu/tapioca-frango.webp";
+        if (/(carne seca)/.test(valor)) return "./assets/menu/tapioca-carne-seca.webp";
+        if (/(calabresa)/.test(valor)) return "./assets/menu/tapioca-calabresa.webp";
+        if (/(morango)/.test(valor)) return "./assets/menu/tapioca-morango-chocolate.webp";
+        if (/(chocolate|nutella|avelã|avela|paçoca|pacoca|prestígio|prestigio)/.test(valor)) return "./assets/menu/tapioca-chocolate-avela.webp";
+        if (/(banana|canela)/.test(valor)) return "./assets/menu/tapioca-banana.webp";
+        if (/(presunto|peito de peru|pizza|bauru)/.test(valor)) return "./assets/menu/tapioca-presunto.webp";
+        return "./assets/menu/tapioca-queijos.webp";
+    }
+
+    function desenharPodio(itens) {
+        const podio = document.getElementById("elielTop3");
+        podio.innerHTML = itens.length
+            ? itens.map((item, indice) => `
+                <article class="eliel-podio-item posicao-${indice + 1}">
+                    <span class="eliel-medalha">${indice + 1}º</span>
+                    <img src="${imagemTapioca(item.produto)}" alt="Tapioca ${escapar(item.produto)}">
+                    <div>
+                        <strong>${escapar(item.produto)}</strong>
+                        <span>${item.quantidade} unidades</span>
+                        <small>Melhor dia: ${escapar(item.melhorDia)}</small>
+                    </div>
+                </article>`).join("")
+            : '<p class="eliel-vazio">Sem vendas registradas.</p>';
+    }
+
+    function desenharMenosVendidas(dados) {
+        const mesesComparacao = relatorioElielAtual.mesesComparacao || [];
+        const cabecalhos = mesesComparacao.map(item => `<th>${escapar(item.rotulo)}</th>`).join("");
+        const rotulos = {
+            "cresceu": ["Cresceu", "↑"],
+            "caiu": ["Caiu", "↓"],
+            "sem-vendas": ["Sem vendas", "—"],
+            "estavel": ["Estável", "→"]
+        };
+        document.getElementById("elielMenos5").innerHTML = `
+            <table class="eliel-tabela eliel-tabela-comparativo">
+                <thead><tr><th>Produto</th>${cabecalhos}<th>Tendência</th></tr></thead>
+                <tbody>${dados.map(item => {
+                    const status = rotulos[item.tendencia] || rotulos.estavel;
+                    return `<tr>
+                        <td><span class="eliel-produto-mini"><img src="${imagemTapioca(item.produto)}" alt=""><strong>${escapar(item.produto)}</strong></span></td>
+                        ${(item.comparativo || []).map(valor => `<td>${valor}</td>`).join("")}
+                        <td><span class="eliel-tendencia ${escapar(item.tendencia)}">${status[0]} ${status[1]}</span></td>
+                    </tr>`;
+                }).join("") || '<tr><td colspan="5">Sem produtos para comparar.</td></tr>'}</tbody>
+            </table>`;
+    }
+
+    function desenharRotas(rotas) {
+        const maior = Math.max(1, ...rotas.map(item => Number(item.total || 0)));
+        document.getElementById("elielRotas").innerHTML = rotas.length
+            ? rotas.map((item, indice) => `
+                <article class="eliel-rota">
+                    <span class="eliel-rota-posicao">${indice + 1}</span>
+                    <div class="eliel-rota-nome"><strong>${escapar(item.rota)}</strong><small>${item.tapiocas} tapiocas</small></div>
+                    <div class="eliel-rota-barra"><i style="width:${Math.max(3, Number(item.total || 0) / maior * 100)}%"></i></div>
+                    <strong>${moeda(item.total)}</strong>
+                    <span class="eliel-rota-participacao">${Number(item.participacao || 0).toFixed(1).replace(".", ",")}%</span>
+                    <span class="eliel-rota-campea"><img src="${imagemTapioca(item.tapiocaMaisVendida)}" alt=""><span>Campeã<strong>${escapar(item.tapiocaMaisVendida)}</strong></span></span>
+                </article>`).join("")
+            : '<p class="eliel-vazio">Sem dados de rota.</p>';
+    }
+
+    function desenharGraficoVolume() {
+        const elemento = document.getElementById("elielGraficoVolume");
+        const dados = agrupamentoGraficoEliel === "semana"
+            ? relatorioElielAtual.porSemana || []
+            : relatorioElielAtual.porDia || [];
+        if (!dados.length) {
+            elemento.innerHTML = '<p class="eliel-vazio">Sem vendas registradas.</p>';
+            return;
+        }
+        const largura = 760;
+        const altura = 280;
+        const margem = { topo: 24, direita: 20, baixo: 42, esquerda: 38 };
+        const areaLargura = largura - margem.esquerda - margem.direita;
+        const areaAltura = altura - margem.topo - margem.baixo;
+        const maxQuantidade = Math.max(1, ...dados.map(item => Number(item.quantidade || 0)));
+        const maxFaturamento = Math.max(1, ...dados.map(item => Number(item.faturamento || 0)));
+        const passo = areaLargura / dados.length;
+        const larguraBarra = Math.max(5, Math.min(30, passo * .55));
+        const pontos = dados.map((item, indice) => {
+            const x = margem.esquerda + passo * indice + passo / 2;
+            const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
+            return `${x},${y}`;
+        }).join(" ");
+        const linhasGrade = [0, .25, .5, .75, 1].map(fracao => {
+            const y = margem.topo + areaAltura * fracao;
+            return `<line x1="${margem.esquerda}" y1="${y}" x2="${largura - margem.direita}" y2="${y}" class="grade"/>
+                <text x="${margem.esquerda - 8}" y="${y + 4}" text-anchor="end">${Math.round(maxQuantidade * (1 - fracao))}</text>`;
+        }).join("");
+        const barras = dados.map((item, indice) => {
+            const xCentro = margem.esquerda + passo * indice + passo / 2;
+            const alturaBarra = Number(item.quantidade || 0) / maxQuantidade * areaAltura;
+            const y = margem.topo + areaAltura - alturaBarra;
+            const rotulo = agrupamentoGraficoEliel === "semana"
+                ? String(item.semana || "").replace("Semana ", "S")
+                : String(item.dia || "").slice(0, 5);
+            return `<g tabindex="0">
+                <title>${escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"])}: ${item.quantidade || 0} tapiocas · ${moeda(item.faturamento)}</title>
+                <rect x="${xCentro - larguraBarra / 2}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="5" class="barra"/>
+                <text x="${xCentro}" y="${altura - 14}" text-anchor="middle">${escapar(rotulo)}</text>
+            </g>`;
+        }).join("");
+        const pontosLinha = dados.map((item, indice) => {
+            const x = margem.esquerda + passo * indice + passo / 2;
+            const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
+            return `<circle cx="${x}" cy="${y}" r="4"><title>${moeda(item.faturamento)}</title></circle>`;
+        }).join("");
+        elemento.innerHTML = `<div class="eliel-grafico-legenda"><span><i class="unidades"></i>Unidades</span><span><i class="faturamento"></i>Faturamento</span></div>
+            <svg viewBox="0 0 ${largura} ${altura}" aria-hidden="true">
+                ${linhasGrade}${barras}
+                <polyline points="${pontos}" class="linha-faturamento"/>
+                ${pontosLinha}
+            </svg>`;
     }
 
     function desenharRelatorioEliel() {
@@ -140,44 +255,27 @@
         document.getElementById("elielSubtotal").textContent = moeda(d.subtotal);
         document.getElementById("elielLiquido").textContent = moeda(d.liquido);
         document.getElementById("elielTotalTapiocas").textContent = `${d.totalTapiocas || 0} un`;
+        document.getElementById("elielResumoFaturamento").textContent = moeda(d.faturamento);
+        document.getElementById("elielResumoTaxas").textContent = moeda(d.taxas);
+        document.getElementById("elielResumoCustos").textContent = moeda(d.totalCustos);
+        document.getElementById("elielResumoLiquido").textContent = moeda(d.liquido);
+        document.getElementById("elielResumoStatus").textContent = d.liquido >= 0 ? "Resultado positivo" : "Resultado negativo";
+        document.getElementById("elielResumoStatus").classList.toggle("negativo", d.liquido < 0);
+        document.getElementById("elielCombustivelTotal").textContent = moeda(d.custos.combustivelTotal);
+        document.getElementById("elielCombustivelCarro").textContent = moeda(d.custos.combustivelCarro);
+        document.getElementById("elielCombustivelTrailer").textContent = moeda(d.custos.combustivelTrailer);
 
-        desenharLista("elielPorDia", d.porDia || [], "dia", "quantidade");
-        desenharLista("elielPorSemana", d.porSemana || [], "semana", "quantidade");
-
-        document.getElementById("elielTop3").innerHTML = (d.top3 || []).length
-            ? d.top3.map((item, indice) => `
-                <div>
-                    <span class="posicao">${indice + 1}º</span>
-                    <span class="produto"><strong>${escapar(item.produto)}</strong><small>Melhor dia: ${escapar(item.melhorDia)}</small></span>
-                    <strong>${item.quantidade} un</strong>
-                </div>`).join("")
-            : '<p style="color:var(--text-muted)">Sem vendas registradas.</p>';
-
-        document.getElementById("elielMenos5").innerHTML = (d.menosVendidas || [])
-            .map(item => `
-                <div>
-                    <strong>${escapar(item.produto)} · ${item.quantidade} un</strong>
-                    <p>${escapar(item.insight)}</p>
-                </div>`).join("");
+        desenharPodio(d.top3 || []);
+        desenharMenosVendidas(d.menosVendidas || []);
+        desenharGraficoVolume();
 
         document.getElementById("elielMelhorRota").textContent = d.melhorRota
             ? `${d.melhorRota.rota} · ${moeda(d.melhorRota.total)}`
             : "Sem dados";
 
-        document.getElementById("elielRotas").innerHTML = `
-            <table class="eliel-tabela">
-                <thead><tr><th>Rota</th><th>Faturamento</th><th>Tapiocas</th><th>Mais vendida</th></tr></thead>
-                <tbody>${(d.rotas || []).map(item => `
-                    <tr>
-                        <td><strong>${escapar(item.rota)}</strong></td>
-                        <td>${moeda(item.total)}</td>
-                        <td>${item.tapiocas} un</td>
-                        <td>${escapar(item.tapiocaMaisVendida)}</td>
-                    </tr>`).join("") || '<tr><td colspan="4">Sem dados de rota.</td></tr>'}
-                </tbody>
-            </table>`;
+        desenharRotas(d.rotas || []);
 
-        preencherCampo("elielCustoCombustivel", d.custos.combustivelCarro);
+        preencherCampo("elielCustoCombustivel", d.custos.combustivelTotal);
         preencherCampo("elielCustoCozinha", d.custos.salarioCozinha);
         preencherCampo("elielCustoAux", d.custos.salarioAuxCarro);
         preencherCampo("elielCustoManutencao", d.custos.manutencaoCarro);
@@ -187,9 +285,48 @@
         recalcularRelatorioElielLocal();
     }
 
+    window.mudarGraficoEliel = function (agrupamento, botao) {
+        agrupamentoGraficoEliel = agrupamento === "semana" ? "semana" : "dia";
+        document.querySelectorAll(".eliel-segmentado button").forEach(item => item.classList.remove("ativo"));
+        if (botao) botao.classList.add("ativo");
+        desenharGraficoVolume();
+    };
+
+    window.alternarDetalheMetricaEliel = function (tipo, botao) {
+        if (!relatorioElielAtual) return;
+        const painel = document.getElementById("elielDetalheMetrica");
+        const estavaAberto = !painel.hidden && painel.dataset.tipo === tipo;
+        document.querySelectorAll(".eliel-metricas button").forEach(item => {
+            item.classList.remove("ativo");
+            item.setAttribute("aria-expanded", "false");
+        });
+        if (estavaAberto) {
+            painel.hidden = true;
+            painel.dataset.tipo = "";
+            return;
+        }
+        const d = relatorioElielAtual;
+        const demais = Math.max(0, d.faturamento - (d.detalhesTaxas || []).reduce((total, item) => total + Number(item.vendas || 0), 0));
+        const conteudos = {
+            faturamento: `<div class="eliel-detalhe-cabecalho"><div><h3>Composição do faturamento</h3><p>Total bruto antes de taxas e custos.</p></div><strong>${moeda(d.faturamento)}</strong></div>
+                <div class="eliel-detalhe-grid">${(d.detalhesTaxas || []).map(item => `<div><span>${escapar(item.forma)}</span><strong>${moeda(item.vendas)}</strong></div>`).join("")}<div><span>PIX e dinheiro</span><strong>${moeda(demais)}</strong></div></div>`,
+            taxas: `<div class="eliel-detalhe-cabecalho"><div><h3>Detalhamento de taxas</h3><p>Base vendida, percentual aplicado e valor descontado.</p></div><strong>${moeda(d.taxas)}</strong></div>
+                <div class="eliel-tabela-wrap"><table class="eliel-tabela"><thead><tr><th>Forma</th><th>Vendas</th><th>Taxa</th><th>Desconto</th></tr></thead><tbody>${(d.detalhesTaxas || []).map(item => `<tr><td><strong>${escapar(item.forma)}</strong></td><td>${moeda(item.vendas)}</td><td>${Number(item.percentual || 0).toFixed(2).replace(".", ",")}%</td><td>${moeda(item.valor)}</td></tr>`).join("")}</tbody></table></div>`,
+            subtotal: `<div class="eliel-detalhe-cabecalho"><div><h3>Cálculo após taxas</h3><p>Faturamento bruto menos os descontos financeiros.</p></div><strong>${moeda(d.subtotal)}</strong></div>
+                <div class="eliel-calculo-detalhe"><span>${moeda(d.faturamento)} <small>faturamento</small></span><b>−</b><span>${moeda(d.taxas)} <small>taxas</small></span><b>=</b><span>${moeda(d.subtotal)} <small>após taxas</small></span></div>`,
+            liquido: `<div class="eliel-detalhe-cabecalho"><div><h3>Custos descontados</h3><p>O combustível considera somente os 80% atribuídos ao carro.</p></div><strong>${moeda(d.totalCustos)}</strong></div>
+                <div class="eliel-detalhe-grid"><div><span>Combustível carro · 80%</span><strong>${moeda(d.custos.combustivelCarro)}</strong></div><div><span>Salário cozinha</span><strong>${moeda(d.custos.salarioCozinha)}</strong></div><div><span>Salário aux. carro</span><strong>${moeda(d.custos.salarioAuxCarro)}</strong></div><div><span>Manutenção carro</span><strong>${moeda(d.custos.manutencaoCarro)}</strong></div></div>`
+        };
+        painel.innerHTML = conteudos[tipo] || "";
+        painel.hidden = false;
+        painel.dataset.tipo = tipo;
+        botao.classList.add("ativo");
+        botao.setAttribute("aria-expanded", "true");
+    };
+
     function configuracaoDaTela() {
         return {
-            combustivelCarro: numeroCampo("elielCustoCombustivel"),
+            combustivelTotal: numeroCampo("elielCustoCombustivel"),
             salarioCozinha: numeroCampo("elielCustoCozinha"),
             salarioAuxCarro: numeroCampo("elielCustoAux"),
             manutencaoCarro: numeroCampo("elielCustoManutencao"),
@@ -205,13 +342,17 @@
     window.recalcularRelatorioElielLocal = function () {
         if (!relatorioElielAtual) return;
         const config = configuracaoDaTela();
-        const totalCustos = config.combustivelCarro + config.salarioCozinha +
+        const combustivelCarro = config.combustivelTotal * 0.80;
+        const combustivelTrailer = config.combustivelTotal * 0.20;
+        const totalCustos = combustivelCarro + config.salarioCozinha +
             config.salarioAuxCarro + config.manutencaoCarro;
         const liquido = relatorioElielAtual.subtotal - totalCustos;
         const base = Math.max(0, liquido);
         relatorioElielAtual.configuracoes = config;
         relatorioElielAtual.custos = {
-            combustivelCarro: config.combustivelCarro,
+            combustivelTotal: config.combustivelTotal,
+            combustivelCarro: combustivelCarro,
+            combustivelTrailer: combustivelTrailer,
             salarioCozinha: config.salarioCozinha,
             salarioAuxCarro: config.salarioAuxCarro,
             manutencaoCarro: config.manutencaoCarro
@@ -226,6 +367,13 @@
 
         document.getElementById("elielTotalCustos").textContent = moeda(totalCustos);
         document.getElementById("elielLiquido").textContent = moeda(liquido);
+        document.getElementById("elielResumoCustos").textContent = moeda(totalCustos);
+        document.getElementById("elielResumoLiquido").textContent = moeda(liquido);
+        document.getElementById("elielCombustivelTotal").textContent = moeda(config.combustivelTotal);
+        document.getElementById("elielCombustivelCarro").textContent = moeda(combustivelCarro);
+        document.getElementById("elielCombustivelTrailer").textContent = moeda(combustivelTrailer);
+        document.getElementById("elielResumoStatus").textContent = liquido >= 0 ? "Resultado positivo" : "Resultado negativo";
+        document.getElementById("elielResumoStatus").classList.toggle("negativo", liquido < 0);
         document.getElementById("elielDistribuicao").innerHTML = [
             ["Compra", config.percentualCompra, relatorioElielAtual.distribuicao.compra],
             ["Lucas", config.percentualLucas, relatorioElielAtual.distribuicao.lucas],
