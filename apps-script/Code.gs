@@ -529,40 +529,6 @@ function obterResumoMesPlanilha() {
 }
 
 // =========================================================
-// 2. FECHAR MÊS E SALVAR
-// =========================================================
-function fecharMesESalvarDrive(pacoteJson) {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const pacote = JSON.parse(pacoteJson);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let abaMensal = ss.getSheetByName("Fechamentos_Mensais");
-
-    if (!abaMensal) {
-      abaMensal = ss.insertSheet("Fechamentos_Mensais");
-      abaMensal.appendRow(["Mês Referência", "Faturamento Bruto", "Tapiocas Vendidas", "Custo Material", "Lucro Lucas (95%)", "Lucro Eliel (5%)"]);
-      abaMensal.getRange("A1:F1").setFontWeight("bold").setBackground("#cfe2f3");
-    }
-
-    abaMensal.appendRow([
-      pacote.mesReferencia,
-      pacote.totalGeral,
-      pacote.qtdTapiocas,
-      pacote.material,
-      pacote.lucroLucas,
-      pacote.lucroEliel
-    ]);
-
-    return "OK";
-  } catch (e) {
-    return "Erro no servidor: " + e.toString();
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// =========================================================
 // 6. ESTIMATIVA DE SALÁRIO
 // =========================================================
 function calcularEstimativaSalarioLucas() {
@@ -1078,7 +1044,9 @@ function executarAcaoApi_(action, args, token) {
     "removerItemCatalogo",
     "obterRelatorioEliel",
     "registrarAcessoRelatorioEliel",
-    "obterConfiguracoesRelatorioEliel"
+    "obterConfiguracoesRelatorioEliel",
+    "obterPreviaFechamentoRelatorioEliel",
+    "fecharMesRelatorioEliel"
   ];
 
   const acoesAdministrativas = [
@@ -1095,7 +1063,6 @@ function executarAcaoApi_(action, args, token) {
     "moverParaCancelados",
     "reabrirPedidoBackend",
     "obterResumoMesPlanilha",
-    "fecharMesESalvarDrive",
     "calcularEstimativaSalarioLucas",
     "registrarDiaSemTrabalhoPlanilha",
     "buscarFolgasBackend",
@@ -1115,6 +1082,7 @@ function executarAcaoApi_(action, args, token) {
     "registrarAcessoRelatorioEliel",
     "obterConfiguracoesRelatorioEliel",
     "salvarConfiguracoesRelatorioEliel",
+    "obterPreviaFechamentoRelatorioEliel",
     "fecharMesRelatorioEliel",
     "obterAvisosPdv"
   ];
@@ -1129,6 +1097,12 @@ function executarAcaoApi_(action, args, token) {
     if (!sessao) {
       throw erroApi_("AUTH_REQUIRED", "Acesso não autorizado.");
     }
+    if (action === "fecharMesRelatorioEliel" && sessao.perfil !== "eliel") {
+      throw erroApi_(
+        "PERMISSION_DENIED",
+        "O fechamento mensal é exclusivo do perfil CEO Eliel."
+      );
+    }
     if (sessao.perfil !== "admin" && acoesEliel.indexOf(action) === -1) {
       throw erroApi_("PERMISSION_DENIED", "O perfil " + sessao.nome + " não possui permissão para esta ação.");
     }
@@ -1137,6 +1111,7 @@ function executarAcaoApi_(action, args, token) {
       if (action === "inicializarCatalogoConfiguracao") args[1] = NOME_PERFIL_ELIEL_;
       if (action === "salvarItemCatalogo") args[2] = NOME_PERFIL_ELIEL_;
       if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;
+      if (action === "fecharMesRelatorioEliel") args[3] = NOME_PERFIL_ELIEL_;
     }
   }
 
@@ -2112,7 +2087,42 @@ function obterAbaRelatorioEliel_() {
     aba.getRange(1, 1, 1, 18).setFontWeight("bold").setBackground("#ff6b5f").setFontColor("#ffffff");
     aba.setFrozenRows(1);
   }
+  if (aba.getLastColumn() < 19) {
+    aba.getRange(1, 19).setValue("Responsável");
+  }
   return aba;
+}
+
+function obterAbaFechamentosMensais_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let aba = ss.getSheetByName("Fechamentos_Mensais");
+  const cabecalho = [
+    "Mês Referência", "Faturamento Bruto", "Tapiocas Vendidas",
+    "Custo Material", "Lucro Lucas", "Lucro Eliel"
+  ];
+  if (!aba) {
+    aba = ss.insertSheet("Fechamentos_Mensais");
+    aba.appendRow(cabecalho);
+    aba.getRange("A1:F1").setFontWeight("bold").setBackground("#cfe2f3");
+    aba.setFrozenRows(1);
+  } else {
+    aba.getRange(1, 1, 1, 6).setValues([cabecalho]);
+  }
+  return aba;
+}
+
+function normalizarReferenciaFechamentoMensal_(valor) {
+  const texto = String(valor || "").trim();
+  if (/^\d{4}-\d{2}$/.test(texto)) return texto;
+  const ano = (texto.match(/\b(20\d{2})\b/) || [])[1];
+  if (!ano) return texto;
+  const normalizado = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const nomes = [
+    "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+  ];
+  const indice = nomes.findIndex(function(nome) { return normalizado.indexOf(nome) !== -1; });
+  return indice === -1 ? texto : chaveMes_(indice + 1, ano);
 }
 
 function registrarAcessoRelatorioEliel(mes, ano) {
@@ -2146,19 +2156,60 @@ function registrarAcessoRelatorioEliel(mes, ano) {
   });
 }
 
-function fecharMesRelatorioEliel(relatorioJSON) {
+function obterPedidosPendentesFechamentoEliel_() {
+  const bruto = PropertiesService.getScriptProperties().getProperty("pdv_vendas_ativas") || "[]";
+  let pedidos = [];
+  try {
+    pedidos = JSON.parse(bruto);
+  } catch (e) {
+    pedidos = [];
+  }
+  return (Array.isArray(pedidos) ? pedidos : []).filter(function(pedido) {
+    return !pedido || !pedido.produzido || !pedido.timestamp;
+  }).length;
+}
+
+function montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON) {
+  const relatorio = JSON.parse(obterRelatorioEliel(mes, ano, catalogoJSON) || "{}");
+  if (!relatorio.chave) throw new Error("Mês de referência inválido.");
+  const aba = obterAbaRelatorioEliel_();
+  const chaves = aba.getLastRow() > 1
+    ? aba.getRange(2, 1, aba.getLastRow() - 1, 1).getDisplayValues().flat()
+    : [];
+  const duplicado = chaves.indexOf(relatorio.chave) !== -1;
+  const pedidosPendentes = obterPedidosPendentesFechamentoEliel_();
+  return {
+    chave: relatorio.chave,
+    duplicado: duplicado,
+    pedidosPendentes: pedidosPendentes,
+    podeFechar: !duplicado && pedidosPendentes === 0,
+    relatorio: relatorio
+  };
+}
+
+function obterPreviaFechamentoRelatorioEliel(mes, ano, catalogoJSON) {
+  return JSON.stringify(montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON));
+}
+
+function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
   const lock = LockService.getDocumentLock();
   try {
     lock.waitLock(15000);
-    const dados = JSON.parse(relatorioJSON || "{}");
-    if (!dados.chave) throw new Error("Mês de referência inválido.");
-    const aba = obterAbaRelatorioEliel_();
-    const chaves = aba.getLastRow() > 1
-      ? aba.getRange(2, 1, aba.getLastRow() - 1, 1).getDisplayValues().flat()
-      : [];
-    if (chaves.indexOf(dados.chave) !== -1) {
-      throw new Error("O mês " + dados.chave + " já foi fechado.");
+    if (responsavel !== NOME_PERFIL_ELIEL_) {
+      throw new Error("O fechamento mensal é exclusivo do perfil CEO Eliel.");
     }
+    const previa = montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON);
+    if (previa.duplicado) {
+      throw new Error("O mês " + previa.chave + " já foi fechado.");
+    }
+    if (previa.pedidosPendentes > 0) {
+      throw new Error(
+        "Existem " + previa.pedidosPendentes +
+        " pedido(s) pendente(s). Finalize-os no PDV antes de fechar o mês."
+      );
+    }
+    const dados = previa.relatorio;
+    const aba = obterAbaRelatorioEliel_();
     aba.appendRow([
       dados.chave,
       new Date(),
@@ -2177,15 +2228,34 @@ function fecharMesRelatorioEliel(relatorioJSON) {
       dados.melhorRota ? dados.melhorRota.rota : "-",
       (dados.top3 || []).map(function(item) { return item.produto + " (" + item.quantidade + ")"; }).join(" | "),
       (dados.menosVendidas || []).map(function(item) { return item.produto + " (" + item.quantidade + ")"; }).join(" | "),
-      JSON.stringify(dados)
+      JSON.stringify(dados),
+      responsavel
     ]);
+
+    const abaMensal = obterAbaFechamentosMensais_();
+    const mesesJaRegistrados = abaMensal.getLastRow() > 1
+      ? abaMensal.getRange(2, 1, abaMensal.getLastRow() - 1, 1).getDisplayValues().flat()
+      : [];
+    const chavesMensais = mesesJaRegistrados.map(normalizarReferenciaFechamentoMensal_);
+    if (chavesMensais.indexOf(dados.chave) === -1) {
+      abaMensal.appendRow([
+        dados.chave,
+        dados.faturamento,
+        dados.totalTapiocas,
+        dados.distribuicao.compra,
+        dados.distribuicao.lucas,
+        dados.distribuicao.eliel
+      ]);
+    }
 
     let log = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Log Relatorio Eliel");
     if (!log) {
       log = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Log Relatorio Eliel");
-      log.appendRow(["Data e hora", "Evento", "Mês referência"]);
+      log.appendRow(["Data e hora", "Evento", "Mês referência", "Responsável"]);
+    } else if (log.getLastColumn() < 4) {
+      log.getRange(1, 4).setValue("Responsável");
     }
-    log.appendRow([new Date(), "FECHAMENTO DO MÊS", dados.chave]);
+    log.appendRow([new Date(), "FECHAMENTO DO MÊS", dados.chave, responsavel]);
 
     PropertiesService.getScriptProperties().setProperty("pdv_vendas_ativas", "[]");
     PropertiesService.getScriptProperties().setProperty(

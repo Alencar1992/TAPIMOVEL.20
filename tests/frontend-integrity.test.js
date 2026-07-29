@@ -119,7 +119,7 @@ test("acesso exclusivo do CEO Eliel limita navegação e mantém sessão separad
   assert.match(index, /CEO Eliel/);
   assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao'\]/);
   assert.match(index, /\.loginAcesso\(pin, modoAcessoEsperado\)/);
-  assert.match(index, /class="[^"]*eliel-admin-only[^"]*"[^>]*>Fechar e zerar mês/);
+  assert.match(index, /class="[^"]*eliel-owner-only[^"]*"[^>]*>Revisar e fechar mês/);
 });
 
 test("PIN do CEO Eliel no PDV preserva a sessão restrita e redireciona", () => {
@@ -161,4 +161,23 @@ test("Relatório Eliel premium mantém indicadores interativos e gráficos respo
   assert.match(css, /backdrop-filter:\s*blur/);
   assert.match(css, /\.eliel-podio/);
   assert.match(css, /@media \(max-width: 430px\)/);
+});
+
+test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+
+  assert.match(html, /Prévia do fechamento mensal/);
+  assert.match(html, /Confirmar e zerar mês/);
+  assert.match(html, /Liquidez Mensal · consulta/);
+  assert.doesNotMatch(html, /Fechar Mês \(Drive\)/);
+  assert.doesNotMatch(html, /function confirmarFechamentoMes\(/);
+  assert.doesNotMatch(backend, /function fecharMesESalvarDrive\(/);
+  assert.match(eliel, /\.obterPreviaFechamentoRelatorioEliel\(/);
+  assert.match(eliel, /\.fecharMesRelatorioEliel\(\s*mes,\s*ano,/);
+  assert.match(backend, /O fechamento mensal é exclusivo do perfil CEO Eliel/);
+  assert.match(backend, /pedidosPendentes/);
+  assert.match(backend, /obterAbaFechamentosMensais_/);
+  assert.match(backend, /Responsável/);
 });
