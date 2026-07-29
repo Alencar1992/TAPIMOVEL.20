@@ -563,6 +563,7 @@
         document.getElementById("previaElielSubtotal").textContent = moeda(d.subtotal);
         document.getElementById("previaElielLiquido").textContent = moeda(d.liquido);
         document.getElementById("previaElielTotalCustos").textContent = moeda(d.totalCustos);
+        document.getElementById("previaElielCombustivelTotal").textContent = moeda(custos.combustivelTotal);
         document.getElementById("previaElielCombustivelCarro").textContent = moeda(custos.combustivelCarro);
         document.getElementById("previaElielCombustivelTrailer").textContent = moeda(custos.combustivelTrailer);
         document.getElementById("previaElielCozinha").textContent = moeda(custos.salarioCozinha);
