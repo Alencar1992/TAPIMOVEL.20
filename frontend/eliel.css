@@ -1209,16 +1209,17 @@
         flex: 0 0 82%;
         min-height: 104px;
         scroll-snap-align: center;
-        background: #0d1010;
+        background: #0d1010 !important;
+        color: #fff !important;
         backdrop-filter: none;
     }
 
     .relatorio-eliel-view .eliel-metricas button.ativo {
-        background: linear-gradient(135deg, rgba(232, 184, 79, .18), #0d1010);
+        background: linear-gradient(135deg, rgba(232, 184, 79, .18), #0d1010) !important;
     }
 
     .relatorio-eliel-view .eliel-metricas button.destaque {
-        background: linear-gradient(135deg, rgba(126, 217, 87, .12), #0d1010);
+        background: linear-gradient(135deg, rgba(126, 217, 87, .12), #0d1010) !important;
     }
 
     .eliel-form-grid,
