@@ -3,6 +3,7 @@
 
     let relatorioElielAtual = null;
     let relatorioElielAnterior = null;
+    let previaFechamentoElielAtual = null;
     let timerGestaoItem = null;
     let intervaloGestaoItem = null;
     let botaoGestaoPressionado = null;
@@ -524,53 +525,115 @@
 
     window.abrirFechamentoMesEliel = function () {
         if (!relatorioElielAtual) return;
-        const soma = numeroCampo("elielPercCompra") + numeroCampo("elielPercLucas") + numeroCampo("elielPercEliel");
-        if (Math.abs(soma - 100) > 0.01) {
-            mostrarAlerta("Antes de fechar, ajuste os percentuais para somarem 100%.");
-            return;
+        previaFechamentoElielAtual = null;
+        const modal = document.getElementById("modalPreviaFechamentoEliel");
+        const carregando = document.getElementById("elielPreviaLoading");
+        const conteudo = document.getElementById("elielPreviaConteudo");
+        modal.style.display = "flex";
+        carregando.hidden = false;
+        conteudo.hidden = true;
+
+        google.script.run
+            .withSuccessHandler(function (resposta) {
+                previaFechamentoElielAtual = JSON.parse(resposta || "{}");
+                carregando.hidden = true;
+                conteudo.hidden = false;
+                desenharPreviaFechamentoEliel(previaFechamentoElielAtual);
+            })
+            .withFailureHandler(function (erro) {
+                carregando.hidden = true;
+                modal.style.display = "none";
+                mostrarAlerta("Não foi possível preparar a prévia.<br><small>" + escapar(erro.message) + "</small>");
+            })
+            .obterPreviaFechamentoRelatorioEliel(
+                relatorioElielAtual.mes,
+                relatorioElielAtual.ano,
+                JSON.stringify(catalogoCompleto())
+            );
+    };
+
+    function desenharPreviaFechamentoEliel(previa) {
+        const d = previa.relatorio || {};
+        const custos = d.custos || {};
+        const distribuicao = d.distribuicao || {};
+        document.getElementById("elielPreviaPeriodo").textContent =
+            `${meses[Number(d.mes || 1) - 1]} de ${d.ano || ""} · referência ${escapar(previa.chave || "")}`;
+        document.getElementById("previaElielFaturamento").textContent = moeda(d.faturamento);
+        document.getElementById("previaElielTaxas").textContent = "- " + moeda(d.taxas);
+        document.getElementById("previaElielSubtotal").textContent = moeda(d.subtotal);
+        document.getElementById("previaElielLiquido").textContent = moeda(d.liquido);
+        document.getElementById("previaElielTotalCustos").textContent = moeda(d.totalCustos);
+        document.getElementById("previaElielCombustivelCarro").textContent = moeda(custos.combustivelCarro);
+        document.getElementById("previaElielCombustivelTrailer").textContent = moeda(custos.combustivelTrailer);
+        document.getElementById("previaElielCozinha").textContent = moeda(custos.salarioCozinha);
+        document.getElementById("previaElielAux").textContent = moeda(custos.salarioAuxCarro);
+        document.getElementById("previaElielManutencao").textContent = moeda(custos.manutencaoCarro);
+        document.getElementById("previaElielCompra").textContent = moeda(distribuicao.compra);
+        document.getElementById("previaElielLucas").textContent = moeda(distribuicao.lucas);
+        document.getElementById("previaElielEliel").textContent = moeda(distribuicao.eliel);
+        document.getElementById("previaElielTapiocas").textContent =
+            `${Number(d.totalTapiocas || 0)} tapiocas`;
+
+        const status = document.getElementById("elielPreviaStatus");
+        const botao = document.getElementById("btnConfirmarFechamentoEliel");
+        status.className = "eliel-previa-status";
+        if (previa.duplicado) {
+            status.classList.add("bloqueado");
+            status.innerHTML = "<strong>Mês já fechado</strong><span>Esse período já existe no histórico e não pode ser fechado novamente.</span>";
+        } else if (Number(previa.pedidosPendentes || 0) > 0) {
+            status.classList.add("bloqueado");
+            status.innerHTML = `<strong>Fechamento bloqueado</strong><span>Existem ${Number(previa.pedidosPendentes)} pedido(s) pendente(s). Finalize-os no PDV e gere uma nova prévia.</span>`;
+        } else {
+            status.classList.add("liberado");
+            status.innerHTML = "<strong>Valores validados pelo servidor</strong><span>Nenhum fechamento duplicado ou pedido pendente foi encontrado.</span>";
         }
-        recalcularRelatorioElielLocal();
+        botao.disabled = !previa.podeFechar;
+    }
+
+    window.fecharPreviaFechamentoEliel = function () {
+        previaFechamentoElielAtual = null;
+        document.getElementById("modalPreviaFechamentoEliel").style.display = "none";
+    };
+
+    window.confirmarFechamentoMesEliel = function () {
+        if (!previaFechamentoElielAtual || !previaFechamentoElielAtual.podeFechar) return;
         mostrarConfirmacao(
-            `Fechar ${meses[relatorioElielAtual.mes - 1]} de ${relatorioElielAtual.ano}? Uma cópia será salva na aba Relatorio Eliel e os pedidos ativos serão zerados.`,
-            function () {
-                mostrarConfirmacao(
-                    "Esta é a confirmação final. O histórico será preservado, mas os pedidos ativos serão limpos.",
-                    fecharMesElielConfirmado,
-                    {
-                        titulo: "Confirmar fechamento do mês",
-                        icone: "!",
-                        textoCancelar: "Cancelar",
-                        textoConfirmar: "Fechar e zerar",
-                        destrutiva: true
-                    }
-                );
-            },
+            `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Os valores serão validados novamente e os pedidos ativos serão zerados.`,
+            fecharMesElielConfirmado,
             {
-                titulo: "Escolha do mês confirmada?",
-                icone: "📅",
-                textoCancelar: "Cancelar",
-                textoConfirmar: "Continuar",
+                titulo: "Confirmação final do CEO Eliel",
+                icone: "!",
+                textoCancelar: "Revisar novamente",
+                textoConfirmar: "Confirmar e zerar",
                 destrutiva: true
             }
         );
     };
 
     function fecharMesElielConfirmado() {
+        if (!previaFechamentoElielAtual) return;
+        const mes = previaFechamentoElielAtual.relatorio.mes;
+        const ano = previaFechamentoElielAtual.relatorio.ano;
+        const chave = previaFechamentoElielAtual.chave;
         document.getElementById("loadingText").textContent = "Fechando o mês no Relatório Eliel...";
         document.getElementById("loadingScreen").style.display = "flex";
         google.script.run
             .withSuccessHandler(function () {
                 document.getElementById("loadingScreen").style.display = "none";
                 historicoNuvem = [];
-                atualizarTudo();
-                mostrarAlerta(`Mês ${relatorioElielAtual.chave} fechado com sucesso. O histórico mensal foi preservado.`);
-                mudarTela("view-catalogo");
+                fecharPreviaFechamentoEliel();
+                mostrarAlerta(`Mês ${chave} fechado com sucesso pelo CEO Eliel. O histórico mensal foi preservado.`);
+                carregarRelatorioEliel();
             })
             .withFailureHandler(function (erro) {
                 document.getElementById("loadingScreen").style.display = "none";
                 mostrarAlerta("O fechamento não foi realizado.<br><small>" + escapar(erro.message) + "</small>");
             })
-            .fecharMesRelatorioEliel(JSON.stringify(relatorioElielAtual));
+            .fecharMesRelatorioEliel(
+                mes,
+                ano,
+                JSON.stringify(catalogoCompleto())
+            );
     }
 
     window.abrirTelaItens = function () {

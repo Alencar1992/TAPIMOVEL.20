@@ -9,6 +9,224 @@
     padding-bottom: 110px;
 }
 
+.eliel-modal-overlay {
+    z-index: 1500;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(232, 184, 79, .13), transparent 35%),
+        rgba(0, 0, 0, .88);
+    backdrop-filter: blur(18px);
+}
+
+.eliel-modal-fechamento {
+    --eliel-accent: #e8b84f;
+    --eliel-green: #7ed957;
+    width: min(920px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: clamp(20px, 3vw, 36px);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 28px;
+    color: #f7f7f3;
+    background: linear-gradient(145deg, rgba(18, 20, 20, .98), rgba(5, 6, 6, .98));
+    box-shadow: 0 32px 90px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+
+.eliel-modal-cabecalho,
+.eliel-modal-acoes {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.eliel-modal-cabecalho h2 {
+    margin: 4px 0 8px;
+    font-size: clamp(1.45rem, 3vw, 2.15rem);
+}
+
+.eliel-modal-cabecalho p:last-child {
+    margin: 0;
+    color: #9ca4a1;
+}
+
+.eliel-modal-fechar {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(255, 255, 255, .06);
+    cursor: pointer;
+}
+
+.eliel-previa-status {
+    display: grid;
+    gap: 4px;
+    margin: 24px 0 16px;
+    padding: 15px 17px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 16px;
+}
+
+.eliel-previa-status span {
+    color: #adb4b1;
+    font-size: .85rem;
+    line-height: 1.45;
+}
+
+.eliel-previa-status.liberado {
+    border-color: rgba(126, 217, 87, .35);
+    background: rgba(126, 217, 87, .08);
+}
+
+.eliel-previa-status.liberado strong {
+    color: #a7ec88;
+}
+
+.eliel-previa-status.bloqueado {
+    border-color: rgba(255, 107, 95, .42);
+    background: rgba(255, 107, 95, .09);
+}
+
+.eliel-previa-status.bloqueado strong {
+    color: #ff978e;
+}
+
+.eliel-previa-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.eliel-previa-grid > div,
+.eliel-previa-lista > div {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, .09);
+    border-radius: 17px;
+    background: rgba(255, 255, 255, .035);
+}
+
+.eliel-previa-grid span,
+.eliel-previa-lista span {
+    color: #929a97;
+    font-size: .77rem;
+}
+
+.eliel-previa-grid strong,
+.eliel-previa-lista strong {
+    font-size: clamp(.95rem, 2vw, 1.2rem);
+    overflow-wrap: anywhere;
+}
+
+.eliel-previa-grid .resultado {
+    border-color: rgba(126, 217, 87, .28);
+    background: linear-gradient(145deg, rgba(126, 217, 87, .11), rgba(255, 255, 255, .025));
+}
+
+.eliel-previa-grid .resultado strong {
+    color: #a7ec88;
+}
+
+.eliel-previa-secao {
+    margin-top: 14px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, .09);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, .025);
+}
+
+.eliel-previa-secao h3 {
+    margin: 0 0 4px;
+}
+
+.eliel-previa-secao .eliel-titulo-linha p {
+    margin: 0;
+    color: #929a97;
+    font-size: .8rem;
+}
+
+.eliel-previa-lista {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.eliel-previa-lista.tres-colunas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eliel-previa-aviso {
+    margin: 18px 0;
+    color: #aab1ae;
+    font-size: .82rem;
+    line-height: 1.55;
+}
+
+.eliel-modal-acoes {
+    justify-content: flex-end;
+}
+
+.eliel-modal-acoes button {
+    min-height: 46px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    color: #fff;
+    background: rgba(255, 255, 255, .06);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.eliel-modal-acoes button.perigo {
+    border-color: rgba(255, 107, 95, .45);
+    background: linear-gradient(135deg, #d84b40, #a82d26);
+}
+
+.eliel-modal-acoes button:disabled {
+    opacity: .38;
+    cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+    .eliel-modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .eliel-modal-fechamento {
+        max-height: 94vh;
+        padding: 22px 16px calc(18px + env(safe-area-inset-bottom));
+        border-radius: 24px 24px 0 0;
+    }
+
+    .eliel-previa-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .eliel-previa-lista {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .eliel-previa-lista.tres-colunas {
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-modal-acoes {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .eliel-modal-acoes button.perigo {
+        grid-row: 1;
+    }
+}
+
 .relatorio-eliel-view {
     background:
         radial-gradient(circle at 50% -15%, rgba(232, 184, 79, .08), transparent 35%),

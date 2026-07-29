@@ -215,7 +215,7 @@ test("CEO Eliel acessa somente relatório, itens e configuração", () => {
   );
 });
 
-test("CEO Eliel não acessa PDV nem ações críticas do relatório", () => {
+test("CEO Eliel não acessa o PDV, mas controla o fechamento mensal", () => {
   const { context } = createContext();
   context.configurarPinEliel("654321");
   const session = context.loginAcesso("654321", "eliel");
@@ -223,14 +223,52 @@ test("CEO Eliel não acessa PDV nem ações críticas do relatório", () => {
   [
     "carregarDadosNuvem",
     "registrarPedidoPdv",
-    "salvarConfiguracoesRelatorioEliel",
-    "fecharMesRelatorioEliel"
+    "salvarConfiguracoesRelatorioEliel"
   ].forEach(action => {
     assert.throws(
       () => context.executarAcaoApi_(action, [], session.token),
       error => error.code === "PERMISSION_DENIED"
     );
   });
+
+  context.obterPreviaFechamentoRelatorioEliel = () => "PREVIA";
+  context.fecharMesRelatorioEliel = (_mes, _ano, _catalogo, responsavel) => responsavel;
+  assert.equal(
+    context.executarAcaoApi_(
+      "obterPreviaFechamentoRelatorioEliel",
+      [7, 2026, "{}"],
+      session.token
+    ).data,
+    "PREVIA"
+  );
+  assert.equal(
+    context.executarAcaoApi_(
+      "fecharMesRelatorioEliel",
+      [7, 2026, "{}"],
+      session.token
+    ).data,
+    "CEO Eliel"
+  );
+});
+
+test("administrador não fecha o mês e a rota antiga do PDV foi removida", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAcesso("123456", "admin");
+  context.fecharMesRelatorioEliel = () => "NAO_DEVE_EXECUTAR";
+
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "fecharMesRelatorioEliel",
+      [7, 2026, "{}"],
+      session.token
+    ),
+    error => error.code === "PERMISSION_DENIED"
+  );
+  assert.throws(
+    () => context.executarAcaoApi_("fecharMesESalvarDrive", [], session.token),
+    error => error.code === "ACTION_NOT_ALLOWED"
+  );
 });
 
 test("preço e tipo do cliente são ignorados em favor do catálogo", () => {
@@ -304,4 +342,28 @@ test("combustível do Relatório Eliel é dividido em 80% carro e 20% trailer", 
   assert.equal(rateio.carro, 800);
   assert.equal(rateio.trailer, 200);
   assert.equal(rateio.carro + rateio.trailer, rateio.total);
+});
+
+test("prévia identifica pedidos ainda pendentes antes do fechamento", () => {
+  const { context, properties } = createContext();
+  properties.set("pdv_vendas_ativas", JSON.stringify([
+    { numero: 1, produzido: true, timestamp: "2026-07-29T19:30:00" },
+    { numero: 2, produzido: false, timestamp: "2026-07-29T19:35:00" },
+    { numero: 3, produzido: true, timestamp: "" }
+  ]));
+
+  assert.equal(context.obterPedidosPendentesFechamentoEliel_(), 2);
+});
+
+test("histórico mensal reconhece referências antigas sem duplicar o mês", () => {
+  const { context } = createContext();
+
+  assert.equal(
+    context.normalizarReferenciaFechamentoMensal_("Julho de 2026"),
+    "2026-07"
+  );
+  assert.equal(
+    context.normalizarReferenciaFechamentoMensal_("2026-07"),
+    "2026-07"
+  );
 });
