@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QA Relatório Eliel Premium</title>
+  <link rel="stylesheet" href="./frontend/professional.css">
+  <link rel="stylesheet" href="./frontend/eliel.css">
+  <style>
+    :root{--bg:#000;--text:#e8ebe8;--text-muted:#8f9691;--border:#2b302d;--success:#7ed957;--danger:#c33}
+    *{box-sizing:border-box}body{margin:0;background:#000;color:var(--text);font-family:"Segoe UI",Tahoma,sans-serif}
+    .relatorio-eliel-view{display:flex;max-width:1440px;min-height:100vh;margin:auto;padding:18px;flex-direction:column}
+    .nav-voltar{display:none}.input-obs{width:100%;padding:10px 8px;border:1px solid var(--border);border-radius:8px;background:#101212;color:var(--text)}
+  </style>
+</head>
+<body>
+<main class="relatorio-eliel-view">
+  <div class="eliel-cabecalho"><div><p class="eliel-kicker">GESTÃO MENSAL</p><h2>Relatório Eliel</h2><p>Visão executiva de vendas, custos, rotas e resultado.</p></div><div class="eliel-periodo"><label>Mês de referência</label><div><select class="input-obs"><option>Julho</option></select><select class="input-obs"><option>2026</option></select><button class="btn-eliel-icone">↻</button></div></div></div>
+  <div id="elielConteudo">
+    <section class="eliel-painel eliel-resumo-executivo">
+      <div class="eliel-titulo-linha"><div><h3>Resumo de lucros do mês</h3><p>Resultado consolidado do período selecionado.</p></div><strong id="elielResumoStatus">Resultado positivo</strong></div>
+      <div class="eliel-equacao"><div><span>Faturamento bruto</span><strong>R$ 18.420,00</strong></div><b>−</b><div><span>Taxas</span><strong>R$ 712,40</strong></div><b>−</b><div><span>Custos operacionais</span><strong>R$ 4.326,00</strong></div><b>=</b><div class="resultado"><span>Lucro líquido</span><strong>R$ 13.381,60</strong></div></div>
+      <div class="eliel-combustivel-resumo"><div><span>Combustível total</span><strong>R$ 980,00</strong></div><div><span>Carro · 80%</span><strong>R$ 784,00</strong></div><div><span>Trailer · 20%</span><strong>R$ 196,00</strong></div></div>
+    </section>
+    <section class="eliel-metricas"><button><span>Faturamento</span><strong>R$ 18.420,00</strong><small>Ver composição</small></button><button class="ativo"><span>Taxas</span><strong>R$ 712,40</strong><small>Crédito, débito e VR</small></button><button><span>Após taxas</span><strong>R$ 17.707,60</strong><small>Ver cálculo</small></button><button class="destaque"><span>Líquido após custos</span><strong>R$ 13.381,60</strong><small>Ver custos</small></button></section>
+    <section class="eliel-painel eliel-detalhe-metrica"><div class="eliel-detalhe-cabecalho"><div><h3>Detalhamento de taxas</h3><p>Base vendida, percentual aplicado e valor descontado.</p></div><strong>R$ 712,40</strong></div><div class="eliel-tabela-wrap"><table class="eliel-tabela"><thead><tr><th>Forma</th><th>Vendas</th><th>Taxa</th><th>Desconto</th></tr></thead><tbody><tr><td><strong>Crédito</strong></td><td>R$ 7.704,00</td><td>5,00%</td><td>R$ 385,20</td></tr><tr><td><strong>Débito</strong></td><td>R$ 6.360,00</td><td>2,00%</td><td>R$ 127,20</td></tr><tr><td><strong>VR</strong></td><td>R$ 3.577,82</td><td>5,59%</td><td>R$ 200,00</td></tr></tbody></table></div></section>
+    <section class="eliel-duas-colunas eliel-bloco-visual">
+      <article class="eliel-painel"><div class="eliel-titulo-linha"><div><h3>Top 3 mais vendidas</h3><p>Pódio de sabores do mês.</p></div><strong>3.522 un</strong></div><div class="eliel-podio">
+        <article class="eliel-podio-item posicao-1"><span class="eliel-medalha">1º</span><img src="./frontend/assets/menu/tapioca-coco.webp" alt=""><div><strong>Beijinho</strong><span>1.856 unidades</span><small>Melhor dia: Sexta-feira</small></div></article>
+        <article class="eliel-podio-item posicao-2"><span class="eliel-medalha">2º</span><img src="./frontend/assets/menu/tapioca-frango.webp" alt=""><div><strong>Frango com Catupiry</strong><span>1.246 unidades</span><small>Melhor dia: Terça-feira</small></div></article>
+        <article class="eliel-podio-item posicao-3"><span class="eliel-medalha">3º</span><img src="./frontend/assets/menu/tapioca-carne-seca.webp" alt=""><div><strong>Carne Seca com Queijo</strong><span>1.032 unidades</span><small>Melhor dia: Quarta-feira</small></div></article>
+      </div></article>
+      <article class="eliel-painel"><div class="eliel-titulo-linha"><div><h3>Volume de tapiocas</h3><p>Quantidade e faturamento por período.</p></div><div class="eliel-segmentado"><button class="ativo">Por dia</button><button>Por semana</button></div></div><div class="eliel-grafico"><div class="eliel-grafico-legenda"><span><i class="unidades"></i>Unidades</span><span><i class="faturamento"></i>Faturamento</span></div><svg viewBox="0 0 760 280"><line x1="38" y1="238" x2="740" y2="238" class="grade"/><line x1="38" y1="170" x2="740" y2="170" class="grade"/><line x1="38" y1="102" x2="740" y2="102" class="grade"/><rect x="70" y="120" width="28" height="118" rx="5" class="barra"/><rect x="170" y="92" width="28" height="146" rx="5" class="barra"/><rect x="270" y="65" width="28" height="173" rx="5" class="barra"/><rect x="370" y="105" width="28" height="133" rx="5" class="barra"/><rect x="470" y="38" width="28" height="200" rx="5" class="barra"/><rect x="570" y="78" width="28" height="160" rx="5" class="barra"/><polyline points="84,145 184,120 284,80 384,132 484,55 584,98" class="linha-faturamento"/><circle cx="84" cy="145" r="4"/><circle cx="184" cy="120" r="4"/><circle cx="284" cy="80" r="4"/><circle cx="384" cy="132" r="4"/><circle cx="484" cy="55" r="4"/><circle cx="584" cy="98" r="4"/></svg></div></article>
+    </section>
+    <section class="eliel-painel"><div class="eliel-titulo-linha"><div><h3>Cinco com menor saída</h3><p>Comparativo dos últimos três meses e tendência atual.</p></div></div><div class="eliel-tabela-wrap"><table class="eliel-tabela eliel-tabela-comparativo"><thead><tr><th>Produto</th><th>Mai</th><th>Jun</th><th>Jul</th><th>Tendência</th></tr></thead><tbody><tr><td><span class="eliel-produto-mini"><img src="./frontend/assets/menu/tapioca-queijos.webp"><strong>Dois Queijos</strong></span></td><td>86</td><td>72</td><td>95</td><td><span class="eliel-tendencia cresceu">Cresceu ↑</span></td></tr><tr><td><span class="eliel-produto-mini"><img src="./frontend/assets/menu/tapioca-banana.webp"><strong>Banana com Canela</strong></span></td><td>74</td><td>68</td><td>61</td><td><span class="eliel-tendencia caiu">Caiu ↓</span></td></tr><tr><td><span class="eliel-produto-mini"><img src="./frontend/assets/menu/tapioca-coco.webp"><strong>Coco</strong></span></td><td>0</td><td>0</td><td>0</td><td><span class="eliel-tendencia sem-vendas">Sem vendas —</span></td></tr></tbody></table></div></section>
+    <section class="eliel-painel"><div class="eliel-titulo-linha"><div><h3>Desempenho por rotas</h3><p>Faturamento, participação, volume e campeã de vendas.</p></div><strong>Jd. Souza · R$ 8.760,00</strong></div><div class="eliel-rotas">
+      <article class="eliel-rota"><span class="eliel-rota-posicao">1</span><div class="eliel-rota-nome"><strong>Jd. Souza</strong><small>912 tapiocas</small></div><div class="eliel-rota-barra"><i style="width:100%"></i></div><strong>R$ 8.760,00</strong><span class="eliel-rota-participacao">47,5%</span><span class="eliel-rota-campea"><img src="./frontend/assets/menu/tapioca-coco.webp"><span>Campeã<strong>Beijinho</strong></span></span></article>
+      <article class="eliel-rota"><span class="eliel-rota-posicao">2</span><div class="eliel-rota-nome"><strong>Guarapiranga</strong><small>632 tapiocas</small></div><div class="eliel-rota-barra"><i style="width:71%"></i></div><strong>R$ 6.210,00</strong><span class="eliel-rota-participacao">33,7%</span><span class="eliel-rota-campea"><img src="./frontend/assets/menu/tapioca-frango.webp"><span>Campeã<strong>Frango com Catupiry</strong></span></span></article>
+    </div></section>
+  </div>
+</main>
+</body>
+</html>
