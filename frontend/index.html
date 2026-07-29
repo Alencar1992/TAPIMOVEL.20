@@ -408,7 +408,7 @@
             <div>
                 <p class="eliel-kicker">GESTÃO MENSAL</p>
                 <h2>Relatório Eliel</h2>
-                <p>Vendas, rotas, custos e distribuição do resultado.</p>
+                <p>Visão executiva de vendas, custos, rotas e resultado.</p>
             </div>
             <div class="eliel-periodo">
                 <label for="elielMes">Mês de referência</label>
@@ -436,47 +436,70 @@
             </div>
         </div>
         <div id="elielConteudo" hidden>
-            <section class="eliel-metricas">
-                <article><span>Faturamento</span><strong id="elielFaturamento">R$ 0,00</strong></article>
-                <article><span>Taxas</span><strong id="elielTaxas">R$ 0,00</strong></article>
-                <article><span>Após taxas</span><strong id="elielSubtotal">R$ 0,00</strong></article>
-                <article class="destaque"><span>Líquido após custos</span><strong id="elielLiquido">R$ 0,00</strong></article>
-            </section>
-
-            <section class="eliel-painel">
-                <div class="eliel-titulo-linha"><div><h3>Volume de tapiocas</h3><p>Quantidade consolidada por período.</p></div><strong id="elielTotalTapiocas">0 un</strong></div>
-                <div class="eliel-duas-colunas">
-                    <div><h4>Por dia</h4><div id="elielPorDia" class="eliel-lista"></div></div>
-                    <div><h4>Por semana</h4><div id="elielPorSemana" class="eliel-lista"></div></div>
+            <section class="eliel-painel eliel-resumo-executivo">
+                <div class="eliel-titulo-linha">
+                    <div><h3>Resumo de lucros do mês</h3><p>Resultado consolidado do período selecionado.</p></div>
+                    <strong id="elielResumoStatus">Resultado positivo</strong>
+                </div>
+                <div class="eliel-equacao">
+                    <div><span>Faturamento bruto</span><strong id="elielResumoFaturamento">R$ 0,00</strong></div><b>−</b>
+                    <div><span>Taxas</span><strong id="elielResumoTaxas">R$ 0,00</strong></div><b>−</b>
+                    <div><span>Custos operacionais</span><strong id="elielResumoCustos">R$ 0,00</strong></div><b>=</b>
+                    <div class="resultado"><span>Lucro líquido</span><strong id="elielResumoLiquido">R$ 0,00</strong></div>
+                </div>
+                <div class="eliel-combustivel-resumo">
+                    <div><span>Combustível total</span><strong id="elielCombustivelTotal">R$ 0,00</strong></div>
+                    <div><span>Carro · 80%</span><strong id="elielCombustivelCarro">R$ 0,00</strong></div>
+                    <div><span>Trailer · 20%</span><strong id="elielCombustivelTrailer">R$ 0,00</strong></div>
                 </div>
             </section>
 
-            <section class="eliel-duas-colunas">
+            <section class="eliel-metricas" aria-label="Indicadores financeiros">
+                <button type="button" data-detalhe="faturamento" onclick="alternarDetalheMetricaEliel('faturamento', this)" aria-expanded="false"><span>Faturamento</span><strong id="elielFaturamento">R$ 0,00</strong><small>Ver composição</small></button>
+                <button type="button" data-detalhe="taxas" onclick="alternarDetalheMetricaEliel('taxas', this)" aria-expanded="false"><span>Taxas</span><strong id="elielTaxas">R$ 0,00</strong><small>Crédito, débito e VR</small></button>
+                <button type="button" data-detalhe="subtotal" onclick="alternarDetalheMetricaEliel('subtotal', this)" aria-expanded="false"><span>Após taxas</span><strong id="elielSubtotal">R$ 0,00</strong><small>Ver cálculo</small></button>
+                <button type="button" class="destaque" data-detalhe="liquido" onclick="alternarDetalheMetricaEliel('liquido', this)" aria-expanded="false"><span>Líquido após custos</span><strong id="elielLiquido">R$ 0,00</strong><small>Ver custos</small></button>
+            </section>
+            <section id="elielDetalheMetrica" class="eliel-painel eliel-detalhe-metrica" hidden aria-live="polite"></section>
+
+            <section class="eliel-duas-colunas eliel-bloco-visual">
                 <article class="eliel-painel">
-                    <h3>Três mais vendidas</h3>
-                    <div id="elielTop3" class="eliel-ranking"></div>
+                    <div class="eliel-titulo-linha"><div><h3>Top 3 mais vendidas</h3><p>Pódio de sabores do mês.</p></div><strong id="elielTotalTapiocas">0 un</strong></div>
+                    <div id="elielTop3" class="eliel-podio"></div>
                 </article>
                 <article class="eliel-painel">
-                    <h3>Cinco menos vendidas</h3>
-                    <div id="elielMenos5" class="eliel-insights"></div>
+                    <div class="eliel-titulo-linha">
+                        <div><h3>Volume de tapiocas</h3><p>Quantidade e faturamento por período.</p></div>
+                        <div class="eliel-segmentado" role="group" aria-label="Agrupar gráfico">
+                            <button type="button" class="ativo" onclick="mudarGraficoEliel('dia', this)">Por dia</button>
+                            <button type="button" onclick="mudarGraficoEliel('semana', this)">Por semana</button>
+                        </div>
+                    </div>
+                    <div id="elielGraficoVolume" class="eliel-grafico" role="img" aria-label="Gráfico de volume de tapiocas"></div>
                 </article>
             </section>
 
             <section class="eliel-painel">
-                <div class="eliel-titulo-linha"><div><h3>Desempenho por rota</h3><p>Valor, volume e tapioca campeã de cada dia de rota.</p></div><strong id="elielMelhorRota">—</strong></div>
-                <div id="elielRotas" class="eliel-tabela-wrap"></div>
+                <div class="eliel-titulo-linha"><div><h3>Cinco com menor saída</h3><p>Comparativo dos últimos três meses e tendência atual.</p></div></div>
+                <div id="elielMenos5" class="eliel-tabela-wrap"></div>
+            </section>
+
+            <section class="eliel-painel">
+                <div class="eliel-titulo-linha"><div><h3>Desempenho por rotas</h3><p>Faturamento, participação, volume e campeã de vendas.</p></div><strong id="elielMelhorRota">—</strong></div>
+                <div id="elielRotas" class="eliel-rotas"></div>
             </section>
 
             <section class="eliel-duas-colunas">
                 <article class="eliel-painel">
                     <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link eliel-admin-only" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
                     <div class="eliel-form-grid">
-                        <label>Combustível carro<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
+                        <label>Combustível total<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
                         <label>Salário cozinha<input id="elielCustoCozinha" class="input-obs" inputmode="decimal"></label>
                         <label>Salário aux. carro<input id="elielCustoAux" class="input-obs" inputmode="decimal"></label>
                         <label>Manutenção carro<input id="elielCustoManutencao" class="input-obs" inputmode="decimal"></label>
                     </div>
-                    <div class="eliel-total-linha"><span>Total de custos</span><strong id="elielTotalCustos">R$ 0,00</strong></div>
+                    <p class="eliel-regra-combustivel">O carro assume 80% do combustível e esse valor é descontado do resultado. Os 20% do trailer ficam demonstrados separadamente.</p>
+                    <div class="eliel-total-linha"><span>Total de custos descontados</span><strong id="elielTotalCustos">R$ 0,00</strong></div>
                 </article>
                 <article class="eliel-painel">
                     <h3>Distribuição do líquido</h3>
@@ -489,17 +512,13 @@
                 </article>
             </section>
 
-            <section class="eliel-painel">
-                <h3>Resumo de lucros do mês</h3>
-                <p id="elielResumoLucro" class="eliel-resumo"></p>
-            </section>
-
             <div class="eliel-acoes">
                 <button type="button" onclick="exportarRelatorioElielCsv()">Exportar CSV</button>
                 <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar XLSX</button>
                 <button type="button" onclick="gerarComparativoElielPdf()">Comparativo do mês anterior em PDF</button>
                 <button type="button" class="perigo eliel-admin-only" onclick="abrirFechamentoMesEliel()">Fechar e zerar mês</button>
             </div>
+            <p id="elielResumoLucro" class="eliel-resumo" hidden></p>
         </div>
     </div>
 
