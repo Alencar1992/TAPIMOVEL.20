@@ -170,11 +170,17 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
 
   assert.match(html, /Prévia do fechamento mensal/);
   assert.match(html, /Confirmar e zerar mês/);
+  assert.match(html, /id="previaElielCombustivelTotal"/);
+  assert.match(html, /Combustível total · 100%/);
   assert.match(html, /Liquidez Mensal · consulta/);
   assert.doesNotMatch(html, /Fechar Mês \(Drive\)/);
   assert.doesNotMatch(html, /function confirmarFechamentoMes\(/);
   assert.doesNotMatch(backend, /function fecharMesESalvarDrive\(/);
   assert.match(eliel, /\.obterPreviaFechamentoRelatorioEliel\(/);
+  assert.match(
+    eliel,
+    /previaElielCombustivelTotal"\)\.textContent = moeda\(custos\.combustivelTotal\)/
+  );
   assert.match(eliel, /\.fecharMesRelatorioEliel\(\s*mes,\s*ano,/);
   assert.match(backend, /O fechamento mensal é exclusivo do perfil CEO Eliel/);
   assert.match(backend, /pedidosPendentes/);
