@@ -262,3 +262,17 @@ test("adicionais pagos ficam vinculados à tapioca e respeitam a categoria", () 
   assert.match(backend, /adicionaisPermitidos/);
   assert.match(backend, /precoBase \+ adicionais\.length \* 4/);
 });
+
+test("cardápio do cliente usa as rotas atualizadas e endereço completo obrigatório", () => {
+  const cliente = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+
+  assert.doesNotMatch(cliente, /JD VAZ DE LIMA/);
+  assert.match(cliente, /5: \["JD SOUZA", "COPACABANA", "TUPI"\]/);
+  assert.match(cliente, /id="cliEndereco"/);
+  assert.match(cliente, /id="cliNum"/);
+  assert.match(cliente, /if\(!endereco\)/);
+  assert.match(cliente, /if\(!num\)/);
+  assert.match(cliente, /id="resumoEnderecoPedido"/);
+  assert.match(cliente, /enderecoCliente: rotaFinal/);
+  assert.match(cliente, /selectRota \+ " \| " \+ endereco \+ ", Nº " \+ num/);
+});
