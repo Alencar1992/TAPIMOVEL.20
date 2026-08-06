@@ -1253,13 +1253,31 @@
     grid-template-columns: 1fr auto;
     align-items: center;
     gap: 12px;
-    padding: 11px 13px;
+    padding: 8px;
     border: 1px solid var(--eliel-line);
     border-radius: 12px;
     background: var(--eliel-surface);
     color: var(--text);
     text-align: left;
     font: 650 .9rem/1.25 "Segoe UI", sans-serif;
+    cursor: default;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.gestao-item-main {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 58px;
+    padding: 8px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    font: inherit;
     cursor: pointer;
     touch-action: manipulation;
     -webkit-user-select: none;
@@ -1273,14 +1291,38 @@
     font-weight: 500;
 }
 
-.gestao-item .flag-item {
-    min-width: 92px;
-    padding: 8px 10px;
-    border-radius: 99px;
-    background: rgba(85, 199, 138, .13);
+.item-switch {
+    width: 94px;
+    min-height: 52px;
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    padding: 7px;
+    border: 1px solid rgba(85, 199, 138, .32);
+    border-radius: 10px;
+    background: rgba(85, 199, 138, .1);
     color: var(--eliel-green);
-    text-align: center;
-    font-size: .74rem;
+    font: 750 .7rem/1 "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.item-switch i {
+    position: relative;
+    width: 34px;
+    height: 19px;
+    border-radius: 99px;
+    background: var(--eliel-green);
+}
+
+.item-switch i::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
 }
 
 .gestao-item.pausado {
@@ -1288,10 +1330,56 @@
     opacity: .72;
 }
 
-.gestao-item.pausado .flag-item {
+.gestao-item.pausado .item-switch {
     background: rgba(255, 107, 95, .13);
+    border-color: rgba(255, 107, 95, .38);
     color: #ff857b;
 }
+
+.gestao-item.pausado .item-switch i {
+    background: #ff6b5f;
+}
+
+.gestao-item.pausado .item-switch i::after {
+    right: 18px;
+}
+
+.itens-acoes-massa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--eliel-line);
+    border-radius: 12px;
+    background: var(--eliel-surface);
+}
+
+.itens-acoes-massa[hidden] { display: none; }
+
+.itens-acoes-massa > span {
+    color: var(--text-muted);
+    font-size: .82rem;
+}
+
+.itens-acoes-massa > div {
+    display: flex;
+    gap: 8px;
+}
+
+.itens-acoes-massa button {
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--eliel-line);
+    border-radius: 9px;
+    background: var(--eliel-surface-2);
+    color: #fff;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.itens-acoes-massa .ativar { color: var(--eliel-green); }
+.itens-acoes-massa .desativar { color: #ff857b; }
 
 .itens-instrucao {
     color: var(--text-muted);
@@ -1304,6 +1392,146 @@
     gap: 7px;
     margin-top: 10px;
 }
+
+.adicional-item-controle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 3px;
+}
+
+.adicional-item-controle button {
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 107, 95, .45);
+    border-radius: 9px;
+    background: rgba(255, 107, 95, .1);
+    color: var(--primary);
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.adicional-item-controle strong {
+    color: var(--success);
+    font-size: .74rem;
+}
+
+.adicionais-selecionados {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.adicionais-selecionados span {
+    padding: 5px 8px;
+    border-radius: 99px;
+    background: rgba(64, 192, 87, .13);
+    color: var(--success);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.modal-adicionais { max-width: 620px !important; }
+
+.adicionais-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.adicionais-cabecalho span {
+    color: var(--primary);
+    font-size: .68rem;
+    font-weight: 850;
+    letter-spacing: .08em;
+}
+
+.adicionais-cabecalho h3 { margin: 4px 0 0; }
+
+.adicionais-cabecalho > button {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.adicional-item-alvo {
+    margin: 16px 0 6px;
+    color: var(--text);
+    font-weight: 800;
+}
+
+.adicional-regra { margin: 0 0 14px; color: var(--text-muted); font-size: .85rem; }
+
+.lista-adicionais {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    max-height: 48dvh;
+    overflow-y: auto;
+}
+
+.adicional-opcao {
+    min-height: 50px;
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    text-align: left;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.adicional-opcao > span {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: var(--stat-bg);
+    color: var(--primary);
+}
+
+.adicional-opcao small { color: var(--text-muted); white-space: nowrap; }
+
+.adicional-opcao.selecionado {
+    border-color: var(--success);
+    background: rgba(64, 192, 87, .1);
+}
+
+.adicional-opcao.selecionado > span { background: var(--success); color: #fff; }
+
+.adicional-resumo {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--stat-bg);
+}
+
+.adicional-resumo span { color: var(--text-muted); }
+.adicional-resumo strong { color: var(--success); }
+
+.adicional-acoes {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 9px;
+    margin-top: 12px;
+}
+
+.adicional-acoes .btn-acao { margin: 0; }
 
 .opcoes-tapioca-grupo {
     display: flex;
@@ -1405,6 +1633,19 @@
         padding: 12px;
         padding-bottom: 118px;
     }
+
+    .itens-acoes-massa {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .itens-acoes-massa > div {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .lista-adicionais { grid-template-columns: 1fr; max-height: 45dvh; }
+    .adicional-acoes { grid-template-columns: 1fr; }
 
     .eliel-aviso {
         align-items: stretch;
