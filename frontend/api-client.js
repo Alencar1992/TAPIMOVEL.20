@@ -11,7 +11,11 @@
   var TOKEN_PROFILE_KEY = STORAGE_PREFIX + "profile";
   var TOKEN_NAME_KEY = STORAGE_PREFIX + "name";
   var DEFAULT_INACTIVITY_MS = 4 * 60 * 60 * 1000;
+  var REQUEST_TIMEOUT_MS = 25000;
+  var SAFE_RETRY_LIMIT = 1;
+  var SAFE_ACTION_PATTERN = /^(login|validar|carregar|obter|listar|buscar|calcular|verificar|consultar)/;
   var inactivityMs = DEFAULT_INACTIVITY_MS;
+  var connectionTimer = null;
 
   function getLocalDay() {
     var now = new Date();
@@ -78,6 +82,103 @@
     return url;
   }
 
+  function updateConnectionStatus(state, message) {
+    var status = document.getElementById("tapimovelConnectionStatus");
+    if (status) {
+      status.hidden = false;
+      status.dataset.state = state;
+      var label = status.querySelector("span:last-child");
+      if (label) label.textContent = message;
+      clearTimeout(connectionTimer);
+      if (state === "online") {
+        connectionTimer = setTimeout(function () { status.hidden = true; }, 2200);
+      }
+    }
+    window.dispatchEvent(new CustomEvent("tapimovel:connection", {
+      detail: { state: state, message: message }
+    }));
+  }
+
+  function retryUrl(url, attempt) {
+    if (!attempt) return url;
+    var parsed = new URL(url);
+    parsed.searchParams.set("tentativa", String(Date.now()));
+    return parsed.toString();
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  function friendlyConnectionError(error) {
+    if (!navigator.onLine) {
+      return new Error("Sem internet no aparelho. Verifique a rede e tente novamente.");
+    }
+    if (error && error.name === "AbortError") {
+      return new Error("A conexão demorou mais de 25 segundos. Tente novamente.");
+    }
+    if (error && error.httpStatus === 404) {
+      return new Error("O serviço ficou temporariamente indisponível (HTTP 404). Tente novamente.");
+    }
+    if (error && error.httpStatus) {
+      return new Error("O serviço respondeu com falha HTTP " + error.httpStatus + ". Tente novamente.");
+    }
+    if (error instanceof SyntaxError) {
+      return new Error("O serviço enviou uma resposta inválida. Tente novamente.");
+    }
+    return error && error.message
+      ? error
+      : new Error("Não foi possível conectar ao serviço. Verifique a internet e tente novamente.");
+  }
+
+  function requestApi(action, args, token, attempt) {
+    var safeToRetry = SAFE_ACTION_PATTERN.test(action);
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    updateConnectionStatus(
+      attempt ? "retrying" : "connecting",
+      attempt ? "Reconectando ao sistema…" : "Conectando ao sistema…"
+    );
+
+    return fetch(retryUrl(getApiUrl(), attempt), {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: action, args: args, token: token }),
+      signal: controller.signal
+    })
+      .then(function (response) {
+        clearTimeout(timeout);
+        if (!response.ok) {
+          var httpError = new Error("Falha HTTP " + response.status);
+          httpError.httpStatus = response.status;
+          httpError.retryable = response.status === 404 || response.status === 408 ||
+            response.status === 429 || response.status >= 500;
+          throw httpError;
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        updateConnectionStatus("online", "Sistema conectado");
+        return payload;
+      })
+      .catch(function (error) {
+        clearTimeout(timeout);
+        var retryable = error && (
+          error.retryable || error.name === "AbortError" || error instanceof TypeError || error instanceof SyntaxError
+        );
+        if (safeToRetry && retryable && attempt < SAFE_RETRY_LIMIT && navigator.onLine) {
+          updateConnectionStatus("retrying", "Instabilidade detectada. Tentando novamente…");
+          return wait(900).then(function () {
+            return requestApi(action, args, token, attempt + 1);
+          });
+        }
+        var friendly = friendlyConnectionError(error);
+        updateConnectionStatus("offline", friendly.message);
+        throw friendly;
+      });
+  }
+
   function createRunner(successHandler, failureHandler) {
     var target = {
       withSuccessHandler: function (handler) {
@@ -95,18 +196,7 @@
 
         return function () {
           var args = Array.prototype.slice.call(arguments);
-          return fetch(getApiUrl(), {
-            method: "POST",
-            redirect: "follow",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: prop, args: args, token: getToken() })
-          })
-            .then(function (response) {
-              if (!response.ok) {
-                throw new Error("Falha HTTP " + response.status);
-              }
-              return response.json();
-            })
+          return requestApi(prop, args, getToken(), 0)
             .then(function (payload) {
               if (!payload || payload.ok !== true) {
                 var apiError = new Error(
@@ -144,6 +234,12 @@
   window.google.script.run = createRunner();
   ["pointerdown", "keydown", "touchstart"].forEach(function (eventName) {
     window.addEventListener(eventName, registerActivity, { passive: true });
+  });
+  window.addEventListener("offline", function () {
+    updateConnectionStatus("offline", "Sem internet no aparelho");
+  });
+  window.addEventListener("online", function () {
+    updateConnectionStatus("connecting", "Internet restabelecida. Reconectando…");
   });
   window.TapimovelAuth = {
     clear: clearToken,
