@@ -585,8 +585,15 @@
         </div>
         <div class="itens-legenda"><span><i class="status-dot disponivel"></i> Disponível</span><span><i class="status-dot indisponivel"></i> Indisponível</span></div>
         <input id="itensBusca" class="barra-pesquisa" type="search" placeholder="Buscar item..." oninput="renderizarTelaItens()">
+        <div id="itensAcoesMassa" class="itens-acoes-massa" hidden>
+            <span id="itensResultadoBusca">0 resultados</span>
+            <div>
+                <button type="button" class="ativar" onclick="definirEstadoResultadosItens(true)">✓ Ativar resultados</button>
+                <button type="button" class="desativar" onclick="definirEstadoResultadosItens(false)">⏸ Desativar resultados</button>
+            </div>
+        </div>
         <div id="listaGestaoItens" class="lista-gestao-itens"></div>
-        <p class="itens-instrucao">Para pausar ou reativar, pressione o item por 3 segundos e acompanhe o progresso.</p>
+        <p class="itens-instrucao">Use a chave ou pressione o item por 2 segundos. Toda pausa é removida automaticamente na virada do dia.</p>
     </div>
 
     <div id="view-configuracao" class="app-view configuracao-view">
@@ -733,12 +740,19 @@
     </div>
 
     <div id="modalAdicional" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="color: var(--primary); margin-top: 0;">➕ Adicional (R$ 4,00)</h3>
-            <label>Qual é o adicional?</label>
-            <input type="text" id="inputDescAdicional" class="input-obs" placeholder="Ex: Cheddar, Bacon, Queijo..." style="width:100%; padding:12px; margin-top:8px; margin-bottom:15px; box-sizing:border-box; font-size: 1.1rem;">
-            <button class="btn-acao" style="background: var(--success);" onclick="confirmarAdicional()">Adicionar ao Pedido</button>
-            <button class="btn-acao btn-limpar" onclick="fecharModais()">Cancelar</button>
+        <div class="modal-content modal-adicionais">
+            <div class="adicionais-cabecalho">
+                <div><span>PERSONALIZAR TAPIOCA</span><h3>➕ Adicionais</h3></div>
+                <button type="button" onclick="fecharModalAdicionais()" aria-label="Fechar adicionais">✕</button>
+            </div>
+            <p id="adicionalItemAlvo" class="adicional-item-alvo"></p>
+            <p class="adicional-regra">Cada adicional soma <strong>R$ 4,00</strong> ao valor da tapioca.</p>
+            <div id="listaAdicionais" class="lista-adicionais"></div>
+            <div class="adicional-resumo"><span id="adicionalQuantidade">Nenhum adicional selecionado</span><strong id="adicionalTotal">+ R$ 0,00</strong></div>
+            <div class="adicional-acoes">
+                <button type="button" class="btn-acao btn-limpar" onclick="fecharModalAdicionais()">Cancelar</button>
+                <button id="btnConfirmarAdicionais" type="button" class="btn-acao" onclick="confirmarAdicionaisTapioca()">Salvar adicionais</button>
+            </div>
         </div>
     </div>
 
@@ -1559,7 +1573,7 @@
             }
         }
 
-        const DURACAO_PRESSAO_ITEM = 3000;
+        const DURACAO_PRESSAO_ITEM = 2000;
         let timerPressao; let intervaloPressao; let botaoPressionado = null; let tocouLongo = false;
 
         function atualizarFeedbackPressao(botao, inicio) {
@@ -1599,7 +1613,7 @@
                 botaoPressionado.classList.remove('em-pressao');
                 botaoPressionado.style.removeProperty('--press-progress');
                 const contador = botaoPressionado.querySelector('.press-progress-value');
-                if (contador) contador.textContent = '3';
+                if (contador) contador.textContent = '2';
             }
             botaoPressionado = null;
         }
@@ -1662,11 +1676,11 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">3</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
+            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
         };
 
         function pesquisarProdutos() {
-            termoPesquisa = document.getElementById('inputPesquisa').value.trim().toLowerCase();
+            termoPesquisa = TapimovelCatalogo.normalizarBusca(document.getElementById('inputPesquisa').value);
             const tabs = document.getElementById('containerAbas');
             const btnLimpar = document.getElementById('btnLimparPesquisa');
 
@@ -1684,7 +1698,7 @@
         function renderizarPesquisa() {
             const grid = document.getElementById('gridProdutos');
             let todos = [].concat(bdCatalogo.salgadas, bdCatalogo.especiais, bdCatalogo.doces_tradicionais, bdCatalogo.doces_avela, bdCatalogo.doces_nutella, bdCatalogo.bebidas);
-            let filtrados = todos.filter(p => p.nome.toLowerCase().includes(termoPesquisa) || (p.ing && p.ing.toLowerCase().includes(termoPesquisa)));
+            let filtrados = todos.filter(p => TapimovelCatalogo.correspondeBusca(p, termoPesquisa));
 
             if (filtrados.length === 0) {
                 grid.innerHTML = `<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; margin-top: 20px;">Não encontrei nada com "<b>${escaparHtml(termoPesquisa)}</b>".</p>`;
@@ -1711,18 +1725,17 @@
                 return;
             }
 
-            const btnAdicionalHtml = `<button class="produto-btn" style="border: 2px dashed var(--primary);" onclick="lancarAdicionalComNome()"><span class="produto-nome">+ Adicional</span><span class="produto-preco">R$ 4,00</span></button>`;
             const btnAvulsoHtml = `<button class="produto-btn" style="border: 2px dashed var(--edit);" onclick="abrirModalAvulso()"><span class="produto-nome" style="color: var(--edit);">➕ Item Avulso</span><span class="produto-preco" style="font-size:0.75rem;">(Massa, etc)</span></button>`;
-            const processarLista = (lista, comAdicional = false) => { let html = lista.map(gerarHtmlProduto).join(''); if (comAdicional) html += btnAdicionalHtml; html += btnAvulsoHtml; return html; };
+            const processarLista = (lista) => lista.map(gerarHtmlProduto).join('') + btnAvulsoHtml;
 
             if (categoria === 'salgadas') {
-                grid.innerHTML = processarLista(bdCatalogo.salgadas, true);
+                grid.innerHTML = processarLista(bdCatalogo.salgadas);
             } else if (categoria === 'especiais') {
-                grid.innerHTML = processarLista(bdCatalogo.especiais, true);
+                grid.innerHTML = processarLista(bdCatalogo.especiais);
             } else if (categoria === 'doces') {
-                grid.innerHTML = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 5px;">Doces Tradicionais</div>${bdCatalogo.doces_tradicionais.map(gerarHtmlProduto).join('')}<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 10px;">Linha Avelã</div>${bdCatalogo.doces_avela.map(gerarHtmlProduto).join('')}<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 10px;">Linha Nutella</div>${bdCatalogo.doces_nutella.map(gerarHtmlProduto).join('')}` + btnAdicionalHtml + btnAvulsoHtml;
+                grid.innerHTML = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 5px;">Doces Tradicionais</div>${bdCatalogo.doces_tradicionais.map(gerarHtmlProduto).join('')}<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 10px;">Linha Avelã</div>${bdCatalogo.doces_avela.map(gerarHtmlProduto).join('')}<div class="sub-categoria-titulo" style="grid-column: 1 / -1; font-weight: bold; color: var(--primary); margin-top: 10px;">Linha Nutella</div>${bdCatalogo.doces_nutella.map(gerarHtmlProduto).join('')}` + btnAvulsoHtml;
             } else if (categoria === 'bebidas') {
-                grid.innerHTML = processarLista(bdCatalogo.bebidas, false);
+                grid.innerHTML = processarLista(bdCatalogo.bebidas);
             } else if (categoria === 'monte') {
                 if (!baseSelecionadaMonte) {
                     grid.innerHTML = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; text-align:center;">Passo 1: Escolha a Carne</div>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(carne => `<button class="produto-btn" onclick="selecionarBaseMonteUI('${carne}')"><span class="produto-nome" style="font-size: 1.1rem;">${carne}</span></button>`).join('');
@@ -1759,13 +1772,25 @@
         }
 
         function adicionarAoCarrinho(produto) {
-            let index = carrinho.findIndex(item => item.nome === produto.nome && item.obs === (produto.obs || ''));
+            const adicionaisProduto = Array.isArray(produto.adicionais) ? produto.adicionais.slice().sort() : [];
+            let index = carrinho.findIndex(item =>
+                item.nome === produto.nome &&
+                item.obs === (produto.obs || '') &&
+                JSON.stringify((item.adicionais || []).slice().sort()) === JSON.stringify(adicionaisProduto)
+            );
             if (index !== -1) {
                 carrinho[index].quantidade += 1;
             } else {
                 let novoItem = JSON.parse(JSON.stringify(produto));
                 novoItem.quantidade = 1;
                 if (!novoItem.obs) novoItem.obs = '';
+                if (novoItem.tipo === 'tapioca') {
+                    novoItem.adicionais = adicionaisProduto;
+                    novoItem.precoBase = Number(novoItem.precoBase || novoItem.preco);
+                    novoItem.categoriaAdicional = window.identificarCategoriaAdicional
+                        ? window.identificarCategoriaAdicional(novoItem)
+                        : 'salgado';
+                }
                 carrinho.push(novoItem);
             }
             atualizarCarrinho();
@@ -1789,27 +1814,6 @@
             }
 
             adicionarAoCarrinho({ nome: `Avulso: ${nome}`, preco: preco, tipo: 'tapioca', ing: '' });
-            fecharModais();
-        }
-
-        function lancarAdicionalComNome() {
-            document.getElementById('inputDescAdicional').value = '';
-            document.getElementById('modalAdicional').style.display = 'flex';
-            setTimeout(() => document.getElementById('inputDescAdicional').focus(), 100);
-        }
-
-        function confirmarAdicional() {
-            let desc = document.getElementById('inputDescAdicional').value.trim();
-            if (desc === '') desc = "Adicional Genérico";
-
-            adicionarAoCarrinho({
-                nome: "+ Adicional",
-                preco: 4.00,
-                tipo: "extra",
-                ing: "",
-                obs: desc
-            });
-
             fecharModais();
         }
 
@@ -1921,11 +1925,14 @@
                     let personalizacoesHtml = item.personalizacoes && item.personalizacoes.length
                         ? `<span class="ingredientes" style="color:#74c0fc; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAR: ${item.personalizacoes.map(escaparHtml).join(', ')}</span>`
                         : '';
+                    let adicionaisHtml = item.adicionais && item.adicionais.length
+                        ? `<span class="ingredientes" style="color:#69db7c; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAIS PAGOS: ${item.adicionais.map(escaparHtml).join(', ')}</span>`
+                        : '';
                     let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${escaparHtml(item.obs)}</span>` : ''; let extrasHtml = '';
                     for (let i = idx + 1; i < pedido.itens.length; i++) { let proximoItem = pedido.itens[i]; if (proximoItem.tipo === 'extra') { if(!proximoItem.pronto) { let nomeDoExtra = (proximoItem.nome === '+ Adicional' && proximoItem.obs) ? proximoItem.obs : proximoItem.nome; let obsDoExtra = (proximoItem.nome !== '+ Adicional' && proximoItem.obs) ? ` - ${proximoItem.obs}` : ''; extrasHtml += `<div style="color: #ffc107; font-weight: bold; font-size: 0.95rem; margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffc107;">➕ Adicional: ${escaparHtml(nomeDoExtra)}${escaparHtml(obsDoExtra)}</div>`; } indicesAgrupados.add(i); } else if (proximoItem.tipo !== 'bebida') { break; } }
                     let nomeExibicao = item.tipo === 'extra' ? `⚠️ Adicional Avulso: ${item.obs || item.nome}` : item.nome;
                     nomeExibicao = escaparHtml(nomeExibicao);
-                    htmlItens += `<div class="item-producao"><div class="info-prod"><strong>${item.quantidade}x ${nomeExibicao}</strong>${ingredientesHtml}${personalizacoesHtml}${obsHtml}${extrasHtml}</div><button class="btn-check-item" onclick="marcarItemEExtrasPronto('${pedido.numero}', ${idx})">✅ Concluir</button></div>`;
+                    htmlItens += `<div class="item-producao"><div class="info-prod"><strong>${item.quantidade}x ${nomeExibicao}</strong>${ingredientesHtml}${personalizacoesHtml}${adicionaisHtml}${obsHtml}${extrasHtml}</div><button class="btn-check-item" onclick="marcarItemEExtrasPronto('${pedido.numero}', ${idx})">✅ Concluir</button></div>`;
                 });
                 if(htmlItens !== '') {
                     let badgePagamento = pedido.timestamp ? `<span class="badge-status-cozinha badge-pago">PAGO</span>` : `<span class="badge-status-cozinha badge-pendente">PENDENTE</span>`; let badgeOrigem = pedido.origem === 'Online' ? `<span class="badge-status-cozinha" style="background: #339af0; margin-right: 5px; font-size: 0.85rem; padding: 3px 8px;">📲 APP</span> ` : '';
