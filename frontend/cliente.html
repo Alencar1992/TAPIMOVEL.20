@@ -141,7 +141,11 @@
         <h1>✅</h1>
         <h2 style="color: var(--primary);">Pedido Recebido!</h2>
         <p>Sua senha na cozinha é a <b>#<span id="numSenha"></span></b>.</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Já estamos preparando a sua tapioca. Fique atento ao nosso chamado!</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Seu pedido está aguardando a confirmação da equipe.</p>
+
+        <a id="btnEnviarPedidoWhatsapp" href="#" target="_blank" rel="noopener" style="text-decoration:none;width:100%;margin-top:20px;display:block;">
+            <button class="btn-large" style="background:#25D366;color:white;">📲 Enviar notinha pelo WhatsApp</button>
+        </a>
 
         <button class="btn-large" style="margin-top: 25px; background: var(--primary); color: #121212;" onclick="reiniciarApp()">Fazer Novo Pedido</button>
 
@@ -172,6 +176,9 @@
                 <h3 style="border-bottom: 1px solid var(--border); padding-bottom: 5px; color: var(--primary);">Seus Dados</h3>
                 <label><b>Seu Nome:</b> *</label>
                 <input type="text" id="cliNome" placeholder="Como devemos chamá-lo?">
+
+                <label><b>WhatsApp com DDD:</b> *</label>
+                <input type="tel" id="cliTelefone" inputmode="tel" placeholder="Ex: (11) 99999-9999" maxlength="16">
 
                 <div style="display: flex; gap: 10px; flex-direction: column;">
                     <div>
@@ -503,6 +510,7 @@
                 return mostrarAlerta("O cardápio digital está fechado. Atendemos de <b>segunda a sexta-feira, das 18h às 22h</b>.");
             }
             let nome = document.getElementById('cliNome').value.trim();
+            let telefone = document.getElementById('cliTelefone').value.replace(/\D/g, '');
             let pag = document.getElementById('cliPag').value;
             let troco = document.getElementById('cliTroco').value.trim();
             let endereco = document.getElementById('cliEndereco').value.trim();
@@ -510,6 +518,7 @@
             let rotaFinal = "";
 
             if(!nome) return mostrarAlerta("Por favor, preencha o seu <b>Nome</b>!");
+            if(telefone.length < 10 || telefone.length > 11) return mostrarAlerta("Informe um <b>WhatsApp válido com DDD</b>!");
 
             let selectRota = document.getElementById('cliRota').value;
             if(!selectRota) return mostrarAlerta("Por favor, selecione o seu <b>bairro/rota</b>!");
@@ -524,7 +533,7 @@
                 return mostrarAlerta("O seu carrinho está vazio!");
             }
 
-            pedidoTemp = { nome, rotaFinal, pag, troco };
+            pedidoTemp = { nome, telefone, rotaFinal, pag, troco };
             document.getElementById('resumoEnderecoPedido').innerHTML =
                 `<b>Entrega em:</b><br>${escaparHtml(selectRota)}<br>${escaparHtml(endereco)}, Nº ${escaparHtml(num)}`;
             document.getElementById('modalRota').style.display = 'flex';
@@ -532,12 +541,12 @@
 
         function confirmarRotaEEnviar() {
             document.getElementById('modalRota').style.display = 'none';
-            enviarPedidoBackend(pedidoTemp.nome, pedidoTemp.rotaFinal, pedidoTemp.pag, pedidoTemp.troco);
+            enviarPedidoBackend(pedidoTemp.nome, pedidoTemp.telefone, pedidoTemp.rotaFinal, pedidoTemp.pag, pedidoTemp.troco);
         }
 
         const ehHoje = (ts) => { if(!ts) return false; const d=new Date(ts), h=new Date(); return d.getDate()===h.getDate() && d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear(); };
 
-        function enviarPedidoBackend(nome, rotaFinal, pag, troco) {
+        function enviarPedidoBackend(nome, telefone, rotaFinal, pag, troco) {
             document.getElementById('modalCheckout').style.display = 'none';
             document.getElementById('loadingScreen').style.display = 'flex';
 
@@ -549,6 +558,7 @@
             let novoPedido = {
                     origem: "Online",
                     nomeCliente: nome,
+                    telefoneCliente: telefone,
                     enderecoCliente: rotaFinal,
                     pagamentoDesejado: pagamentoFinal,
                     itens: JSON.parse(JSON.stringify(carrinho)),
@@ -569,6 +579,22 @@
                 document.getElementById('appNormal').style.display = 'none';
                 document.getElementById('telaSucesso').style.display = 'flex';
                 document.getElementById('numSenha').textContent = resposta.numero;
+                const itensNota = novoPedido.itens.map(item =>
+                    `${item.quantidade}x ${item.nome}${item.obs ? ' (' + item.obs + ')' : ''}`
+                ).join('\n');
+                const nota = [
+                    '🌮 *EXPRESSO TAPIOCARIA*',
+                    '*PEDIDO ONLINE ' + resposta.numero + '*',
+                    '------------------------', itensNota, '------------------------',
+                    '*Total:* R$ ' + novoPedido.total.toFixed(2).replace('.', ','),
+                    '*Cliente:* ' + nome,
+                    '*WhatsApp:* ' + telefone,
+                    '*Entrega:* ' + rotaFinal,
+                    '*Pagamento:* ' + pagamentoFinal,
+                    '', '_Pedido aguardando confirmação da equipe._'
+                ].join('\n');
+                document.getElementById('btnEnviarPedidoWhatsapp').href =
+                    'https://wa.me/5511932180290?text=' + encodeURIComponent(nota);
               })
               .withFailureHandler(function(erro) {
                 document.getElementById('loadingScreen').style.display = 'none';
