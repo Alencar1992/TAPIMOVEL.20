@@ -450,16 +450,19 @@
         baixarBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), `Relatorio_Eliel_${relatorioElielAtual.chave}.csv`);
     };
 
-    window.exportarRelatorioElielXlsx = function () {
-        if (!relatorioElielAtual || typeof XLSX === "undefined") {
-            mostrarAlerta("O gerador XLSX ainda não carregou. Atualize a página e tente novamente.");
+    window.exportarRelatorioElielXlsx = async function () {
+        if (!relatorioElielAtual) return;
+        try {
+            await window.TapimovelVendors.load("xlsx");
+        } catch (erro) {
+            mostrarAlerta("Não foi possível preparar o arquivo XLSX.<br><small>" + escapar(erro.message) + "</small>");
             return;
         }
-        const planilha = XLSX.utils.aoa_to_sheet(linhasExportacao(relatorioElielAtual));
+        const planilha = window.XLSX.utils.aoa_to_sheet(linhasExportacao(relatorioElielAtual));
         planilha["!cols"] = [{ wch: 36 }, { wch: 18 }, { wch: 44 }, { wch: 28 }];
-        const arquivo = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(arquivo, planilha, "Relatorio Eliel");
-        XLSX.writeFile(arquivo, `Relatorio_Eliel_${relatorioElielAtual.chave}.xlsx`);
+        const arquivo = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(arquivo, planilha, "Relatorio Eliel");
+        window.XLSX.writeFile(arquivo, `Relatorio_Eliel_${relatorioElielAtual.chave}.xlsx`);
     };
 
     function desenharColunaPdf(doc, titulo, dados, x, largura) {
@@ -494,8 +497,14 @@
         });
     }
 
-    window.gerarComparativoElielPdf = function () {
-        if (!relatorioElielAtual || !window.jspdf) return;
+    window.gerarComparativoElielPdf = async function () {
+        if (!relatorioElielAtual) return;
+        try {
+            await window.TapimovelVendors.load("jspdf");
+        } catch (erro) {
+            mostrarAlerta("Não foi possível preparar o PDF.<br><small>" + escapar(erro.message) + "</small>");
+            return;
+        }
         const dataAnterior = new Date(relatorioElielAtual.ano, relatorioElielAtual.mes - 2, 1);
         google.script.run
             .withSuccessHandler(function (resposta) {

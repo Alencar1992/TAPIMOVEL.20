@@ -11,12 +11,9 @@
 
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" integrity="sha384-Xl/CUCfJbzsngMp0CFxkmF0VW/8C160IsGujqeQlIhaGxKz2+JsIGORFqtCPeldF" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
     <script src="./config.js"></script>
     <script src="./api-client.js"></script>
+    <script src="./vendor-loader.js"></script>
     <script src="./catalogo-base.js"></script>
     <script src="./catalogo-runtime.js"></script>
     <style>
@@ -193,6 +190,7 @@
             <div aria-hidden="true" style="width:68px;height:68px;margin:0 auto 16px;display:grid;place-items:center;border-radius:20px;background:rgba(255,107,107,.12);font-size:2.1rem">🔐</div>
             <h1 id="loginAdminTitulo" style="margin:0;text-align:center;color:var(--text);font-size:1.55rem">Acesso ao PDV</h1>
             <p id="loginAdminDescricao" style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
+            <div id="tapimovelConnectionStatus" class="connection-status" data-state="connecting" role="status" aria-live="polite" hidden><span class="connection-dot" aria-hidden="true"></span><span>Conectando ao sistema…</span></div>
             <label id="loginAdminLabel" for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
             <input id="loginAdminPin" type="password" inputmode="numeric" pattern="[0-9]{6,12}" minlength="6" maxlength="12" required aria-describedby="loginAdminErro" style="width:100%;box-sizing:border-box;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.2rem;letter-spacing:.18em;text-align:center">
             <p id="loginAdminErro" role="alert" style="min-height:20px;margin:9px 0;color:#ff8787;text-align:center;font-size:.9rem"></p>
@@ -298,8 +296,8 @@
         </div>
     </div>
 
-    <audio id="somCampainha" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
-    <audio id="somCaixa" src="https://www.soundjay.com/misc/sounds/cash-register-01.mp3" preload="auto"></audio>
+    <audio id="somCampainha" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="none"></audio>
+    <audio id="somCaixa" src="https://www.soundjay.com/misc/sounds/cash-register-01.mp3" preload="none"></audio>
 
     <header>
         <button class="menu-btn" onclick="abrirMenuLateral()">☰</button>
@@ -1427,7 +1425,11 @@
             mostrarLoginAdmin(evento.detail && evento.detail.message);
         });
 
-        window.onload = iniciarAutenticacaoAdmin;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', iniciarAutenticacaoAdmin, { once: true });
+        } else {
+            iniciarAutenticacaoAdmin();
+        }
 
         function iniciarAplicacaoAdmin() {
             try {
@@ -2249,9 +2251,16 @@
 
         function verificarPedidosAbertos() { const itensAbertos = historicoNuvem.filter(p => (!p.produzido || !p.timestamp) && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))); if (itensAbertos.length > 0) { mostrarAlerta("⚠️ Você possui pedidos pendentes na cozinha ou caixa!"); return true; } return false; }
 
-        function baixarPrintFechamento() {
+        async function baixarPrintFechamento() {
             const btn = document.getElementById('btnSalvarPrint'); const textoOriginal = btn.innerHTML; btn.innerHTML = '📸 Gerando Imagem...'; btn.disabled = true;
-            html2canvas(document.getElementById('areaPrintRelatorio'), { scale: 2, backgroundColor: "#1e1e1e" }).then(canvas => {
+            try {
+                await window.TapimovelVendors.load('html2canvas');
+            } catch (erro) {
+                mostrarAlerta("Não foi possível preparar o gerador de imagem: " + erro.message);
+                btn.innerHTML = textoOriginal; btn.disabled = false;
+                return;
+            }
+            window.html2canvas(document.getElementById('areaPrintRelatorio'), { scale: 2, backgroundColor: "#1e1e1e" }).then(canvas => {
                 let link = document.createElement('a'); link.download = `Fechamento_Dia_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.png`; link.href = canvas.toDataURL('image/png'); link.click(); btn.innerHTML = textoOriginal; btn.disabled = false;
             }).catch(err => { mostrarAlerta("Ocorreu um erro ao salvar o print: " + err); btn.innerHTML = textoOriginal; btn.disabled = false; });
         }

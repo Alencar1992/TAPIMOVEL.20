@@ -9,6 +9,7 @@ const root = path.join(__dirname, "..");
 test("scripts locais e scripts embutidos compilam", () => {
   const localScripts = [
     "frontend/api-client.js",
+    "frontend/vendor-loader.js",
     "frontend/catalogo-base.js",
     "frontend/catalogo-runtime.js",
     "frontend/configuracao.js",
@@ -49,17 +50,33 @@ test("administrador e cliente usam o mesmo catálogo inicial", () => {
   });
 });
 
-test("dependências externas têm integridade e não apontam para jsPDF inexistente", () => {
+test("dependências externas carregam somente sob demanda e mantêm integridade", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
-  const external = Array.from(
-    html.matchAll(/<script src="https:\/\/cdnjs\.cloudflare\.com\/[^"]+"[^>]*><\/script>/g)
-  ).map(match => match[0]);
-  assert.equal(external.length, 4);
-  external.forEach(tag => {
-    assert.match(tag, /integrity="sha384-[^"]+"/);
-    assert.match(tag, /crossorigin="anonymous"/);
-  });
-  assert.doesNotMatch(html, /jspdf\/2\.5\.2/);
+  const loader = fs.readFileSync(path.join(root, "frontend/vendor-loader.js"), "utf8");
+  assert.doesNotMatch(html, /<script src="https:\/\/cdnjs\.cloudflare\.com/);
+  assert.match(html, /src="\.\/vendor-loader\.js"/);
+  assert.equal((loader.match(/integrity: "sha384-/g) || []).length, 3);
+  assert.match(loader, /script\.crossOrigin = "anonymous"/);
+  assert.doesNotMatch(loader, /jspdf\/2\.5\.2/);
+  assert.doesNotMatch(loader, /autotable/);
+});
+
+test("cliente da API tolera instabilidade sem repetir operações de escrita", () => {
+  const apiClient = fs.readFileSync(path.join(root, "frontend/api-client.js"), "utf8");
+  assert.match(apiClient, /REQUEST_TIMEOUT_MS = 25000/);
+  assert.match(apiClient, /SAFE_RETRY_LIMIT = 1/);
+  assert.match(apiClient, /SAFE_ACTION_PATTERN/);
+  assert.match(apiClient, /response\.status === 404/);
+  assert.match(apiClient, /controller\.abort\(\)/);
+  assert.match(apiClient, /tapimovel:connection/);
+  assert.match(apiClient, /Sem internet no aparelho/);
+});
+
+test("login inicia sem aguardar bibliotecas e mídias externas", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  assert.match(html, /DOMContentLoaded', iniciarAutenticacaoAdmin/);
+  assert.doesNotMatch(html, /window\.onload = iniciarAutenticacaoAdmin/);
+  assert.equal((html.match(/preload="none"/g) || []).length, 2);
 });
 
 test("regra de pausa diária permanece implementada", () => {
