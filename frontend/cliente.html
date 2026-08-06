@@ -175,13 +175,17 @@
 
                 <div style="display: flex; gap: 10px; flex-direction: column;">
                     <div>
-                        <label><b>Onde você está hoje? (Rua/Bairro):</b> *</label>
+                        <label><b>Bairro/Rota de hoje:</b> *</label>
                         <select id="cliRota"></select>
                         <input type="text" id="cliRotaLivre" placeholder="Ex: Rua das Flores, 12 - Centro" style="display:none;">
                     </div>
+                    <div>
+                        <label><b>Endereço:</b> *</label>
+                        <input type="text" id="cliEndereco" placeholder="Ex: Rua das Flores">
+                    </div>
                     <div id="boxNumero" style="display: block;">
                         <label><b>Número da Casa:</b> *</label>
-                        <input type="number" id="cliNum" placeholder="Ex: 123">
+                        <input type="text" id="cliNum" inputmode="numeric" placeholder="Ex: 123">
                     </div>
                 </div>
 
@@ -224,6 +228,7 @@
             <p style="font-size: 1.1rem; line-height: 1.4;">
                 Temos um roteiro semanal de ruas. 🚚💨<br><br>
                 <b>Tem certeza de que o nosso carro está passando na sua rua HOJE?</b><br><br>
+                <span id="resumoEnderecoPedido" style="display:block; padding:12px; background:#2a2a2a; border-radius:8px; color:var(--text);"></span><br>
                 <small style="color: var(--text-muted);">Pedidos fora da rota do dia poderão ser cancelados. ❌</small>
             </p>
             <button class="btn-large btn-destaque" style="margin-top: 15px;" onclick="confirmarRotaEEnviar()">Sim, enviem pra chapa! 🔥</button>
@@ -246,9 +251,9 @@
         const rotasDaSemana = {
             1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
             2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
-            3: ["JD LETICIA", "PQ STO ANTONIO", "JD VAZ DE LIMA", "CHACARA SANTANA"],
+            3: ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
             4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
-            5: ["JD SOUZA"]
+            5: ["JD SOUZA", "COPACABANA", "TUPI"]
         };
         const nomesDias = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
@@ -500,14 +505,17 @@
             let nome = document.getElementById('cliNome').value.trim();
             let pag = document.getElementById('cliPag').value;
             let troco = document.getElementById('cliTroco').value.trim();
+            let endereco = document.getElementById('cliEndereco').value.trim();
             let num = document.getElementById('cliNum').value.trim();
             let rotaFinal = "";
 
             if(!nome) return mostrarAlerta("Por favor, preencha o seu <b>Nome</b>!");
 
             let selectRota = document.getElementById('cliRota').value;
-            if(!selectRota || !num) return mostrarAlerta("Por favor, selecione seu <b>bairro ou rua</b> e digite o <b>número</b>!");
-            rotaFinal = selectRota + ", Nº " + num;
+            if(!selectRota) return mostrarAlerta("Por favor, selecione o seu <b>bairro/rota</b>!");
+            if(!endereco) return mostrarAlerta("Por favor, preencha o seu <b>endereço</b>!");
+            if(!num) return mostrarAlerta("Por favor, preencha o <b>número da casa</b>!");
+            rotaFinal = selectRota + " | " + endereco + ", Nº " + num;
 
             if(pag === 'Dinheiro' && !troco) {
                 return mostrarAlerta("Como vai pagar em Dinheiro, informe o valor para o <b>troco</b>.<br><br>(Digite 0 se não precisar).");
@@ -517,6 +525,8 @@
             }
 
             pedidoTemp = { nome, rotaFinal, pag, troco };
+            document.getElementById('resumoEnderecoPedido').innerHTML =
+                `<b>Entrega em:</b><br>${escaparHtml(selectRota)}<br>${escaparHtml(endereco)}, Nº ${escaparHtml(num)}`;
             document.getElementById('modalRota').style.display = 'flex';
         }
 
