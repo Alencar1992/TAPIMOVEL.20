@@ -122,13 +122,10 @@
   window.renderizarConfiguracao = function () {
     var lista = document.getElementById("configListaItens");
     if (!lista) return;
-    var busca = (document.getElementById("configBusca").value || "").trim().toLowerCase();
+    var busca = TapimovelCatalogo.normalizarBusca(document.getElementById("configBusca").value || "");
     var itens = listarCatalogo()
       .filter(function (item) {
-        return !busca ||
-          item.nome.toLowerCase().includes(busca) ||
-          String(item.ing || "").toLowerCase().includes(busca) ||
-          categorias[item.categoria].toLowerCase().includes(busca);
+        return TapimovelCatalogo.correspondeBusca(item, busca, categorias[item.categoria]);
       })
       .sort(function (a, b) {
         return a.nome.localeCompare(b.nome, "pt-BR");
