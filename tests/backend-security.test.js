@@ -427,6 +427,11 @@ test("pedido online aguarda aceite e entra uma única vez na Produção e no Cai
   assert.equal(context.listarPedidosOnlinePendentes().length, 0);
   assert.equal(JSON.parse(properties.get("pdv_vendas_ativas")).length, 1);
   assert.throws(() => context.aceitarPedidoOnline(resposta.numero), /já foi aceito ou recusado/);
+
+  const segundo = context.registrarPedidoOnline(JSON.stringify(onlineOrder({
+    nomeCliente: "Outro Cliente", telefoneCliente: "11888888888"
+  })));
+  assert.equal(segundo.numero, "ON002");
 });
 
 test("recusa online exige motivo e preserva WhatsApp para a mensagem ao cliente", () => {
