@@ -276,3 +276,22 @@ test("cardápio do cliente usa as rotas atualizadas e endereço completo obrigat
   assert.match(cliente, /enderecoCliente: rotaFinal/);
   assert.match(cliente, /selectRota \+ " \| " \+ endereco \+ ", Nº " \+ num/);
 });
+
+test("fluxo de pedidos online aguarda aceite, alerta o PDV e prepara WhatsApp", () => {
+  const cliente = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+  const pdv = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+
+  assert.match(cliente, /id="cliTelefone"/);
+  assert.match(cliente, /btnEnviarPedidoWhatsapp/);
+  assert.match(cliente, /PEDIDO ONLINE/);
+  assert.match(pdv, /id="btnTopoOnline"/);
+  assert.match(pdv, /class="app-view"[^>]*>[\s\S]*Pedidos Online/);
+  assert.match(pdv, /tem-pedidos/);
+  assert.match(pdv, /ativarCampainhaOnline/);
+  assert.match(pdv, /aceitarPedidoOnlineTela/);
+  assert.match(pdv, /recusarPedidoOnlineTela/);
+  assert.match(backend, /pedidos_online_pendentes/);
+  assert.match(backend, /function aceitarPedidoOnline/);
+  assert.match(backend, /ORDER_ALREADY_PROCESSED/);
+});

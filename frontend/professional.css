@@ -195,6 +195,17 @@ body.app-admin .btn-top.btn-tapioca {
   border-color: var(--border);
 }
 
+body.app-admin .btn-top.btn-online-alerta {
+  border-color: rgba(167, 139, 250, .72);
+  color: #c4b5fd;
+}
+
+body.app-admin .btn-top.btn-online-alerta.tem-pedidos {
+  background: #7c3aed;
+  border-color: #a78bfa;
+  color: #fff;
+}
+
 body.app-admin .app-view {
   width: 100%;
   padding: 18px clamp(14px, 2.4vw, 34px);
@@ -996,14 +1007,14 @@ body.app-cliente #loadingScreen {
     width: 100%;
     order: 3;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   body.app-admin .btn-top {
     min-width: 0;
     justify-content: center;
-    padding: 8px 5px;
-    font-size: .78rem;
+    padding: 8px 3px;
+    font-size: .74rem;
   }
 
   body.app-admin .app-view {

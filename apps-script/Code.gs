@@ -1050,6 +1050,9 @@ function executarAcaoApi_(action, args, token) {
   ];
 
   const acoesAdministrativas = [
+    "listarPedidosOnlinePendentes",
+    "aceitarPedidoOnline",
+    "recusarPedidoOnline",
     "carregarDadosNuvem",
     "salvarNuvemCompleta",
     "salvarVendaRealTime",
@@ -1239,6 +1242,7 @@ function normalizarPedidoOnline_(pedidoRecebido, catalogo) {
   return {
     origem: "Online",
     nomeCliente: textoPedidoSeguro_(pedidoRecebido.nomeCliente, 100, true),
+    telefoneCliente: textoPedidoSeguro_(pedidoRecebido.telefoneCliente, 20, true),
     enderecoCliente: textoPedidoSeguro_(pedidoRecebido.enderecoCliente, 180, true),
     pagamentoDesejado: pagamento,
     itens: itens,
@@ -1433,9 +1437,9 @@ function registrarPedidoOnline(pedidoJSON) {
     const rotasPorDia = {
       1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
       2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
-      3: ["JD LETICIA", "PQ STO ANTONIO", "JD VAZ DE LIMA", "CHACARA SANTANA"],
+      3: ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
       4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
-      5: ["JD SOUZA"]
+      5: ["JD SOUZA", "COPACABANA", "TUPI"]
     };
     const rotasPermitidas = rotasPorDia[diaSemana] || [];
     const endereco = String(pedido.enderecoCliente || "").trim().toUpperCase();
@@ -1457,10 +1461,16 @@ function registrarPedidoOnline(pedidoJSON) {
     if (itemEsgotado) {
       throw new Error("O item '" + itemEsgotado.nome + "' está esgotado no momento.");
     }
+    const telefoneNumeros = String(pedido.telefoneCliente || "").replace(/\D/g, "");
+    if (telefoneNumeros.length < 10 || telefoneNumeros.length > 11) {
+      throw erroApi_("INVALID_ORDER", "Informe um WhatsApp válido com DDD.");
+    }
+    pedido.telefoneCliente = telefoneNumeros;
 
     const cache = CacheService.getScriptCache();
     const assinatura = hashSeguro_(JSON.stringify({
       nome: pedido.nomeCliente.toLocaleLowerCase(),
+      telefone: pedido.telefoneCliente,
       endereco: pedido.enderecoCliente.toLocaleLowerCase(),
       pagamento: pedido.pagamentoDesejado,
       itens: pedido.itens.map(function(item) {
@@ -1485,26 +1495,94 @@ function registrarPedidoOnline(pedidoJSON) {
       );
     }
 
-    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-    const numerosHoje = ativos
-      .filter(function(item) {
-        const ts = item.timestampCriacao || item.timestamp;
-        if (!ts) return false;
-        return Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), "yyyy-MM-dd") === hoje;
-      })
-      .map(function(item) { return Number(item.numero) || 0; });
-
-    pedido.numero = (numerosHoje.length ? Math.max.apply(null, numerosHoje) : 0) + 1;
+    let contadorOnline = {};
+    try { contadorOnline = JSON.parse(props.getProperty("pedidos_online_contador") || "{}"); } catch (erro) {}
+    pedido.numeroOnline = contadorOnline.dia === hoje ? Number(contadorOnline.valor || 0) + 1 : 1;
+    props.setProperty("pedidos_online_contador", JSON.stringify({ dia: hoje, valor: pedido.numeroOnline }));
+    pedido.codigoOnline = "ON" + String(pedido.numeroOnline).padStart(3, "0");
+    pedido.statusOnline = "Aguardando";
     pedido.timestampCriacao = Date.now();
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
-    ativos.push(pedido);
-    lancarPedidoPlanilha(JSON.stringify(pedido));
-    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
-    const resultado = { numero: pedido.numero, pedido: pedido };
+    pendentes.push(pedido);
+    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    const resultado = { numero: pedido.codigoOnline, pedido: pedido };
     cache.put(chaveDuplicidade, JSON.stringify(resultado), 120);
     cache.put(chaveLimite, String(quantidadeRecente + 1), 600);
     return resultado;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listarPedidosOnlinePendentes() {
+  const pendentes = JSON.parse(
+    PropertiesService.getScriptProperties().getProperty("pedidos_online_pendentes") || "[]"
+  );
+  return pendentes.sort(function(a, b) {
+    return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
+  });
+}
+
+function aceitarPedidoOnline(codigoOnline) {
+  const codigo = textoPedidoSeguro_(codigoOnline, 30, true);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const props = PropertiesService.getScriptProperties();
+    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
+    const indice = pendentes.findIndex(function(item) {
+      return String(item.codigoOnline) === codigo;
+    });
+    if (indice === -1) {
+      throw erroApi_("ORDER_ALREADY_PROCESSED", "Este pedido já foi aceito ou recusado por outro operador.");
+    }
+
+    const pedido = pendentes[indice];
+    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    const numerosHoje = ativos.filter(function(item) {
+      const ts = item.timestampCriacao || item.timestamp;
+      return ts && Utilities.formatDate(new Date(ts), Session.getScriptTimeZone(), "yyyy-MM-dd") === hoje;
+    }).map(function(item) { return Number(item.numero) || 0; });
+
+    pedido.numero = (numerosHoje.length ? Math.max.apply(null, numerosHoje) : 0) + 1;
+    pedido.statusOnline = "Aceito";
+    pedido.aceitoEm = Date.now();
+    pedido.produzido = false;
+    lancarPedidoPlanilha(JSON.stringify(pedido));
+    ativos.push(pedido);
+    pendentes.splice(indice, 1);
+    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
+    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    return pedido;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function recusarPedidoOnline(codigoOnline, motivo) {
+  const codigo = textoPedidoSeguro_(codigoOnline, 30, true);
+  const motivoSeguro = textoPedidoSeguro_(motivo, 300, true);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const props = PropertiesService.getScriptProperties();
+    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
+    const indice = pendentes.findIndex(function(item) {
+      return String(item.codigoOnline) === codigo;
+    });
+    if (indice === -1) {
+      throw erroApi_("ORDER_ALREADY_PROCESSED", "Este pedido já foi aceito ou recusado por outro operador.");
+    }
+    const pedido = pendentes[indice];
+    pedido.statusOnline = "Recusado";
+    pedido.motivoRecusa = motivoSeguro;
+    pedido.recusadoEm = Date.now();
+    pendentes.splice(indice, 1);
+    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    return pedido;
   } finally {
     lock.releaseLock();
   }

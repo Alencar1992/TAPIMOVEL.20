@@ -111,6 +111,7 @@ function catalog() {
 function onlineOrder(overrides = {}) {
   return Object.assign({
     nomeCliente: "Cliente Teste",
+    telefoneCliente: "11999999999",
     enderecoCliente: "JD SÃO FRANCISCO, Nº 10",
     pagamentoDesejado: "PIX",
     itens: [
@@ -408,4 +409,40 @@ test("PDV rejeita adicional incompatível e preço adulterado", () => {
     () => context.normalizarPedidoPdv_({ itens: [Object.assign({}, base, { preco: 15 })] }),
     error => error.code === "INVALID_ORDER"
   );
+});
+
+test("pedido online aguarda aceite e entra uma única vez na Produção e no Caixa", () => {
+  const { context, properties } = createContext();
+  context.catalogoConfigurado_ = () => catalog();
+  context.lancarPedidoPlanilha = () => "OK";
+  const resposta = context.registrarPedidoOnline(JSON.stringify(onlineOrder()));
+
+  assert.match(resposta.numero, /^ON\d{3}$/);
+  assert.equal(JSON.parse(properties.get("pdv_vendas_ativas") || "[]").length, 0);
+  assert.equal(context.listarPedidosOnlinePendentes().length, 1);
+
+  const aceito = context.aceitarPedidoOnline(resposta.numero);
+  assert.equal(aceito.numero, 1);
+  assert.equal(aceito.statusOnline, "Aceito");
+  assert.equal(context.listarPedidosOnlinePendentes().length, 0);
+  assert.equal(JSON.parse(properties.get("pdv_vendas_ativas")).length, 1);
+  assert.throws(() => context.aceitarPedidoOnline(resposta.numero), /já foi aceito ou recusado/);
+
+  const segundo = context.registrarPedidoOnline(JSON.stringify(onlineOrder({
+    nomeCliente: "Outro Cliente", telefoneCliente: "11888888888"
+  })));
+  assert.equal(segundo.numero, "ON002");
+});
+
+test("recusa online exige motivo e preserva WhatsApp para a mensagem ao cliente", () => {
+  const { context, properties } = createContext();
+  properties.set("pedidos_online_pendentes", JSON.stringify([{
+    codigoOnline: "ON001", nomeCliente: "Cliente", telefoneCliente: "11999999999",
+    timestampCriacao: 1, itens: [], total: 0
+  }]));
+  assert.throws(() => context.recusarPedidoOnline("ON001", ""), /campo obrigatório vazio/);
+  const recusado = context.recusarPedidoOnline("ON001", "Fora da rota");
+  assert.equal(recusado.telefoneCliente, "11999999999");
+  assert.equal(recusado.motivoRecusa, "Fora da rota");
+  assert.equal(context.listarPedidosOnlinePendentes().length, 0);
 });

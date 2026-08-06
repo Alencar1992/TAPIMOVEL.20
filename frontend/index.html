@@ -89,6 +89,12 @@
         .badge-pago { background: var(--success); }
         .badge-pendente { background: var(--danger); }
         .item-producao { background: var(--stat-bg); padding: 10px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);}
+        .btn-online-alerta { background:#7c3aed; color:#fff; }
+        .btn-online-alerta.tem-pedidos { animation: piscarPedidosOnline 1s infinite; box-shadow:0 0 0 3px rgba(255,193,7,.28); }
+        @keyframes piscarPedidosOnline { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.48;transform:scale(1.04)} }
+        .pedido-online-card { background:var(--stat-bg); border:1px solid var(--border); border-left:5px solid #7c3aed; border-radius:10px; padding:15px; margin-bottom:12px; }
+        .pedido-online-topo,.pedido-online-acoes { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+        .pedido-online-acoes button { flex:1; min-width:130px; border:0; border-radius:8px; padding:12px; font-weight:800; cursor:pointer; }
         .info-prod { flex: 1; }
         .ingredientes { display: block; font-size: 0.9rem; color: var(--success); margin-top: 3px; font-weight: bold; }
         .btn-check-item { background: var(--success); color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
@@ -305,6 +311,7 @@
         <strong id="identidadeAcesso" hidden style="margin-left:auto;color:var(--primary);font-size:.92rem"></strong>
         <div class="top-counters">
             <button class="btn-top" id="btnTopoProd" onclick="mudarTela('view-producao')">👨‍🍳 Prod.</button>
+            <button class="btn-top btn-online-alerta" id="btnTopoOnline" onclick="mudarTela('view-pedidos-online')">📲 Online</button>
             <button class="btn-top" id="btnTopoCaixa" onclick="mudarTela('view-painel')">📝 Caixa</button>
             <button class="btn-top btn-tapioca" id="btnTopoTapiocas" onclick="mudarTela('view-historico')">🌮 0</button>
         </div>
@@ -387,6 +394,15 @@
         <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
         <h2 style="color: var(--primary);">📝 Painel de Pedidos (Caixa)</h2>
         <div id="listaPainelPedidos"></div>
+    </div>
+
+    <div id="view-pedidos-online" class="app-view">
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div><h2 style="color:#a78bfa;margin-bottom:4px;">📲 Pedidos Online</h2><small style="color:var(--text-muted);">Ordem de chegada: mais antigo primeiro</small></div>
+            <button id="btnAtivarCampainha" class="btn-acao" style="width:auto;background:#7c3aed;" onclick="ativarCampainhaOnline()">🔔 Ativar campainha</button>
+        </div>
+        <div id="listaPedidosOnline" style="margin-top:18px;"></div>
     </div>
 
     <div id="view-historico" class="app-view">
@@ -1038,6 +1054,7 @@
 
     <script>
         let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
+        let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = false;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
         let itensIndisponiveis = []; let termoPesquisa = ""; let pausarSync = false;
         let ignorarProximoClickProduto = null;
@@ -1335,6 +1352,7 @@
                                 atualizarTudo();
                             }
                         }
+                        atualizarPedidosOnline();
                         syncAtivo = setTimeout(loopSync, 3000);
                     }).withFailureHandler(function() {
                         syncEmAndamento = false;
@@ -1481,7 +1499,7 @@
                             mostrarToast(`⚠️ ${antigas.length} pedido(s) de outra data foram preservados para conferência.`);
                         }
                         document.getElementById('loadingScreen').style.display = 'none';
-                        atualizarTudo(); iniciarSyncEmTempoReal();
+                        atualizarTudo(); atualizarPedidosOnline(); iniciarSyncEmTempoReal();
 
                         const btnMenuCombustivel = document.getElementById('inputDataCombustivel');
                         if (btnMenuCombustivel) {
@@ -1530,6 +1548,99 @@
         function fecharModais() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); pedidoAguardandoPagamento = null; }
         function fecharMenuLateral() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').style.display = 'none'; }
 
+        function ativarCampainhaOnline() {
+            const audio = document.getElementById('somCampainha');
+            campainhaOnlineAtiva = true;
+            if (audio) {
+                audio.volume = 0.8;
+                audio.play().then(function() { audio.pause(); audio.currentTime = 0; }).catch(function() {});
+            }
+            const btn = document.getElementById('btnAtivarCampainha');
+            if (btn) btn.textContent = '🔔 Campainha ativa';
+            mostrarToast('🔔 Campainha de pedidos online ativada.');
+        }
+
+        function atualizarPedidosOnline() {
+            if (acessoEhEliel() || typeof google === 'undefined') return;
+            google.script.run
+                .withSuccessHandler(function(lista) {
+                    const novos = Array.isArray(lista) ? lista : [];
+                    if (campainhaOnlineAtiva && novos.length > totalOnlineAnterior) {
+                        const audio = document.getElementById('somCampainha');
+                        if (audio) { audio.currentTime = 0; audio.play().catch(function() {}); }
+                    }
+                    pedidosOnlinePendentes = novos;
+                    totalOnlineAnterior = novos.length;
+                    atualizarBotaoPedidosOnline();
+                    if (document.getElementById('view-pedidos-online').classList.contains('active')) renderizarPedidosOnline();
+                })
+                .withFailureHandler(function(erro) { console.warn('Falha ao consultar pedidos online:', erro.message); })
+                .listarPedidosOnlinePendentes();
+        }
+
+        function atualizarBotaoPedidosOnline() {
+            const btn = document.getElementById('btnTopoOnline');
+            if (!btn) return;
+            const total = pedidosOnlinePendentes.length;
+            btn.classList.toggle('tem-pedidos', total > 0);
+            btn.innerHTML = total > 0 ? `📲 Online <span>${total}</span>` : '📲 Online';
+        }
+
+        function renderizarPedidosOnline() {
+            const lista = document.getElementById('listaPedidosOnline');
+            if (!lista) return;
+            if (!pedidosOnlinePendentes.length) {
+                lista.innerHTML = '<p style="color:var(--text-muted);">Nenhum pedido online aguardando confirmação.</p>';
+                return;
+            }
+            lista.innerHTML = pedidosOnlinePendentes.map(function(pedido) {
+                const itens = (pedido.itens || []).map(function(item) {
+                    return `<div>${Number(item.quantidade) || 0}x <b>${escaparHtml(item.nome)}</b>${item.obs ? ' — ' + escaparHtml(item.obs) : ''}</div>`;
+                }).join('');
+                return `<article class="pedido-online-card">
+                    <div class="pedido-online-topo"><strong>${escaparHtml(pedido.codigoOnline)}</strong><span>🕐 ${escaparHtml(pedido.hora || '')}</span></div>
+                    <h3 style="margin:10px 0 6px;">${escaparHtml(pedido.nomeCliente)}</h3>
+                    <div style="color:var(--text-muted);line-height:1.5;">📱 ${escaparHtml(pedido.telefoneCliente)}<br>📍 ${escaparHtml(pedido.enderecoCliente)}<br>💳 ${escaparHtml(pedido.pagamentoDesejado)}</div>
+                    <div style="margin:12px 0;">${itens}</div>
+                    <div style="font-size:1.15rem;font-weight:800;margin-bottom:12px;">Total: ${formatarMoeda(Number(pedido.total) || 0)}</div>
+                    <div class="pedido-online-acoes">
+                        <button style="background:var(--success);color:#fff;" onclick="aceitarPedidoOnlineTela('${escaparHtml(pedido.codigoOnline)}')">✅ Aceitar e enviar à fila</button>
+                        <button style="background:var(--danger);color:#fff;" onclick="recusarPedidoOnlineTela('${escaparHtml(pedido.codigoOnline)}')">❌ Recusar pedido</button>
+                    </div>
+                </article>`;
+            }).join('');
+        }
+
+        function aceitarPedidoOnlineTela(codigo) {
+            google.script.run.withSuccessHandler(function(pedido) {
+                historicoNuvem.push(pedido);
+                pedidosOnlinePendentes = pedidosOnlinePendentes.filter(function(item) { return item.codigoOnline !== codigo; });
+                totalOnlineAnterior = pedidosOnlinePendentes.length;
+                atualizarTudo(); atualizarBotaoPedidosOnline(); renderizarPedidosOnline();
+                mostrarToast('✅ Pedido ' + codigo + ' enviado à Produção e ao Caixa.');
+            }).withFailureHandler(function(erro) {
+                mostrarAlerta(erro.message || 'Não foi possível aceitar o pedido.');
+                atualizarPedidosOnline();
+            }).aceitarPedidoOnline(codigo);
+        }
+
+        function recusarPedidoOnlineTela(codigo) {
+            const motivo = window.prompt('Informe o motivo do cancelamento do pedido ' + codigo + ':');
+            if (!motivo || !motivo.trim()) return mostrarAlerta('Informe o motivo para recusar o pedido.');
+            google.script.run.withSuccessHandler(function(pedido) {
+                pedidosOnlinePendentes = pedidosOnlinePendentes.filter(function(item) { return item.codigoOnline !== codigo; });
+                totalOnlineAnterior = pedidosOnlinePendentes.length;
+                atualizarBotaoPedidosOnline(); renderizarPedidosOnline();
+                const telefone = String(pedido.telefoneCliente || '').replace(/\D/g, '');
+                const destino = telefone.length <= 11 ? '55' + telefone : telefone;
+                const mensagem = `Olá, ${pedido.nomeCliente}. O seu pedido ${codigo} da Expresso Tapiocaria foi cancelado. Motivo: ${motivo.trim()}`;
+                window.open('https://wa.me/' + destino + '?text=' + encodeURIComponent(mensagem), '_blank', 'noopener');
+            }).withFailureHandler(function(erro) {
+                mostrarAlerta(erro.message || 'Não foi possível recusar o pedido.');
+                atualizarPedidosOnline();
+            }).recusarPedidoOnline(codigo, motivo.trim());
+        }
+
         function mudarTela(idTela) {
             if (
                 acessoEhEliel() &&
@@ -1543,9 +1654,11 @@
 
             let btnProd = document.getElementById('btnTopoProd');
             let btnCaixa = document.getElementById('btnTopoCaixa');
+            let btnOnline = document.getElementById('btnTopoOnline');
 
             btnProd.classList.remove('active-nav');
             btnCaixa.classList.remove('active-nav');
+            btnOnline.classList.remove('active-nav');
             document.getElementById('btnTopoTapiocas').classList.remove('active-nav');
 
             if(idTela === 'view-catalogo') renderizarCatalogo(abaAtivaCatalogo);
@@ -1557,6 +1670,11 @@
             if(idTela === 'view-painel') {
                 renderizarPainelPedidos();
                 btnCaixa.classList.add('active-nav');
+            }
+            if(idTela === 'view-pedidos-online') {
+                renderizarPedidosOnline();
+                atualizarPedidosOnline();
+                btnOnline.classList.add('active-nav');
             }
             if(idTela === 'view-historico') {
                 renderizarHistorico();
