@@ -50,6 +50,19 @@ test("administrador e cliente usam o mesmo catálogo inicial", () => {
   });
 });
 
+test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+
+  assert.match(html, /catalogo-runtime\.js\?v=20260806\.1/);
+  assert.match(html, /eliel\.css\?v=20260806\.1/);
+  assert.match(html, /eliel\.js\?v=20260806\.1/);
+  assert.match(catalogo, /ehAdicionalLegado/);
+  assert.match(catalogo, /normalizarBusca\(item && item\.nome\) === "\+ adicional"/);
+  assert.match(eliel, /normalizarBusca\(item && item\.nome\) !== "\+ adicional"/);
+});
+
 test("dependências externas carregam somente sob demanda e mantêm integridade", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const loader = fs.readFileSync(path.join(root, "frontend/vendor-loader.js"), "utf8");
