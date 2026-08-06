@@ -204,3 +204,48 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
   assert.match(backend, /obterAbaFechamentosMensais_/);
   assert.match(backend, /Responsável/);
 });
+
+test("gestão de itens usa pausa de 2 segundos, busca completa e ações em massa", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const config = fs.readFileSync(path.join(root, "frontend/configuracao.js"), "utf8");
+  const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
+
+  assert.match(html, /DURACAO_PRESSAO_ITEM = 2000/);
+  assert.match(eliel, /DURACAO_PRESSAO_GESTAO_ITEM = 2000/);
+  assert.match(html, /id="itensAcoesMassa"/);
+  assert.match(eliel, /definirEstadoResultadosItens/);
+  assert.match(eliel, /item-switch/);
+  assert.match(eliel, /correspondeBusca\(item, busca\)/);
+  assert.match(config, /correspondeBusca\(item, busca, categorias\[item\.categoria\]\)/);
+  assert.match(catalogo, /normalize\("NFD"\)/);
+  assert.match(catalogo, /item && item\.ing/);
+
+  const sandbox = { window: {}, CustomEvent: function () {} };
+  vm.createContext(sandbox);
+  vm.runInContext(catalogo, sandbox);
+  assert.equal(sandbox.window.TapimovelCatalogo.normalizarBusca("MUÇARELA"), "mucarela");
+  assert.equal(
+    sandbox.window.TapimovelCatalogo.correspondeBusca(
+      { nome: "Caipira II", ing: "Frango, catupiry e milho" },
+      "frango"
+    ),
+    true
+  );
+});
+
+test("adicionais pagos ficam vinculados à tapioca e respeitam a categoria", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+
+  assert.match(html, /id="listaAdicionais"/);
+  assert.doesNotMatch(html, /id="inputDescAdicional"/);
+  assert.match(eliel, /const PRECO_ADICIONAL = 4/);
+  assert.match(eliel, /const adicionaisSalgados/);
+  assert.match(eliel, /const adicionaisDoces/);
+  assert.match(eliel, /item\.precoBase \+ item\.adicionais\.length \* PRECO_ADICIONAL/);
+  assert.match(html, /item\.adicionais\.map\(escaparHtml\)/);
+  assert.match(backend, /adicionaisPermitidos/);
+  assert.match(backend, /precoBase \+ adicionais\.length \* 4/);
+});
