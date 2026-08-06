@@ -53,10 +53,28 @@
       .obterCatalogoCardapio(JSON.stringify(copiar(destino)));
   }
 
+  function normalizarBusca(valor) {
+    return String(valor == null ? "" : valor)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase("pt-BR")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function correspondeBusca(item, termo, rotuloCategoria) {
+    var busca = normalizarBusca(termo);
+    if (!busca) return true;
+    return [item && item.nome, item && item.ing, rotuloCategoria]
+      .some(function (valor) { return normalizarBusca(valor).includes(busca); });
+  }
+
   window.TapimovelCatalogo = {
     categorias: categorias.slice(),
     copiar: copiar,
     substituir: substituir,
-    carregar: carregar
+    carregar: carregar,
+    normalizarBusca: normalizarBusca,
+    correspondeBusca: correspondeBusca
   };
 })();
