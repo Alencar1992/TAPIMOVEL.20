@@ -64,6 +64,7 @@
                 bdCatalogo.doces_nutella,
                 bdCatalogo.bebidas
             )
+            .filter(item => TapimovelCatalogo.normalizarBusca(item && item.nome) !== "+ adicional")
             .filter((item, indice, lista) =>
                 lista.findIndex(outro => outro.nome === item.nome) === indice
             );

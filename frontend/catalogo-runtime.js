@@ -10,11 +10,17 @@
     "bebidas"
   ];
 
+  function ehAdicionalLegado(item) {
+    return normalizarBusca(item && item.nome) === "+ adicional";
+  }
+
   function copiar(catalogo) {
     var resultado = {};
     categorias.forEach(function (categoria) {
       resultado[categoria] = Array.isArray(catalogo && catalogo[categoria])
-        ? catalogo[categoria].map(function (item) {
+        ? catalogo[categoria].filter(function (item) {
+            return !ehAdicionalLegado(item);
+          }).map(function (item) {
             return {
               nome: String(item.nome || ""),
               preco: Number(item.preco) || 0,
