@@ -1259,6 +1259,17 @@ function normalizarPedidoPdv_(pedidoRecebido) {
     throw erroApi_("INVALID_ORDER", "O pedido deve conter entre 1 e 50 itens.");
   }
   const tipos = ["tapioca", "bebida", "extra"];
+  const adicionaisPermitidos = {
+    salgado: [
+      "Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco",
+      "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"
+    ],
+    doce: [
+      "Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim",
+      "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco",
+      "Banana", "Goiabada", "Paçoca"
+    ]
+  };
   const itens = pedidoRecebido.itens.map(function(item) {
     const quantidade = Number(item && item.quantidade);
     const preco = Number(item && item.preco);
@@ -1272,14 +1283,47 @@ function normalizarPedidoPdv_(pedidoRecebido) {
     if (tipos.indexOf(tipo) === -1) {
       throw erroApi_("INVALID_ORDER", "O tipo do item é inválido.");
     }
+    const adicionais = Array.isArray(item.adicionais)
+      ? item.adicionais.slice(0, 13).map(function(valor) {
+          return textoPedidoSeguro_(valor, 100, true);
+        })
+      : [];
+    if (adicionais.some(function(valor, indice) { return adicionais.indexOf(valor) !== indice; })) {
+      throw erroApi_("INVALID_ORDER", "A tapioca possui adicionais duplicados.");
+    }
+    let categoriaAdicional = String(item && item.categoriaAdicional || "");
+    if (adicionais.length) {
+      if (tipo !== "tapioca" || !adicionaisPermitidos[categoriaAdicional]) {
+        throw erroApi_("INVALID_ORDER", "A categoria dos adicionais é inválida.");
+      }
+      if (adicionais.some(function(valor) {
+        return adicionaisPermitidos[categoriaAdicional].indexOf(valor) === -1;
+      })) {
+        throw erroApi_("INVALID_ORDER", "Há um adicional incompatível com esta tapioca.");
+      }
+    } else if (!adicionaisPermitidos[categoriaAdicional]) {
+      categoriaAdicional = "";
+    }
+    let precoBase = Number(item && item.precoBase);
+    if (!isFinite(precoBase) || precoBase <= 0) {
+      precoBase = preco - (adicionais.length * 4);
+    }
+    precoBase = Math.round(precoBase * 100) / 100;
+    const precoEsperado = Math.round((precoBase + adicionais.length * 4) * 100) / 100;
+    if (tipo === "tapioca" && adicionais.length && Math.abs(preco - precoEsperado) > 0.001) {
+      throw erroApi_("INVALID_ORDER", "O valor dos adicionais não corresponde ao total do item.");
+    }
     return {
       nome: textoPedidoSeguro_(item.nome, 140, true),
       preco: Math.round(preco * 100) / 100,
+      precoBase: precoBase,
       tipo: tipo,
       ing: textoPedidoSeguro_(item.ing, 500, false),
       quantidade: quantidade,
       obs: textoPedidoSeguro_(item.obs, 300, false),
       pronto: item.pronto === true,
+      categoriaAdicional: categoriaAdicional,
+      adicionais: adicionais,
       personalizacoes: Array.isArray(item.personalizacoes)
         ? item.personalizacoes.slice(0, 20).map(function(valor) {
             return textoPedidoSeguro_(valor, 100, false);

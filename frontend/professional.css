@@ -389,7 +389,7 @@ body.app-admin .produto-btn.esgotado .produto-add {
 }
 
 .produto-btn .press-progress,
-.gestao-item .press-progress {
+.gestao-item-main .press-progress {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -410,7 +410,7 @@ body.app-admin .produto-btn.esgotado .produto-add {
 }
 
 .produto-btn .press-progress-fill,
-.gestao-item .press-progress-fill {
+.gestao-item-main .press-progress-fill {
   position: absolute;
   left: 0;
   bottom: 0;
@@ -424,13 +424,13 @@ body.app-admin .produto-btn.esgotado .produto-add {
 }
 
 .produto-btn.em-pressao .press-progress,
-.gestao-item.em-pressao .press-progress {
+.gestao-item-main.em-pressao .press-progress {
   opacity: 1;
   transform: scale(1);
 }
 
 .produto-btn.em-pressao,
-.gestao-item.em-pressao {
+.gestao-item-main.em-pressao {
   border-color: var(--success);
   box-shadow: inset 0 0 0 1px var(--success);
 }

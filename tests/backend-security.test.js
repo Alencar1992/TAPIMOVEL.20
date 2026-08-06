@@ -367,3 +367,45 @@ test("histórico mensal reconhece referências antigas sem duplicar o mês", () 
     "2026-07"
   );
 });
+
+test("PDV preserva adicionais vinculados e recalcula o total validado", () => {
+  const { context } = createContext();
+  const pedido = context.normalizarPedidoPdv_({
+    itens: [{
+      nome: "Bauru",
+      preco: 22,
+      precoBase: 14,
+      tipo: "tapioca",
+      quantidade: 2,
+      ing: "Presunto e muçarela",
+      categoriaAdicional: "salgado",
+      adicionais: ["Bacon", "Catupiry"]
+    }]
+  });
+
+  assert.equal(pedido.itens[0].precoBase, 14);
+  assert.deepEqual(Array.from(pedido.itens[0].adicionais), ["Bacon", "Catupiry"]);
+  assert.equal(pedido.total, 44);
+});
+
+test("PDV rejeita adicional incompatível e preço adulterado", () => {
+  const { context } = createContext();
+  const base = {
+    nome: "Bauru",
+    preco: 18,
+    precoBase: 14,
+    tipo: "tapioca",
+    quantidade: 1,
+    categoriaAdicional: "salgado",
+    adicionais: ["Bacon"]
+  };
+
+  assert.throws(
+    () => context.normalizarPedidoPdv_({ itens: [Object.assign({}, base, { adicionais: ["Nutella"] })] }),
+    error => error.code === "INVALID_ORDER"
+  );
+  assert.throws(
+    () => context.normalizarPedidoPdv_({ itens: [Object.assign({}, base, { preco: 15 })] }),
+    error => error.code === "INVALID_ORDER"
+  );
+});

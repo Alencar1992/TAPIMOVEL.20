@@ -8,8 +8,21 @@
     let intervaloGestaoItem = null;
     let botaoGestaoPressionado = null;
     let nomeItemPressionado = "";
+    let resultadosGestaoItens = [];
+    let indiceAdicionalCarrinho = -1;
+    let adicionaisSelecionadosModal = [];
     let agrupamentoGraficoEliel = "dia";
-    const DURACAO_PRESSAO_GESTAO_ITEM = 3000;
+    const DURACAO_PRESSAO_GESTAO_ITEM = 2000;
+    const PRECO_ADICIONAL = 4;
+    const adicionaisSalgados = [
+        "Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco",
+        "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"
+    ];
+    const adicionaisDoces = [
+        "Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim",
+        "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco",
+        "Banana", "Goiabada", "Paçoca"
+    ];
 
     const meses = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -655,30 +668,42 @@
     window.renderizarTelaItens = function () {
         const lista = document.getElementById("listaGestaoItens");
         if (!lista) return;
-        const busca = (document.getElementById("itensBusca").value || "").trim().toLowerCase();
+        const buscaOriginal = (document.getElementById("itensBusca").value || "").trim();
+        const busca = TapimovelCatalogo.normalizarBusca(buscaOriginal);
         const itens = catalogoCompleto().filter(item =>
-            !busca || item.nome.toLowerCase().includes(busca)
+            TapimovelCatalogo.correspondeBusca(item, busca)
         );
+        resultadosGestaoItens = itens.map(item => item.nome);
         const disponiveis = catalogoCompleto().filter(item => !itensIndisponiveis.includes(item.nome)).length;
         document.getElementById("itensResumo").textContent =
             `${disponiveis} disponíveis · ${itensIndisponiveis.length} pausados`;
 
+        const acoesMassa = document.getElementById("itensAcoesMassa");
+        acoesMassa.hidden = !buscaOriginal || !itens.length;
+        document.getElementById("itensResultadoBusca").textContent =
+            `${itens.length} ${itens.length === 1 ? "resultado" : "resultados"} para “${buscaOriginal}”`;
+
         lista.innerHTML = itens.map(item => {
             const pausado = itensIndisponiveis.includes(item.nome);
+            const nome = encodeURIComponent(item.nome).replace(/'/g, "%27");
             return `
-                <button type="button"
-                    class="gestao-item ${pausado ? "pausado" : ""}"
-                    data-item="${escapar(item.nome)}"
-                    onclick="cliqueGestaoItem('${escapar(item.nome).replace(/'/g, "\\'")}')"
-                    onpointerdown="iniciarPressaoGestaoItem(event, '${escapar(item.nome).replace(/'/g, "\\'")}')"
-                    onpointerup="cancelarPressaoGestaoItem()"
-                    onpointercancel="cancelarPressaoGestaoItem()"
-                    onpointerleave="cancelarPressaoGestaoItem()">
-                    <span>${escapar(item.nome)}<small>${item.tipo === "bebida" ? "Bebida" : "Tapioca"} · ${moeda(item.preco)}</small></span>
-                    <span class="flag-item">${pausado ? "Indisponível" : "Disponível"}</span>
-                    <span class="press-progress" aria-hidden="true"><b class="press-progress-value">3</b>s</span>
-                    <span class="press-progress-fill" aria-hidden="true"></span>
-                </button>`;
+                <article class="gestao-item ${pausado ? "pausado" : ""}" data-item="${escapar(item.nome)}">
+                    <button type="button" class="gestao-item-main"
+                        onclick="cliqueGestaoItem(decodeURIComponent('${nome}'))"
+                        onpointerdown="iniciarPressaoGestaoItem(event, decodeURIComponent('${nome}'))"
+                        onpointerup="cancelarPressaoGestaoItem()"
+                        onpointercancel="cancelarPressaoGestaoItem()"
+                        onpointerleave="cancelarPressaoGestaoItem()">
+                        <span>${escapar(item.nome)}<small>${escapar(item.ing || (item.tipo === "bebida" ? "Bebida" : "Sem ingredientes"))}</small><small>${item.tipo === "bebida" ? "Bebida" : "Tapioca"} · ${moeda(item.preco)}</small></span>
+                        <span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span>
+                        <span class="press-progress-fill" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="item-switch" role="switch" aria-checked="${!pausado}"
+                        aria-label="${pausado ? "Ativar" : "Desativar"} ${escapar(item.nome)}"
+                        onclick="alternarChaveGestaoItem(decodeURIComponent('${nome}'))">
+                        <i aria-hidden="true"></i><span>${pausado ? "Desativado" : "Ativo"}</span>
+                    </button>
+                </article>`;
         }).join("");
     };
 
@@ -687,7 +712,7 @@
             nomeItemPressionado = "";
             return;
         }
-        mostrarToast("Pressione e segure por 3 segundos para alterar este item.");
+        mostrarToast("Use a chave ou pressione e segure por 2 segundos para alterar este item.");
     };
 
     window.iniciarPressaoGestaoItem = function (evento, nome) {
@@ -725,22 +750,63 @@
             botaoGestaoPressionado.classList.remove("em-pressao");
             botaoGestaoPressionado.style.removeProperty("--press-progress");
             const contador = botaoGestaoPressionado.querySelector(".press-progress-value");
-            if (contador) contador.textContent = "3";
+            if (contador) contador.textContent = "2";
         }
         botaoGestaoPressionado = null;
     };
 
+    window.alternarChaveGestaoItem = function (nome) {
+        salvarEstadoItem(nome, itensIndisponiveis.includes(nome));
+    };
+
+    window.definirEstadoResultadosItens = function (disponibilizar) {
+        if (!resultadosGestaoItens.length) return;
+        const quantidade = resultadosGestaoItens.length;
+        const executar = function () {
+            const conjunto = new Set(itensIndisponiveis);
+            resultadosGestaoItens.forEach(function (nome) {
+                if (disponibilizar) conjunto.delete(nome);
+                else conjunto.add(nome);
+            });
+            persistirDisponibilidade(
+                Array.from(conjunto),
+                disponibilizar
+                    ? `${quantidade} ${quantidade === 1 ? "item ativado" : "itens ativados"}.`
+                    : `${quantidade} ${quantidade === 1 ? "item desativado" : "itens desativados"} até a virada do dia.`
+            );
+        };
+        if (disponibilizar) {
+            executar();
+            return;
+        }
+        mostrarConfirmacao(
+            `Desativar os ${quantidade} itens exibidos nesta busca até a virada do dia?`,
+            executar,
+            { titulo: "Desativar resultados", icone: "⏸", textoConfirmar: "Desativar todos", destrutiva: true }
+        );
+    };
+
     function salvarEstadoItem(nome, disponibilizar) {
-        const anterior = itensIndisponiveis.slice();
-        itensIndisponiveis = disponibilizar
+        const novaLista = disponibilizar
             ? itensIndisponiveis.filter(item => item !== nome)
             : itensIndisponiveis.concat(nome).filter((item, indice, lista) => lista.indexOf(item) === indice);
+        persistirDisponibilidade(
+            novaLista,
+            disponibilizar ? `${nome} disponível novamente.` : `${nome} pausado até a virada do dia.`
+        );
+    }
+
+    function persistirDisponibilidade(novaLista, mensagem) {
+        const anterior = itensIndisponiveis.slice();
+        itensIndisponiveis = novaLista;
         renderizarTelaItens();
         google.script.run
             .withSuccessHandler(function (resposta) {
                 itensIndisponiveis = JSON.parse(resposta || "[]");
                 renderizarTelaItens();
-                mostrarToast(disponibilizar ? `${nome} disponível novamente.` : `${nome} pausado até a virada do dia.`);
+                if (termoPesquisa.length > 0) renderizarPesquisa();
+                else if (abaAtivaCatalogo) renderizarCatalogo(abaAtivaCatalogo);
+                mostrarToast(mensagem);
             })
             .withFailureHandler(function (erro) {
                 itensIndisponiveis = anterior;
@@ -761,6 +827,14 @@
         { chave: "tempero baiano", nome: "Tempero baiano", emoji: "🧂" }
     ];
 
+    window.identificarCategoriaAdicional = function (item) {
+        if (item && (item.categoriaAdicional === "doce" || item.categoriaAdicional === "salgado")) {
+            return item.categoriaAdicional;
+        }
+        const doces = [].concat(bdCatalogo.doces_tradicionais, bdCatalogo.doces_avela, bdCatalogo.doces_nutella);
+        return doces.some(produto => produto.nome === (item && item.nome)) ? "doce" : "salgado";
+    };
+
     window.renderizarOpcoesTapioca = function (item, index) {
         const ingredientes = String(item.ing || "").toLowerCase()
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -776,7 +850,15 @@
                     onclick="togglePersonalizacaoTapioca(event, ${index}, '${opcao.nome}')">${opcao.emoji}</button>`;
             }).join("")}</div>`;
         }
-        return `<div class="opcoes-tapioca">${grupo("Acompanh.", opcoesTapioca)}${grupo("Temperos", temperosTapioca)}</div>`;
+        const adicionais = Array.isArray(item.adicionais) ? item.adicionais : [];
+        const chips = adicionais.length
+            ? `<div class="adicionais-selecionados">${adicionais.map(nome => `<span>+ ${escapar(nome)}</span>`).join("")}</div>`
+            : "";
+        return `<div class="opcoes-tapioca">${grupo("Acompanh.", opcoesTapioca)}${grupo("Temperos", temperosTapioca)}
+            <div class="adicional-item-controle">
+                <button type="button" onclick="abrirAdicionaisTapioca(event, ${index})">➕ Adicional · ${moeda(PRECO_ADICIONAL)}</button>
+                ${adicionais.length ? `<strong>${adicionais.length} selecionado${adicionais.length > 1 ? "s" : ""}</strong>` : ""}
+            </div>${chips}</div>`;
     };
 
     window.togglePersonalizacaoTapioca = function (evento, index, nome) {
@@ -788,6 +870,68 @@
             ? item.personalizacoes.filter(valor => valor !== nome)
             : item.personalizacoes.concat(nome);
         atualizarCarrinho();
+    };
+
+    window.abrirAdicionaisTapioca = function (evento, index) {
+        evento.preventDefault();
+        evento.stopPropagation();
+        const item = carrinho[index];
+        if (!item || item.tipo !== "tapioca") return;
+        indiceAdicionalCarrinho = index;
+        item.categoriaAdicional = window.identificarCategoriaAdicional(item);
+        adicionaisSelecionadosModal = Array.isArray(item.adicionais) ? item.adicionais.slice() : [];
+        document.getElementById("adicionalItemAlvo").textContent = item.nome;
+        renderizarModalAdicionais();
+        document.getElementById("modalAdicional").style.display = "flex";
+    };
+
+    function renderizarModalAdicionais() {
+        const item = carrinho[indiceAdicionalCarrinho];
+        if (!item) return;
+        const opcoes = item.categoriaAdicional === "doce" ? adicionaisDoces : adicionaisSalgados;
+        document.getElementById("listaAdicionais").innerHTML = opcoes.map(function (nome) {
+            const ativo = adicionaisSelecionadosModal.includes(nome);
+            const codificado = encodeURIComponent(nome).replace(/'/g, "%27");
+            return `<button type="button" class="adicional-opcao ${ativo ? "selecionado" : ""}"
+                aria-pressed="${ativo}" onclick="alternarAdicionalModal(decodeURIComponent('${codificado}'))">
+                <span>${ativo ? "✓" : "+"}</span>${escapar(nome)}<small>+ ${moeda(PRECO_ADICIONAL)}</small>
+            </button>`;
+        }).join("");
+        const quantidade = adicionaisSelecionadosModal.length;
+        document.getElementById("adicionalQuantidade").textContent = quantidade
+            ? `${quantidade} ${quantidade === 1 ? "adicional selecionado" : "adicionais selecionados"}`
+            : "Nenhum adicional selecionado";
+        document.getElementById("adicionalTotal").textContent = "+ " + moeda(quantidade * PRECO_ADICIONAL);
+    }
+
+    window.alternarAdicionalModal = function (nome) {
+        adicionaisSelecionadosModal = adicionaisSelecionadosModal.includes(nome)
+            ? adicionaisSelecionadosModal.filter(item => item !== nome)
+            : adicionaisSelecionadosModal.concat(nome);
+        renderizarModalAdicionais();
+    };
+
+    window.confirmarAdicionaisTapioca = function () {
+        const item = carrinho[indiceAdicionalCarrinho];
+        if (!item) return;
+        const quantidadeAnterior = Array.isArray(item.adicionais) ? item.adicionais.length : 0;
+        const baseCalculada = Number(item.preco) - (quantidadeAnterior * PRECO_ADICIONAL);
+        item.precoBase = Number.isFinite(Number(item.precoBase)) && Number(item.precoBase) > 0
+            ? Number(item.precoBase)
+            : Math.max(0.01, baseCalculada);
+        item.adicionais = adicionaisSelecionadosModal.slice();
+        item.preco = Math.round((item.precoBase + item.adicionais.length * PRECO_ADICIONAL) * 100) / 100;
+        fecharModalAdicionais();
+        atualizarCarrinho();
+        mostrarToast(item.adicionais.length
+            ? `${item.adicionais.length} adicional(is) salvo(s) em ${item.nome}.`
+            : `Adicionais removidos de ${item.nome}.`);
+    };
+
+    window.fecharModalAdicionais = function () {
+        document.getElementById("modalAdicional").style.display = "none";
+        indiceAdicionalCarrinho = -1;
+        adicionaisSelecionadosModal = [];
     };
 
     function conectarRecalculo() {
