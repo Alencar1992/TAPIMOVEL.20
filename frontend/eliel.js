@@ -218,25 +218,39 @@
             elemento.innerHTML = '<p class="eliel-vazio">Sem vendas registradas.</p>';
             return;
         }
+
         const largura = 760;
-        const altura = 280;
-        const margem = { topo: 24, direita: 20, baixo: 42, esquerda: 38 };
+        const altura = 300;
+        const margem = { topo: 28, direita: 78, baixo: 52, esquerda: 58 };
         const areaLargura = largura - margem.esquerda - margem.direita;
         const areaAltura = altura - margem.topo - margem.baixo;
         const maxQuantidade = Math.max(1, ...dados.map(item => Number(item.quantidade || 0)));
         const maxFaturamento = Math.max(1, ...dados.map(item => Number(item.faturamento || 0)));
         const passo = areaLargura / dados.length;
         const larguraBarra = Math.max(5, Math.min(30, passo * .55));
+
+        function rotuloEscalaReais(valor) {
+            if (valor >= 1000) {
+                return "R$ " + (valor / 1000).toFixed(valor >= 10000 ? 0 : 1).replace(".", ",") + " mil";
+            }
+            return "R$ " + Math.round(valor);
+        }
+
         const pontos = dados.map((item, indice) => {
             const x = margem.esquerda + passo * indice + passo / 2;
             const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
             return `${x},${y}`;
         }).join(" ");
+
         const linhasGrade = [0, .25, .5, .75, 1].map(fracao => {
             const y = margem.topo + areaAltura * fracao;
+            const quantidade = Math.round(maxQuantidade * (1 - fracao));
+            const faturamento = maxFaturamento * (1 - fracao);
             return `<line x1="${margem.esquerda}" y1="${y}" x2="${largura - margem.direita}" y2="${y}" class="grade"/>
-                <text x="${margem.esquerda - 8}" y="${y + 4}" text-anchor="end">${Math.round(maxQuantidade * (1 - fracao))}</text>`;
+                <text x="${margem.esquerda - 10}" y="${y + 4}" text-anchor="end">${quantidade}</text>
+                <text x="${largura - margem.direita + 10}" y="${y + 4}" text-anchor="start">${rotuloEscalaReais(faturamento)}</text>`;
         }).join("");
+
         const barras = dados.map((item, indice) => {
             const xCentro = margem.esquerda + passo * indice + passo / 2;
             const alturaBarra = Number(item.quantidade || 0) / maxQuantidade * areaAltura;
@@ -244,19 +258,30 @@
             const rotulo = agrupamentoGraficoEliel === "semana"
                 ? String(item.semana || "").replace("Semana ", "S")
                 : String(item.dia || "").slice(0, 5);
-            return `<g tabindex="0">
-                <title>${escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"])}: ${item.quantidade || 0} tapiocas · ${moeda(item.faturamento)}</title>
+            const periodo = escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"]);
+            const descricao = `${periodo}: ${item.quantidade || 0} tapiocas e ${moeda(item.faturamento)} de faturamento`;
+            return `<g tabindex="0" role="img" aria-label="${escapar(descricao)}">
+                <title>${escapar(descricao)}</title>
                 <rect x="${xCentro - larguraBarra / 2}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="5" class="barra"/>
-                <text x="${xCentro}" y="${altura - 14}" text-anchor="middle">${escapar(rotulo)}</text>
+                <text x="${xCentro}" y="${altura - 18}" text-anchor="middle">${escapar(rotulo)}</text>
             </g>`;
         }).join("");
+
         const pontosLinha = dados.map((item, indice) => {
             const x = margem.esquerda + passo * indice + passo / 2;
             const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
-            return `<circle cx="${x}" cy="${y}" r="4"><title>${moeda(item.faturamento)}</title></circle>`;
+            const periodo = escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"]);
+            const descricao = `${periodo}: ${moeda(item.faturamento)} de faturamento`;
+            return `<circle cx="${x}" cy="${y}" r="5" tabindex="0" role="img" aria-label="${escapar(descricao)}"><title>${escapar(descricao)}</title></circle>`;
         }).join("");
-        elemento.innerHTML = `<div class="eliel-grafico-legenda"><span><i class="unidades"></i>Unidades</span><span><i class="faturamento"></i>Faturamento</span></div>
-            <svg viewBox="0 0 ${largura} ${altura}" aria-hidden="true">
+
+        elemento.innerHTML = `<div class="eliel-grafico-legenda">
+                <span><i class="unidades"></i>Unidades · eixo esquerdo</span>
+                <span><i class="faturamento"></i>Faturamento · eixo direito</span>
+            </div>
+            <svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Gráfico de unidades vendidas e faturamento por ${agrupamentoGraficoEliel}">
+                <text x="16" y="${margem.topo + areaAltura / 2}" text-anchor="middle" transform="rotate(-90 16 ${margem.topo + areaAltura / 2})">Unidades</text>
+                <text x="${largura - 10}" y="${margem.topo + areaAltura / 2}" text-anchor="middle" transform="rotate(90 ${largura - 10} ${margem.topo + areaAltura / 2})">Faturamento</text>
                 ${linhasGrade}${barras}
                 <polyline points="${pontos}" class="linha-faturamento"/>
                 ${pontosLinha}
