@@ -1827,8 +1827,11 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            const imagem = obterImagemProdutoAdmin(prod);
-            return `<button type="button" class="produto-btn produto-btn-com-foto ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<img class="produto-imagem" src="${imagem}" alt="" loading="lazy" decoding="async"><span class="produto-conteudo"><span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span></span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
+            const exibirFoto = prod.tipo === 'bebida';
+            const imagem = exibirFoto ? obterImagemProdutoAdmin(prod) : '';
+            const classeFoto = exibirFoto ? 'produto-btn-com-foto' : '';
+            const foto = exibirFoto ? `<img class="produto-imagem" src="${imagem}" alt="" loading="lazy" decoding="async">` : '';
+            return `<button type="button" class="produto-btn ${classeFoto} ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}${foto}<span class="produto-conteudo"><span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span></span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
         };
 
         function pesquisarProdutos() {
@@ -2791,7 +2794,7 @@
             }
         }
     </script>
-    <script src="./eliel.js?v=20260816.3"></script>
+    <script src="./eliel.js?v=20260816.4"></script>
     <script src="./configuracao.js"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">

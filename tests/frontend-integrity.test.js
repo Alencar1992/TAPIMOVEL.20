@@ -115,16 +115,18 @@ test("tema respeita a cor da logo e catálogo migra a bebida genérica", () => {
   assert.match(runtime, /normalizado\.bebidas = bebidasPadrao/);
 });
 
-test("cardápio administrativo exibe fotos em produtos, Monte a Sua e bebidas", () => {
+test("cardápio administrativo exibe fotos somente em Monte a Sua e bebidas", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "frontend/professional.css"), "utf8");
   assert.match(html, /function obterImagemProdutoAdmin\(/);
-  assert.match(html, /class="produto-imagem"/);
+  assert.match(html, /const exibirFoto = prod\.tipo === 'bebida'/);
+  assert.match(html, /const foto = exibirFoto/);
   assert.match(html, /imagensMonteSuaAdmin\.carnes\[carne\]/);
   assert.match(html, /imagensMonteSuaAdmin\.queijos\[queijo\]/);
   assert.match(html, /Catupiry \(Original\)/);
   assert.match(html, /Cheddar \(Scala\)/);
+  assert.match(eliel, /item\.tipo === "bebida"[\s\S]{0,160}obterImagemProdutoAdmin\(item\)/);
   assert.match(eliel, /class="gestao-item-imagem"/);
   assert.match(css, /body\.app-admin \.produto-btn\.produto-btn-com-foto/);
   assert.match(css, /overflow-wrap: anywhere/);
