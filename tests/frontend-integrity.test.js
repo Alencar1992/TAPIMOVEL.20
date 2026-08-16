@@ -126,7 +126,8 @@ test("cardápio administrativo exibe fotos em produtos, Monte a Sua e bebidas", 
   assert.match(html, /Catupiry \(Original\)/);
   assert.match(html, /Cheddar \(Scala\)/);
   assert.match(eliel, /class="gestao-item-imagem"/);
-  assert.match(css, /body\.app-admin \.produto-btn-com-foto/);
+  assert.match(css, /body\.app-admin \.produto-btn\.produto-btn-com-foto/);
+  assert.match(css, /overflow-wrap: anywhere/);
   assert.match(css, /\.gestao-item-imagem/);
 });
 

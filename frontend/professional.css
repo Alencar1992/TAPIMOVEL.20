@@ -349,7 +349,7 @@ body.app-admin .produto-btn {
   touch-action: manipulation;
 }
 
-body.app-admin .produto-btn-com-foto {
+body.app-admin .produto-btn.produto-btn-com-foto {
   min-height: 126px;
   padding-left: 108px;
 }
@@ -370,7 +370,16 @@ body.app-admin .produto-imagem {
 body.app-admin .produto-conteudo {
   display: grid;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
   pointer-events: none;
+}
+
+body.app-admin .produto-btn-com-foto .produto-nome {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .gestao-item-main {
