@@ -687,7 +687,9 @@
         lista.innerHTML = itens.map(item => {
             const pausado = itensIndisponiveis.includes(item.nome);
             const nome = encodeURIComponent(item.nome).replace(/'/g, "%27");
-            const imagem = typeof obterImagemProdutoAdmin === "function" ? obterImagemProdutoAdmin(item) : "";
+            const imagem = item.tipo === "bebida" && typeof obterImagemProdutoAdmin === "function"
+                ? obterImagemProdutoAdmin(item)
+                : "";
             return `
                 <article class="gestao-item ${pausado ? "pausado" : ""}" data-item="${escapar(item.nome)}">
                     <button type="button" class="gestao-item-main"
