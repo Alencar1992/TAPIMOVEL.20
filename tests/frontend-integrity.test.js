@@ -55,9 +55,9 @@ test("interface administrativa força arquivos compatíveis e remove adicional l
   const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
   const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
 
-  assert.match(html, /catalogo-runtime\.js\?v=20260806\.1/);
-  assert.match(html, /eliel\.css\?v=20260806\.1/);
-  assert.match(html, /eliel\.js\?v=20260806\.1/);
+  assert.match(html, /catalogo-runtime\.js\?v=20260806\.2/);
+  assert.match(html, /eliel\.css\?v=20260806\.2/);
+  assert.match(html, /eliel\.js\?v=20260806\.2/);
   assert.match(catalogo, /ehAdicionalLegado/);
   assert.match(catalogo, /normalizarBusca\(item && item\.nome\) === "\+ adicional"/);
   assert.match(eliel, /normalizarBusca\(item && item\.nome\) !== "\+ adicional"/);
