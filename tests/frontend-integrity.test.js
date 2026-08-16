@@ -40,7 +40,7 @@ test("administrador e cliente usam o mesmo catálogo inicial", () => {
     sandbox
   );
   const catalog = sandbox.window.TapimovelCatalogoBase.criar();
-  assert.equal(Object.values(catalog).flat().length, 60);
+  assert.equal(Object.values(catalog).flat().length, 67);
   assert.equal(catalog.salgadas.find(item => item.nome === "Baiana").preco, 18);
 
   ["frontend/index.html", "frontend/cliente.html"].forEach(file => {
@@ -48,6 +48,32 @@ test("administrador e cliente usam o mesmo catálogo inicial", () => {
     assert.match(html, /src="\.\/catalogo-base\.js"/);
     assert.doesNotMatch(html, /const bdCatalogo = \{/);
   });
+});
+
+test("Monte a Sua e bebidas exibem fotos e preservam pausa individual", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+  const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-base.js"), "utf8");
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(catalogo, sandbox);
+  const bebidas = sandbox.window.TapimovelCatalogoBase.criar().bebidas;
+
+  assert.equal(bebidas.length, 8);
+  assert.equal(new Set(bebidas.map(item => item.nome)).size, 8);
+  bebidas.forEach(item => {
+    assert.equal(item.preco, 6);
+    assert.match(item.imagem, /^bebida-.+\.webp$/);
+    assert.ok(fs.existsSync(path.join(root, "frontend/assets/menu", item.imagem)));
+  });
+
+  ["Calabresa", "Frango", "Carne Seca", "Salame", "Bacon", "Peito de Peru"].forEach(nome => {
+    assert.match(html, new RegExp(`'${nome}': 'monte-`));
+  });
+  ["monte-catupiry.webp", "monte-cheddar.webp", "monte-cream-cheese.webp", "monte-mucarela.webp", "monte-queijo-branco.webp"].forEach(imagem => {
+    assert.match(html, new RegExp(imagem.replace(".", "\\.")));
+    assert.ok(fs.existsSync(path.join(root, "frontend/assets/menu", imagem)));
+  });
+  assert.match(html, /itensIndisponiveis\.includes\(p\.nome\)/);
 });
 
 test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {

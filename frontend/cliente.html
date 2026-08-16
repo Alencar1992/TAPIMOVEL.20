@@ -291,6 +291,24 @@
             'Peito de Peru': { 'Catupiry (Orig.)': 16, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 16 }
         };
 
+        const imagensMonteSua = {
+            carnes: {
+                'Calabresa': 'monte-calabresa.webp',
+                'Frango': 'monte-frango.webp',
+                'Carne Seca': 'monte-carne-seca.webp',
+                'Salame': 'monte-salame.webp',
+                'Bacon': 'monte-bacon.webp',
+                'Peito de Peru': 'monte-peito-peru.webp'
+            },
+            queijos: {
+                'Catupiry (Orig.)': 'monte-catupiry.webp',
+                'Cheddar': 'monte-cheddar.webp',
+                'Cream Cheese': 'monte-cream-cheese.webp',
+                'Muçarela': 'monte-mucarela.webp',
+                'Queijo Branco': 'monte-queijo-branco.webp'
+            }
+        };
+
         const rotasDaSemana = {
             1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
             2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
@@ -492,7 +510,7 @@
         function obterImagemProduto(produto) {
             const texto = `${produto.nome} ${produto.ing || ''}`.toLowerCase();
             const base = './assets/menu/';
-            if (produto.tipo === 'bebida') return '';
+            if (produto.imagem) return base + produto.imagem;
             if (texto.includes('carne seca')) return base + 'tapioca-carne-seca.webp';
             if (texto.includes('calabresa')) return base + 'tapioca-calabresa.webp';
             if (texto.includes('frango')) return base + 'tapioca-frango.webp';
@@ -532,7 +550,7 @@
             else if(cat === 'doces') grid.innerHTML = `<h3 class="sub-title">Tradicionais</h3>` + bdCatalogo.doces_tradicionais.map(gerarCard).join('') + `<h3 class="sub-title">Linha Avelã</h3>` + bdCatalogo.doces_avela.map(gerarCard).join('') + `<h3 class="sub-title">Linha Nutella</h3>` + bdCatalogo.doces_nutella.map(gerarCard).join('');
             else if(cat === 'bebidas') grid.innerHTML = bdCatalogo.bebidas.map(gerarCard).join('');
             else if(cat === 'monte') {
-                grid.innerHTML = `<h3 class="sub-title" style="text-align:center;">Passo 1: Escolha a Carne</h3>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(c => `<div class="card" style="justify-content:center; border: 1px dashed var(--primary);"><h3 style="margin-bottom:15px; font-size:1.2rem;">${c}</h3><button class="btn-add" onclick="passo2Monte('${c}')">Escolher</button></div>`).join('');
+                grid.innerHTML = `<h3 class="sub-title" style="text-align:center;">Passo 1: Escolha a Carne</h3>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(c => `<article class="card" style="border: 1px dashed var(--primary);"><img class="card-image" src="./assets/menu/${imagensMonteSua.carnes[c]}" alt="Foto ilustrativa de ${c}" loading="lazy" decoding="async"><div class="card-body"><h3>${c}</h3><button type="button" class="btn-add" ${lojaAberta ? '' : 'disabled'} onclick="passo2Monte('${c}')">${lojaAberta ? 'Escolher' : 'Fechado hoje'}</button></div></article>`).join('');
             }
         }
 
@@ -543,7 +561,8 @@
             ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(q => {
                 let pr = precosMonteSua[carne][q];
                 let pObj = { nome: `Monte Sua: ${carne} c/ ${q}`, preco: pr, tipo: 'tapioca', ing: `${carne} e ${q}` };
-                html += `<div class="card"><h3>${q}</h3><p class="price">${formatar(pr)}</p><button class="btn-add" onclick='prepararItem(${jsonSeguroAtributo(pObj)})'>Adicionar</button></div>`;
+                const nomeQueijo = q === 'Catupiry (Orig.)' ? 'Catupiry (Original)' : (q === 'Cheddar' ? 'Cheddar (Scala)' : q);
+                html += `<article class="card"><img class="card-image" src="./assets/menu/${imagensMonteSua.queijos[q]}" alt="Foto ilustrativa de ${nomeQueijo}" loading="lazy" decoding="async"><div class="card-body"><h3>${nomeQueijo}</h3><div class="card-footer"><p class="price">${formatar(pr)}</p><button type="button" class="btn-add" onclick='prepararItem(${jsonSeguroAtributo(pObj)})'>Adicionar</button></div></div></article>`;
             });
             html += `<button class="btn-large btn-close" style="grid-column: 1/-1;" onclick="mudarAba('monte', document.querySelectorAll('.tab')[3])">⬅️ Voltar para Carnes</button>`;
             grid.innerHTML = html;

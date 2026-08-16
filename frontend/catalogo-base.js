@@ -73,7 +73,14 @@
                 { nome: "Bombom S. de Valsa c/ Nutella", preco: 19.00, tipo: "tapioca", ing: "Bombom S. de Valsa c/ Nutella" }
             ],
             bebidas: [
-                { nome: "🥤 Refri / Suco - LATA", preco: 6.00, tipo: "bebida", ing: "" }
+                { nome: "Coca-Cola Zero - LATA", preco: 6.00, tipo: "bebida", ing: "Refrigerante lata 350 ml", imagem: "bebida-coca-zero.webp" },
+                { nome: "Coca-Cola Original - LATA", preco: 6.00, tipo: "bebida", ing: "Refrigerante lata 350 ml", imagem: "bebida-coca-original.webp" },
+                { nome: "Fanta Laranja - LATA", preco: 6.00, tipo: "bebida", ing: "Refrigerante lata 350 ml", imagem: "bebida-fanta-laranja.webp" },
+                { nome: "Sprite - LATA", preco: 6.00, tipo: "bebida", ing: "Refrigerante lata 350 ml", imagem: "bebida-sprite.webp" },
+                { nome: "Guaraná Antarctica - LATA", preco: 6.00, tipo: "bebida", ing: "Refrigerante lata 350 ml", imagem: "bebida-guarana-antartica.webp" },
+                { nome: "Suco Del Valle Goiaba - LATA", preco: 6.00, tipo: "bebida", ing: "Suco lata 290 ml", imagem: "bebida-del-valle-goiaba.webp" },
+                { nome: "Suco Del Valle Uva - LATA", preco: 6.00, tipo: "bebida", ing: "Suco lata 290 ml", imagem: "bebida-del-valle-uva.webp" },
+                { nome: "Suco Del Valle Pêssego - LATA", preco: 6.00, tipo: "bebida", ing: "Suco lata 290 ml", imagem: "bebida-del-valle-pessego.webp" }
             ]
         };
 
