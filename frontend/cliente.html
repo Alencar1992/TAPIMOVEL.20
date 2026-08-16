@@ -65,6 +65,21 @@
         /* Modal Centralizado (Para Alertas e Rotas) */
         .modal-center { align-items: center; }
         .modal-center .modal-content { border-radius: 15px; max-width: 90%; margin: auto; border: 1px solid var(--border); text-align: center; }
+        .status-atendimento-content { position: relative; max-width: 560px !important; max-height: 88vh; padding: 28px 20px 20px; overflow-y: auto; text-align: left !important; border-color: var(--primary) !important; }
+        .status-atendimento-fechar { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--danger); color: white; font-size: 1.35rem; font-weight: 800; line-height: 1; cursor: pointer; }
+        .status-atendimento-icone { margin: 0 0 6px; text-align: center; font-size: 2.6rem; }
+        .status-atendimento-titulo { margin: 0; padding: 0 40px; color: var(--primary); text-align: center; font-size: 1.5rem; }
+        .status-atendimento-texto { margin: 14px 0; color: var(--text); font-size: 1rem; line-height: 1.55; text-align: center; }
+        .status-rotas { display: grid; gap: 8px; margin: 16px 0; }
+        .status-rota-dia { padding: 10px 12px; background: #2a2a2a; border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-size: 0.88rem; line-height: 1.4; }
+        .status-rota-dia strong { display: block; margin-bottom: 3px; color: var(--primary); }
+        .status-atendimento-acoes { display: grid; gap: 10px; margin-top: 18px; }
+        .btn-whatsapp-status { background: #25D366; color: white; text-decoration: none; text-align: center; }
+        @media (max-width: 430px) {
+            .status-atendimento-content { max-width: calc(100% - 24px) !important; padding: 26px 16px 16px; }
+            .status-atendimento-titulo { font-size: 1.3rem; }
+            .status-rota-dia { font-size: 0.82rem; }
+        }
 
         /* Carrinho */
         .cart-bar { position: fixed; bottom: 0; left: 0; width: 100%; padding: 15px; box-sizing: border-box; display: none; justify-content: space-between; align-items: center; z-index: 1500; cursor: pointer; border-top: 2px solid var(--success); animation: gritarCarrinho 1.5s infinite alternate; }
@@ -154,6 +169,13 @@
         </a>
     </div>
 
+    <div class="sucesso-box" id="telaSaidaCardapio">
+        <h1>🌮</h1>
+        <h2 style="color: var(--primary);">Até a próxima!</h2>
+        <p style="color: var(--text-muted);">O cardápio da Expresso Tapiocaria foi encerrado.</p>
+        <button class="btn-large" style="margin-top:20px; background:var(--primary); color:#121212;" onclick="voltarAoCardapioFechado()">Voltar ao cardápio</button>
+    </div>
+
     <div class="modal" id="modalItem">
         <div class="modal-content">
             <h2 id="modalNome" style="margin-top:0; color:var(--primary);">Nome</h2>
@@ -229,6 +251,20 @@
         </div>
     </div>
 
+    <div class="modal modal-center" id="modalStatusAtendimento" role="dialog" aria-modal="true" aria-labelledby="statusAtendimentoTitulo" style="z-index: 3200;">
+        <div class="modal-content status-atendimento-content">
+            <button type="button" class="status-atendimento-fechar" aria-label="Fechar aviso e visualizar o cardápio" onclick="fecharAvisoAtendimento()">×</button>
+            <div class="status-atendimento-icone" id="statusAtendimentoIcone" aria-hidden="true">🌮</div>
+            <h2 class="status-atendimento-titulo" id="statusAtendimentoTitulo"></h2>
+            <div class="status-atendimento-texto" id="statusAtendimentoTexto"></div>
+            <div class="status-rotas" id="statusAtendimentoRotas" hidden></div>
+            <div class="status-atendimento-acoes">
+                <a class="btn-large btn-whatsapp-status" id="btnWhatsappPosRota" href="#" target="_blank" rel="noopener" hidden>📲 Chamar o carro no WhatsApp</a>
+                <button type="button" class="btn-large btn-close" id="btnSairCardapio" onclick="sairDoCardapio()" hidden>🚪 Sair do cardápio</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal modal-center" id="modalRota" style="z-index: 2500;">
         <div class="modal-content">
             <h2 style="margin-top:0; color:var(--primary);">📍 Atenção à Rota!</h2>
@@ -285,6 +321,7 @@
 
         window.onload = () => {
             carregarConfiguracoesDia();
+            abrirAvisoAtendimento();
             carregarDisponibilidadeCardapio();
             TapimovelCatalogo.carregar(bdCatalogo, function() {
                 removerDoCarrinhoItensForaDoCatalogo();
@@ -314,6 +351,73 @@
         function mostrarAlerta(mensagem) {
             document.getElementById('textoAlerta').innerHTML = mensagem;
             document.getElementById('modalAlerta').style.display = 'flex';
+        }
+
+        function montarResumoRotas() {
+            return Object.keys(rotasDaSemana).map(numeroDia => {
+                const dia = nomesDias[Number(numeroDia)];
+                const rotas = rotasDaSemana[numeroDia].map(escaparHtml).join(' · ');
+                return `<div class="status-rota-dia"><strong>${escaparHtml(dia)}</strong>${rotas}</div>`;
+            }).join('');
+        }
+
+        function abrirAvisoAtendimento() {
+            if (lojaAberta) return;
+
+            const modal = document.getElementById('modalStatusAtendimento');
+            const titulo = document.getElementById('statusAtendimentoTitulo');
+            const texto = document.getElementById('statusAtendimentoTexto');
+            const icone = document.getElementById('statusAtendimentoIcone');
+            const rotas = document.getElementById('statusAtendimentoRotas');
+            const btnWhatsapp = document.getElementById('btnWhatsappPosRota');
+            const btnSair = document.getElementById('btnSairCardapio');
+            const fimDeSemana = diaAtualInt === 0 || diaAtualInt === 6;
+
+            rotas.hidden = true;
+            btnWhatsapp.hidden = true;
+            btnSair.hidden = true;
+
+            if (fimDeSemana) {
+                icone.textContent = diaAtualInt === 6 ? '☀️' : '🌤️';
+                titulo.textContent = diaAtualInt === 6 ? 'Ótimo sábado!' : 'Ótimo domingo!';
+                texto.innerHTML = 'Hoje não realizamos pedidos online. Trabalhamos de <b>segunda a sexta-feira, das 18h às 22h</b>.<br><br>Confira os dias e as rotas atendidas:';
+                rotas.innerHTML = montarResumoRotas();
+                rotas.hidden = false;
+                btnSair.hidden = false;
+            } else if (horaAtualInt < 18) {
+                icone.textContent = '👋';
+                titulo.textContent = 'Bem-vindo à Expresso Tapiocaria!';
+                texto.innerHTML = `No momento ainda não estamos atendendo, mas <b>a partir das 18h</b> você pode voltar aqui. O cardápio estará disponível para realizar o seu pedido.<br><br><b>Rota de hoje:</b><br>${rotasDaSemana[diaAtualInt].map(escaparHtml).join(' · ')}`;
+            } else {
+                icone.textContent = '🌙';
+                titulo.textContent = 'Pedidos online encerrados por hoje';
+                texto.innerHTML = 'Já finalizamos a nossa rota do dia para pedidos online. Mas, se você estiver escutando a nossa vinheta, <b>corra para a rua, porque ainda pode dar tempo de pedir!</b><br><br>Se preferir, mande uma mensagem para o WhatsApp do carro.';
+                const mensagem = 'Oi, você está passando na minha rua? Pode esperar um pouquinho? Vou sair na rua, eu vou querer tapioca hoje!';
+                btnWhatsapp.href = 'https://wa.me/5511932180290?text=' + encodeURIComponent(mensagem);
+                btnWhatsapp.hidden = false;
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function fecharAvisoAtendimento() {
+            document.getElementById('modalStatusAtendimento').style.display = 'none';
+        }
+
+        function sairDoCardapio() {
+            if (document.referrer && window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            fecharAvisoAtendimento();
+            document.getElementById('appNormal').style.display = 'none';
+            document.getElementById('telaSaidaCardapio').style.display = 'flex';
+        }
+
+        function voltarAoCardapioFechado() {
+            document.getElementById('telaSaidaCardapio').style.display = 'none';
+            document.getElementById('appNormal').style.display = 'block';
+            window.scrollTo(0, 0);
         }
 
         // Função para reiniciar o app sem piscar a tela
