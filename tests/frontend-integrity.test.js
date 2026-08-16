@@ -277,6 +277,24 @@ test("cardápio do cliente usa as rotas atualizadas e endereço completo obrigat
   assert.match(cliente, /selectRota \+ " \| " \+ endereco \+ ", Nº " \+ num/);
 });
 
+test("cardápio informa horários, fim de semana, rotas e contato após as 22h", () => {
+  const cliente = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+
+  assert.match(cliente, /id="modalStatusAtendimento"/);
+  assert.match(cliente, /diaAtualInt === 0 \|\| diaAtualInt === 6/);
+  assert.match(cliente, /Ótimo sábado!/);
+  assert.match(cliente, /Ótimo domingo!/);
+  assert.match(cliente, /segunda a sexta-feira, das 18h às 22h/);
+  assert.match(cliente, /function montarResumoRotas\(/);
+  assert.match(cliente, /horaAtualInt < 18/);
+  assert.match(cliente, /a partir das 18h/);
+  assert.match(cliente, /Pedidos online encerrados por hoje/);
+  assert.match(cliente, /btnWhatsappPosRota/);
+  assert.match(cliente, /5511932180290/);
+  assert.match(cliente, /id="btnSairCardapio"/);
+  assert.match(cliente, /status-atendimento-fechar/);
+});
+
 test("fluxo de pedidos online aguarda aceite, alerta o PDV e prepara WhatsApp", () => {
   const cliente = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
   const pdv = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
