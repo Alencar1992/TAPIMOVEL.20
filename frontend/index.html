@@ -14,8 +14,8 @@
     <script src="./config.js"></script>
     <script src="./api-client.js"></script>
     <script src="./vendor-loader.js"></script>
-    <script src="./catalogo-base.js"></script>
-    <script src="./catalogo-runtime.js?v=20260806.2"></script>
+    <script src="./catalogo-base.js?v=20260816.3"></script>
+    <script src="./catalogo-runtime.js?v=20260816.3"></script>
     <style>
         :root {
             --primary: #ff6b6b; --primary-hover: #fa5252; --edit: #339af0; --edit-hover: #228be6;
@@ -185,7 +185,7 @@
         .seta { font-size: 0.8rem; transition: 0.3s; }
         .aberto .seta { transform: rotate(180deg); }
     </style>
-    <link rel="stylesheet" href="./professional.css">
+    <link rel="stylesheet" href="./professional.css?v=20260816.3">
     <link rel="stylesheet" href="./eliel.css?v=20260806.2">
     <link rel="stylesheet" href="./configuracao.css">
     <link rel="stylesheet" href="./loading.css">
@@ -1202,6 +1202,39 @@
             'Peito de Peru': { 'Catupiry (Orig.)': 16.00, 'Cheddar': 15.00, 'Cream Cheese': 15.00, 'Muçarela': 15.00, 'Queijo Branco': 16.00 }
         };
 
+        const imagensMonteSuaAdmin = {
+            carnes: {
+                'Calabresa': 'monte-calabresa.webp',
+                'Frango': 'monte-frango.webp',
+                'Carne Seca': 'monte-carne-seca.webp',
+                'Salame': 'monte-salame.webp',
+                'Bacon': 'monte-bacon.webp',
+                'Peito de Peru': 'monte-peito-peru.webp'
+            },
+            queijos: {
+                'Catupiry (Orig.)': 'monte-catupiry.webp',
+                'Cheddar': 'monte-cheddar.webp',
+                'Cream Cheese': 'monte-cream-cheese.webp',
+                'Muçarela': 'monte-mucarela.webp',
+                'Queijo Branco': 'monte-queijo-branco.webp'
+            }
+        };
+
+        function obterImagemProdutoAdmin(produto) {
+            const base = './assets/menu/';
+            const texto = `${produto && produto.nome || ''} ${produto && produto.ing || ''}`.toLowerCase();
+            if (produto && produto.imagem) return base + produto.imagem;
+            if (texto.includes('carne seca')) return base + 'tapioca-carne-seca.webp';
+            if (texto.includes('calabresa')) return base + 'tapioca-calabresa.webp';
+            if (texto.includes('frango')) return base + 'tapioca-frango.webp';
+            if (texto.includes('presunto') || texto.includes('peito de peru') || texto.includes('pizza')) return base + 'tapioca-presunto.webp';
+            if (texto.includes('morango')) return base + 'tapioca-morango-chocolate.webp';
+            if (texto.includes('banana') || texto.includes('canela')) return base + 'tapioca-banana.webp';
+            if (texto.includes('coco') || texto.includes('beijinho') || texto.includes('queijadinha')) return base + 'tapioca-coco.webp';
+            if (texto.includes('chocolate') || texto.includes('nutella') || texto.includes('avelã') || texto.includes('paçoca') || texto.includes('brigadeiro')) return base + 'tapioca-chocolate-avela.webp';
+            return base + 'tapioca-queijos.webp';
+        }
+
         const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const escaparHtml = (valor) => String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -1794,7 +1827,8 @@
         const gerarHtmlProduto = (prod) => {
             let esgotado = itensIndisponiveis.includes(prod.nome); let classeEsgotada = esgotado ? 'esgotado' : '';
             let qtdNoCarrinho = carrinho.filter(i => i.nome === prod.nome).reduce((acc, obj) => acc + obj.quantidade, 0); let classeAtiva = qtdNoCarrinho > 0 && !esgotado ? 'selecionado' : ''; let badge = qtdNoCarrinho > 0 && !esgotado ? `<div class="badge-qtd">${qtdNoCarrinho}</div>` : ''; let estiloExtra = prod.tipo === 'extra' ? 'border: 2px dashed var(--primary);' : '';
-            return `<button type="button" class="produto-btn ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
+            const imagem = obterImagemProdutoAdmin(prod);
+            return `<button type="button" class="produto-btn produto-btn-com-foto ${classeAtiva} ${classeEsgotada}" style="${estiloExtra}" data-nome="${escaparHtml(prod.nome)}" aria-disabled="${esgotado}" onclick='clickProduto(${jsonSeguroAtributo(prod)})' onpointerdown="iniciarPressao(event)" onpointerup="cancelarPressao()" onpointercancel="cancelarPressao()" onpointerleave="cancelarPressao()">${badge}<img class="produto-imagem" src="${imagem}" alt="" loading="lazy" decoding="async"><span class="produto-conteudo"><span class="produto-nome">${escaparHtml(prod.nome)}</span><span class="produto-preco">${formatarMoeda(prod.preco)}</span></span><span class="produto-add" aria-hidden="true">+</span><span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span><span class="press-progress-fill" aria-hidden="true"></span></button>`;
         };
 
         function pesquisarProdutos() {
@@ -1856,12 +1890,13 @@
                 grid.innerHTML = processarLista(bdCatalogo.bebidas);
             } else if (categoria === 'monte') {
                 if (!baseSelecionadaMonte) {
-                    grid.innerHTML = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; text-align:center;">Passo 1: Escolha a Carne</div>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(carne => `<button class="produto-btn" onclick="selecionarBaseMonteUI('${carne}')"><span class="produto-nome" style="font-size: 1.1rem;">${carne}</span></button>`).join('');
+                    grid.innerHTML = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; text-align:center;">Passo 1: Escolha a Carne</div>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(carne => `<button class="produto-btn produto-btn-com-foto" onclick="selecionarBaseMonteUI('${carne}')"><img class="produto-imagem" src="./assets/menu/${imagensMonteSuaAdmin.carnes[carne]}" alt="" loading="lazy" decoding="async"><span class="produto-conteudo"><span class="produto-nome">${carne}</span></span></button>`).join('');
                 } else {
                     let htmlQueijos = `<div class="sub-categoria-titulo" style="grid-column: 1 / -1; text-align:center;">Passo 2: Escolha o Queijo para ${baseSelecionadaMonte}</div>`;
                     ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(queijo => {
                         let precoFinal = precosMonteSua[baseSelecionadaMonte][queijo];
-                        htmlQueijos += `<button class="produto-btn" onclick="lancarMonte('${queijo}', ${precoFinal})"><span class="produto-nome" style="color:var(--success); font-weight:normal;">${queijo}</span><span class="produto-preco">${formatarMoeda(precoFinal)}</span></button>`;
+                        const nomeQueijo = queijo === 'Catupiry (Orig.)' ? 'Catupiry (Original)' : (queijo === 'Cheddar' ? 'Cheddar (Scala)' : queijo);
+                        htmlQueijos += `<button class="produto-btn produto-btn-com-foto" onclick="lancarMonte('${queijo}', ${precoFinal})"><img class="produto-imagem" src="./assets/menu/${imagensMonteSuaAdmin.queijos[queijo]}" alt="" loading="lazy" decoding="async"><span class="produto-conteudo"><span class="produto-nome" style="color:var(--success);">${nomeQueijo}</span><span class="produto-preco">${formatarMoeda(precoFinal)}</span></span></button>`;
                     });
                     htmlQueijos += `<button class="produto-btn" style="border: 2px dashed var(--edit);" onclick="lancarMonteSemQueijo()"><span class="produto-nome" style="color:var(--edit); font-weight:bold;">🚫 Sem Queijo</span><span class="produto-preco" style="font-size:0.75rem;">(Digitar Preço)</span></button>`;
                     htmlQueijos += `<button class="btn-acao btn-limpar" style="grid-column: 1 / -1;" onclick="baseSelecionadaMonte=null; renderizarCatalogo('monte');">⬅️ Voltar para Carnes</button>`;
@@ -2756,7 +2791,7 @@
             }
         }
     </script>
-    <script src="./eliel.js?v=20260806.2"></script>
+    <script src="./eliel.js?v=20260816.3"></script>
     <script src="./configuracao.js"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">

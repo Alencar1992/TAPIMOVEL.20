@@ -115,14 +115,29 @@ test("tema respeita a cor da logo e catálogo migra a bebida genérica", () => {
   assert.match(runtime, /normalizado\.bebidas = bebidasPadrao/);
 });
 
+test("cardápio administrativo exibe fotos em produtos, Monte a Sua e bebidas", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "frontend/professional.css"), "utf8");
+  assert.match(html, /function obterImagemProdutoAdmin\(/);
+  assert.match(html, /class="produto-imagem"/);
+  assert.match(html, /imagensMonteSuaAdmin\.carnes\[carne\]/);
+  assert.match(html, /imagensMonteSuaAdmin\.queijos\[queijo\]/);
+  assert.match(html, /Catupiry \(Original\)/);
+  assert.match(html, /Cheddar \(Scala\)/);
+  assert.match(eliel, /class="gestao-item-imagem"/);
+  assert.match(css, /body\.app-admin \.produto-btn-com-foto/);
+  assert.match(css, /\.gestao-item-imagem/);
+});
+
 test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
   const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
 
-  assert.match(html, /catalogo-runtime\.js\?v=20260806\.2/);
-  assert.match(html, /eliel\.css\?v=20260806\.2/);
-  assert.match(html, /eliel\.js\?v=20260806\.2/);
+  assert.match(html, /catalogo-runtime\.js\?v=\d{8}\.\d+/);
+  assert.match(html, /eliel\.css\?v=\d{8}\.\d+/);
+  assert.match(html, /eliel\.js\?v=\d{8}\.\d+/);
   assert.match(catalogo, /ehAdicionalLegado/);
   assert.match(catalogo, /normalizarBusca\(item && item\.nome\) === "\+ adicional"/);
   assert.match(eliel, /normalizarBusca\(item && item\.nome\) !== "\+ adicional"/);

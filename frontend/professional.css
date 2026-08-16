@@ -349,6 +349,46 @@ body.app-admin .produto-btn {
   touch-action: manipulation;
 }
 
+body.app-admin .produto-btn-com-foto {
+  min-height: 126px;
+  padding-left: 108px;
+}
+
+body.app-admin .produto-imagem {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 82px;
+  height: calc(100% - 24px);
+  max-height: 102px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #151b1f;
+  pointer-events: none;
+}
+
+body.app-admin .produto-conteudo {
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.gestao-item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gestao-item-imagem {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: #151b1f;
+  pointer-events: none;
+}
+
 body.app-admin .produto-btn:hover {
   background: #1d282f;
   border-color: rgba(255, 94, 77, .62);
