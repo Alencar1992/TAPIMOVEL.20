@@ -687,6 +687,7 @@
         lista.innerHTML = itens.map(item => {
             const pausado = itensIndisponiveis.includes(item.nome);
             const nome = encodeURIComponent(item.nome).replace(/'/g, "%27");
+            const imagem = typeof obterImagemProdutoAdmin === "function" ? obterImagemProdutoAdmin(item) : "";
             return `
                 <article class="gestao-item ${pausado ? "pausado" : ""}" data-item="${escapar(item.nome)}">
                     <button type="button" class="gestao-item-main"
@@ -695,6 +696,7 @@
                         onpointerup="cancelarPressaoGestaoItem()"
                         onpointercancel="cancelarPressaoGestaoItem()"
                         onpointerleave="cancelarPressaoGestaoItem()">
+                        ${imagem ? `<img class="gestao-item-imagem" src="${imagem}" alt="" loading="lazy" decoding="async">` : ""}
                         <span>${escapar(item.nome)}<small>${escapar(item.ing || (item.tipo === "bebida" ? "Bebida" : "Sem ingredientes"))}</small><small>${item.tipo === "bebida" ? "Bebida" : "Tapioca"} · ${moeda(item.preco)}</small></span>
                         <span class="press-progress" aria-hidden="true"><b class="press-progress-value">2</b>s</span>
                         <span class="press-progress-fill" aria-hidden="true"></span>
