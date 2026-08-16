@@ -28,7 +28,10 @@
 
         header { background: #181818; color: var(--primary); padding: 15px 10px; border-bottom: 1px solid var(--border); }
         .header-content { display: flex; justify-content: space-between; align-items: center; max-width: 600px; margin: 0 auto; }
-        .header-logo { width: 50px; height: 50px; object-fit: cover; object-position: center; display: block; flex: 0 0 50px; border: 2px solid var(--primary); border-radius: 50%; box-sizing: border-box; }
+        .header-logo { width: 50px; height: 50px; object-fit: cover; object-position: center; display: block; flex: 0 0 50px; border: 3px solid var(--danger); border-radius: 50%; box-sizing: border-box; transition: border-color .3s ease, box-shadow .3s ease; }
+        .header-logo.status-aberta { border-color: #36c96b; box-shadow: 0 0 12px rgba(54,201,107,.72); }
+        .header-logo.status-encerrando { border-color: #f4c542; box-shadow: 0 0 12px rgba(244,197,66,.72); }
+        .header-logo.status-fechada { border-color: var(--danger); box-shadow: 0 0 12px rgba(220,53,69,.58); }
         .header-text { text-align: center; flex: 1; padding: 0 10px; }
         .header-text h1 { margin: 0; font-size: 1.3rem; color: var(--text); line-height: 1.1; }
         .header-text p { margin: 3px 0 0 0; font-size: 0.85rem; color: var(--text-muted); }
@@ -87,6 +90,13 @@
         @keyframes gritarCarrinho { 0% { background-color: #181818; color: var(--primary); box-shadow: 0 -5px 15px rgba(0,0,0,0.5); transform: scale(1); } 100% { background-color: var(--success); color: white; box-shadow: 0 -5px 25px rgba(74, 139, 87, 0.8); transform: scale(1.02); } }
 
         .cart-item { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 10px 0; }
+        .sugestoes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+        .sugestao-card { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #252525; text-align: left; }
+        .sugestao-card strong { display: block; min-height: 38px; color: var(--text); }
+        .sugestao-card small { display: block; margin: 5px 0 10px; color: var(--text-muted); }
+        .previa-pedido { display: grid; gap: 12px; text-align: left; }
+        .previa-bloco { padding: 12px; background: #2a2a2a; border: 1px solid var(--border); border-radius: 9px; line-height: 1.5; }
+        .previa-total { display: flex; justify-content: space-between; color: var(--success); font-size: 1.2rem; font-weight: 800; }
 
         #loadingScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(18,18,18,0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: var(--primary); }
         .spinner { border: 5px solid var(--border); border-top: 5px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px;}
@@ -267,15 +277,21 @@
 
     <div class="modal modal-center" id="modalRota" style="z-index: 2500;">
         <div class="modal-content">
-            <h2 style="margin-top:0; color:var(--primary);">📍 Atenção à Rota!</h2>
-            <p style="font-size: 1.1rem; line-height: 1.4;">
-                Temos um roteiro semanal de ruas. 🚚💨<br><br>
-                <b>Tem certeza de que o nosso carro está passando na sua rua HOJE?</b><br><br>
-                <span id="resumoEnderecoPedido" style="display:block; padding:12px; background:#2a2a2a; border-radius:8px; color:var(--text);"></span><br>
-                <small style="color: var(--text-muted);">Pedidos fora da rota do dia poderão ser cancelados. ❌</small>
-            </p>
-            <button class="btn-large btn-destaque" style="margin-top: 15px;" onclick="confirmarRotaEEnviar()">Sim, enviem pra chapa! 🔥</button>
-            <button class="btn-large btn-close" onclick="document.getElementById('modalRota').style.display='none'">Cancelar ⬅️</button>
+            <h2 style="margin-top:0; color:var(--primary);">🧾 Prévia do seu pedido</h2>
+            <div class="previa-pedido" id="previaPedidoCompleta"></div>
+            <small style="display:block;margin-top:12px;color:var(--text-muted);">Confira principalmente a rota e o endereço. Pedidos fora da rota poderão ser cancelados.</small>
+            <button id="btnEnviarChapa" class="btn-large btn-destaque" style="margin-top: 15px;" onclick="confirmarRotaEEnviar()">🔥 Enviar para a chapa</button>
+            <button class="btn-large btn-close" onclick="editarOuAdicionarMais()">✏️ Editar/adicionar mais</button>
+        </div>
+    </div>
+
+    <div class="modal modal-center" id="modalSugestao" style="z-index: 2450;">
+        <div class="modal-content">
+            <h2 style="margin-top:0;color:var(--primary);">🌮 Que tal completar seu pedido?</h2>
+            <p id="textoSugestao" style="color:var(--text-muted);line-height:1.5;"></p>
+            <div class="sugestoes-grid" id="listaSugestoes"></div>
+            <button class="btn-large" style="background:var(--primary);color:#121212;" onclick="voltarAoCardapioDaSugestao()">➕ Voltar ao cardápio</button>
+            <button class="btn-large btn-close" onclick="finalizarSemSugestao()">Finalizar pedido</button>
         </div>
     </div>
 
@@ -324,9 +340,11 @@
         let pedidoTemp = {};
         let categoriaAtiva = 'salgadas';
         let itensIndisponiveis = [];
-        let diaAtualInt = new Date().getDay();
-        let horaAtualInt = new Date().getHours();
-        let lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt >= 18 && horaAtualInt < 22;
+        let diaAtualInt = 0;
+        let horaAtualInt = 0;
+        let lojaAberta = false;
+        let assinaturaSugestaoIgnorada = '';
+        let envioEmAndamento = false;
         const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const escaparHtml = (valor) => String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -338,6 +356,7 @@
             .replace(/>/g, '\\u003e');
 
         window.onload = () => {
+            atualizarRelogioAtendimento(false);
             carregarConfiguracoesDia();
             abrirAvisoAtendimento();
             carregarDisponibilidadeCardapio();
@@ -346,6 +365,7 @@
                 mudarAba('salgadas', document.querySelector('.tab'));
             });
             setInterval(carregarDisponibilidadeCardapio, 30000);
+            setInterval(() => atualizarRelogioAtendimento(true), 60000);
             setInterval(function() {
                 TapimovelCatalogo.carregar(bdCatalogo, function() {
                     removerDoCarrinhoItensForaDoCatalogo();
@@ -353,6 +373,38 @@
                 });
             }, 60000);
         };
+
+        function obterHorarioSaoPaulo(agora = new Date()) {
+            const partes = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Sao_Paulo',
+                weekday: 'short',
+                hour: '2-digit',
+                hourCycle: 'h23'
+            }).formatToParts(agora).reduce((obj, parte) => {
+                obj[parte.type] = parte.value;
+                return obj;
+            }, {});
+            const dias = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+            return { dia: dias[partes.weekday], hora: Number(partes.hour) };
+        }
+
+        function atualizarRelogioAtendimento(recarregarTela = true) {
+            const anterior = `${diaAtualInt}-${horaAtualInt}-${lojaAberta}`;
+            const horario = obterHorarioSaoPaulo();
+            diaAtualInt = horario.dia;
+            horaAtualInt = horario.hora;
+            lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt >= 18 && horaAtualInt < 22;
+            const logo = document.querySelector('.header-logo');
+            if (logo) {
+                logo.classList.remove('status-aberta', 'status-encerrando', 'status-fechada');
+                logo.classList.add(!lojaAberta ? 'status-fechada' : (horaAtualInt === 21 ? 'status-encerrando' : 'status-aberta'));
+            }
+            const atual = `${diaAtualInt}-${horaAtualInt}-${lojaAberta}`;
+            if (recarregarTela && anterior !== atual) {
+                carregarConfiguracoesDia();
+                mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+            }
+        }
 
         function removerDoCarrinhoItensForaDoCatalogo() {
             const nomesAtivos = new Set(
@@ -443,6 +495,8 @@
             document.getElementById('telaSucesso').style.display = 'none';
             document.getElementById('appNormal').style.display = 'block';
             carrinho = [];
+            assinaturaSugestaoIgnorada = '';
+            envioEmAndamento = false;
             atualizarBarra();
             mudarAba('salgadas', document.querySelector('.tab'));
             window.scrollTo(0,0);
@@ -603,7 +657,73 @@
             }
         }
 
-        function abrirCheckout() {
+        function obterAssinaturaCarrinho() {
+            return carrinho.map(item => `${item.nome}:${item.quantidade || 1}`).sort().join('|');
+        }
+
+        function classificarTapiocaUnica() {
+            const tapiocas = carrinho.filter(item => item.tipo === 'tapioca');
+            const quantidade = tapiocas.reduce((total, item) => total + Number(item.quantidade || 1), 0);
+            if (quantidade !== 1) return '';
+            const nome = tapiocas[0].nome;
+            if (String(nome).startsWith('Monte Sua:')) return 'salgada';
+            const doces = new Set([...bdCatalogo.doces_tradicionais, ...bdCatalogo.doces_avela, ...bdCatalogo.doces_nutella].map(item => item.nome));
+            return doces.has(nome) ? 'doce' : 'salgada';
+        }
+
+        function primeiraDisponivel(lista) {
+            return lista.find(item => !itensIndisponiveis.includes(item.nome));
+        }
+
+        function abrirSugestaoSeAplicavel() {
+            const tipo = classificarTapiocaUnica();
+            const assinatura = obterAssinaturaCarrinho();
+            if (!tipo || assinatura === assinaturaSugestaoIgnorada) return false;
+            const opcoes = [];
+            if (tipo === 'salgada') {
+                const doce = primeiraDisponivel([...bdCatalogo.doces_tradicionais, ...bdCatalogo.doces_avela, ...bdCatalogo.doces_nutella]);
+                if (doce) opcoes.push({ produto: doce, rotulo: 'Uma tapioca doce' });
+            } else {
+                const salgada = primeiraDisponivel([...bdCatalogo.salgadas, ...bdCatalogo.especiais]);
+                if (salgada) opcoes.push({ produto: salgada, rotulo: 'Uma tapioca salgada' });
+            }
+            const bebida = primeiraDisponivel(bdCatalogo.bebidas);
+            if (bebida) opcoes.push({ produto: bebida, rotulo: 'Uma bebida gelada' });
+            if (!opcoes.length) return false;
+            document.getElementById('textoSugestao').textContent = tipo === 'salgada'
+                ? 'Você escolheu uma tapioca salgada. Podemos acrescentar uma doce ou uma bebida.'
+                : 'Você escolheu uma tapioca doce. Podemos acrescentar uma salgada ou uma bebida.';
+            document.getElementById('listaSugestoes').innerHTML = opcoes.map(({ produto, rotulo }) =>
+                `<div class="sugestao-card"><strong>${escaparHtml(produto.nome)}</strong><small>${escaparHtml(rotulo)} · ${formatar(produto.preco)}</small><button type="button" class="btn-add" onclick='adicionarSugestao(${jsonSeguroAtributo(produto)})'>Adicionar</button></div>`
+            ).join('');
+            document.getElementById('modalSugestao').style.display = 'flex';
+            return true;
+        }
+
+        function adicionarSugestao(produto) {
+            if (itensIndisponiveis.includes(produto.nome)) return mostrarAlerta('Este item acabou de ficar indisponível.');
+            carrinho.push({ ...produto, quantidade: 1, obs: '', pronto: false, id: Date.now() });
+            assinaturaSugestaoIgnorada = obterAssinaturaCarrinho();
+            document.getElementById('modalSugestao').style.display = 'none';
+            atualizarBarra();
+            abrirCheckout(true);
+        }
+
+        function voltarAoCardapioDaSugestao() {
+            assinaturaSugestaoIgnorada = obterAssinaturaCarrinho();
+            document.getElementById('modalSugestao').style.display = 'none';
+            window.scrollTo(0, 0);
+        }
+
+        function finalizarSemSugestao() {
+            assinaturaSugestaoIgnorada = obterAssinaturaCarrinho();
+            document.getElementById('modalSugestao').style.display = 'none';
+            abrirCheckout(true);
+        }
+
+        function abrirCheckout(ignorarSugestao = false) {
+            atualizarRelogioAtendimento(false);
+            if (!ignorarSugestao && abrirSugestaoSeAplicavel()) return;
             const lista = document.getElementById('listaCheckout');
             lista.innerHTML = '';
             let total = 0;
@@ -629,6 +749,7 @@
         }
 
         function validarPedido() {
+            atualizarRelogioAtendimento(false);
             if (!lojaAberta) {
                 return mostrarAlerta("O cardápio digital está fechado. Atendemos de <b>segunda a sexta-feira, das 18h às 22h</b>.");
             }
@@ -657,14 +778,41 @@
             }
 
             pedidoTemp = { nome, telefone, rotaFinal, pag, troco };
-            document.getElementById('resumoEnderecoPedido').innerHTML =
-                `<b>Entrega em:</b><br>${escaparHtml(selectRota)}<br>${escaparHtml(endereco)}, Nº ${escaparHtml(num)}`;
+            const itens = carrinho.map(item =>
+                `<div><b>${Number(item.quantidade || 1)}x ${escaparHtml(item.nome)}</b>${item.obs ? `<br><small>Obs.: ${escaparHtml(item.obs)}</small>` : ''}</div>`
+            ).join('<hr style="border:0;border-top:1px dashed var(--border)">');
+            const pagamento = pag === 'Dinheiro'
+                ? (troco === '0' ? 'Dinheiro (sem troco)' : `Dinheiro (troco para R$ ${escaparHtml(troco)})`)
+                : pag;
+            const total = carrinho.reduce((soma, item) => soma + item.preco * Number(item.quantidade || 1), 0);
+            document.getElementById('previaPedidoCompleta').innerHTML =
+                `<div class="previa-bloco">${itens}</div>` +
+                `<div class="previa-total"><span>Total</span><span>${formatar(total)}</span></div>` +
+                `<div class="previa-bloco"><b>Cliente:</b> ${escaparHtml(nome)}<br><b>WhatsApp:</b> ${escaparHtml(telefone)}<br><b>Entrega:</b> ${escaparHtml(selectRota)} · ${escaparHtml(endereco)}, Nº ${escaparHtml(num)}<br><b>Pagamento:</b> ${escaparHtml(pagamento)}</div>`;
+            document.getElementById('btnEnviarChapa').disabled = false;
+            document.getElementById('btnEnviarChapa').textContent = '🔥 Enviar para a chapa';
             document.getElementById('modalRota').style.display = 'flex';
         }
 
         function confirmarRotaEEnviar() {
+            atualizarRelogioAtendimento(false);
+            if (!lojaAberta) {
+                document.getElementById('modalRota').style.display = 'none';
+                return mostrarAlerta('O atendimento online encerrou às <b>22h</b>. Seu pedido não foi enviado.');
+            }
+            if (envioEmAndamento) return;
+            envioEmAndamento = true;
+            const botao = document.getElementById('btnEnviarChapa');
+            botao.disabled = true;
+            botao.textContent = 'Enviando...';
             document.getElementById('modalRota').style.display = 'none';
             enviarPedidoBackend(pedidoTemp.nome, pedidoTemp.telefone, pedidoTemp.rotaFinal, pedidoTemp.pag, pedidoTemp.troco);
+        }
+
+        function editarOuAdicionarMais() {
+            document.getElementById('modalRota').style.display = 'none';
+            document.getElementById('modalCheckout').style.display = 'none';
+            window.scrollTo(0, 0);
         }
 
         const ehHoje = (ts) => { if(!ts) return false; const d=new Date(ts), h=new Date(); return d.getDate()===h.getDate() && d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear(); };
@@ -720,6 +868,10 @@
                     'https://wa.me/5511932180290?text=' + encodeURIComponent(nota);
               })
               .withFailureHandler(function(erro) {
+                envioEmAndamento = false;
+                const botao = document.getElementById('btnEnviarChapa');
+                botao.disabled = false;
+                botao.textContent = '🔥 Enviar para a chapa';
                 document.getElementById('loadingScreen').style.display = 'none';
                 mostrarAlerta("Não foi possível enviar o pedido. Tente novamente.<br><small>" + erro.message + "</small>");
               })

@@ -76,6 +76,23 @@ test("Monte a Sua e bebidas exibem fotos e preservam pausa individual", () => {
   assert.match(html, /itensIndisponiveis\.includes\(p\.nome\)/);
 });
 
+test("agente local sugere complementos, preserva carrinho e confirma em prévia", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+  assert.match(html, /timeZone: 'America\/Sao_Paulo'/);
+  assert.match(html, /status-aberta/);
+  assert.match(html, /status-encerrando/);
+  assert.match(html, /status-fechada/);
+  assert.match(html, /function classificarTapiocaUnica\(/);
+  assert.match(html, /itensIndisponiveis\.includes\(item\.nome\)/);
+  assert.match(html, /function voltarAoCardapioDaSugestao\(/);
+  assert.match(html, /function finalizarSemSugestao\(/);
+  assert.match(html, /id="previaPedidoCompleta"/);
+  assert.match(html, /Enviar para a chapa/);
+  assert.match(html, /Editar\/adicionar mais/);
+  assert.match(html, /if \(envioEmAndamento\) return/);
+  assert.match(html, /atendimento online encerrou às <b>22h<\/b>/);
+});
+
 test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
@@ -298,7 +315,7 @@ test("cardápio do cliente usa as rotas atualizadas e endereço completo obrigat
   assert.match(cliente, /id="cliNum"/);
   assert.match(cliente, /if\(!endereco\)/);
   assert.match(cliente, /if\(!num\)/);
-  assert.match(cliente, /id="resumoEnderecoPedido"/);
+  assert.match(cliente, /id="previaPedidoCompleta"/);
   assert.match(cliente, /enderecoCliente: rotaFinal/);
   assert.match(cliente, /selectRota \+ " \| " \+ endereco \+ ", Nº " \+ num/);
 });
