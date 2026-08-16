@@ -45,7 +45,7 @@ test("administrador e cliente usam o mesmo catálogo inicial", () => {
 
   ["frontend/index.html", "frontend/cliente.html"].forEach(file => {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    assert.match(html, /src="\.\/catalogo-base\.js"/);
+    assert.match(html, /src="\.\/catalogo-base\.js(?:\?v=[^"]+)?"/);
     assert.doesNotMatch(html, /const bdCatalogo = \{/);
   });
 });
@@ -102,6 +102,17 @@ test("modo de teste abre o cardápio sem enviar pedidos reais", () => {
   const blocoTeste = html.match(/if \(modoTeste\) \{[\s\S]{0,1200}?\n\s*\}/);
   assert.ok(blocoTeste);
   assert.doesNotMatch(blocoTeste[0], /registrarPedidoOnline/);
+});
+
+test("tema respeita a cor da logo e catálogo migra a bebida genérica", () => {
+  const css = fs.readFileSync(path.join(root, "frontend/professional.css"), "utf8");
+  const runtime = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
+  assert.match(css, /body\.app-cliente \.header-logo\.status-aberta[\s\S]{0,160}#36c96b/);
+  assert.match(css, /body\.app-cliente \.header-logo\.status-encerrando[\s\S]{0,160}#f4c542/);
+  assert.match(css, /body\.app-cliente \.header-logo\.status-fechada[\s\S]{0,160}var\(--danger\)/);
+  assert.match(runtime, /imagem: String\(item\.imagem \|\| ""\)/);
+  assert.match(runtime, /contemBebidaGenericaLegada/);
+  assert.match(runtime, /normalizado\.bebidas = bebidasPadrao/);
 });
 
 test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {

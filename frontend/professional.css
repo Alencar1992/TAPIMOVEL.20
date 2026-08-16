@@ -616,6 +616,24 @@ body.app-cliente .header-logo {
   box-shadow: 0 8px 24px rgba(255, 94, 77, .2);
 }
 
+body.app-cliente .header-logo.status-aberta {
+  border: 3px solid #36c96b;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(54, 201, 107, .82);
+}
+
+body.app-cliente .header-logo.status-encerrando {
+  border: 3px solid #f4c542;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(244, 197, 66, .82);
+}
+
+body.app-cliente .header-logo.status-fechada {
+  border: 3px solid var(--danger);
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(220, 53, 69, .7);
+}
+
 body.app-cliente .header-text {
   min-width: 0;
   padding: 0 10px;
