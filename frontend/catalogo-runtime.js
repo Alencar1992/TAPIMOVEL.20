@@ -25,7 +25,8 @@
               nome: String(item.nome || ""),
               preco: Number(item.preco) || 0,
               tipo: item.tipo === "bebida" ? "bebida" : "tapioca",
-              ing: String(item.ing || "")
+              ing: String(item.ing || ""),
+              imagem: String(item.imagem || "")
             };
           })
         : [];
@@ -34,7 +35,15 @@
   }
 
   function substituir(destino, origem) {
+    var bebidasPadrao = copiar(destino).bebidas;
     var normalizado = copiar(origem);
+    var contemBebidaGenericaLegada = normalizado.bebidas.some(function (item) {
+      var nome = normalizarBusca(item && item.nome);
+      return nome === "refri / suco - lata" || nome === "🥤 refri / suco - lata";
+    });
+    if (contemBebidaGenericaLegada && bebidasPadrao.length > 1) {
+      normalizado.bebidas = bebidasPadrao;
+    }
     categorias.forEach(function (categoria) {
       destino[categoria] = normalizado[categoria];
     });
