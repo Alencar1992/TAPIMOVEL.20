@@ -93,6 +93,17 @@ test("agente local sugere complementos, preserva carrinho e confirma em prévia"
   assert.match(html, /atendimento online encerrou às <b>22h<\/b>/);
 });
 
+test("modo de teste abre o cardápio sem enviar pedidos reais", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+  assert.match(html, /parametrosTeste\.get\('modo'\) === 'teste'/);
+  assert.match(html, /MODO TESTE · nenhum pedido será enviado/);
+  assert.match(html, /return \{ dia: diaSimulado, hora: horaSimulada \}/);
+  assert.match(html, /if \(modoTeste\) \{[\s\S]{0,900}Nenhum pedido real foi criado/);
+  const blocoTeste = html.match(/if \(modoTeste\) \{[\s\S]{0,1200}?\n\s*\}/);
+  assert.ok(blocoTeste);
+  assert.doesNotMatch(blocoTeste[0], /registrarPedidoOnline/);
+});
+
 test("interface administrativa força arquivos compatíveis e remove adicional legado", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const catalogo = fs.readFileSync(path.join(root, "frontend/catalogo-runtime.js"), "utf8");
