@@ -526,11 +526,26 @@
             </section>
 
             <div class="eliel-acoes">
-                <button type="button" onclick="exportarRelatorioElielCsv()">Exportar CSV</button>
-                <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar XLSX</button>
+                <button type="button" onclick="exportarRelatorioElielCsv()">Exportar resumo CSV</button>
+                <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar resumo XLSX</button>
                 <button type="button" onclick="gerarComparativoElielPdf()">Comparativo do mês anterior em PDF</button>
                 <button type="button" class="perigo eliel-owner-only" onclick="abrirFechamentoMesEliel()">Revisar e fechar mês</button>
             </div>
+            <section class="eliel-painel eliel-historico-exportacao">
+                <div class="eliel-titulo-linha">
+                    <div><h3>Produtos vendidos · Histórico Diário</h3><p>Consulte e baixe as nove colunas originais do banco de dados.</p></div>
+                    <strong id="elielHistoricoTotal">0 linhas</strong>
+                </div>
+                <div class="eliel-historico-filtros">
+                    <label>Período<select id="elielHistoricoPeriodo" class="input-obs" onchange="ajustarPeriodoHistoricoEliel(this.value)"><option value="dia">Dia</option><option value="semana">Semana</option><option value="mes" selected>Mês</option><option value="ano">Ano</option></select></label>
+                    <label>Data inicial<input id="elielHistoricoInicio" class="input-obs" type="date"></label>
+                    <label>Data final<input id="elielHistoricoFim" class="input-obs" type="date"></label>
+                    <button type="button" onclick="visualizarHistoricoEliel()">Visualizar dados</button>
+                    <button type="button" onclick="baixarHistoricoEliel('csv')">Baixar CSV</button>
+                    <button type="button" onclick="baixarHistoricoEliel('xlsx')">Baixar XLSX</button>
+                </div>
+                <div id="elielHistoricoTabela" class="eliel-tabela-wrap" hidden></div>
+            </section>
             <p id="elielResumoLucro" class="eliel-resumo" hidden></p>
         </div>
     </div>
@@ -584,10 +599,10 @@
                     </div>
                 </section>
 
-                <p class="eliel-previa-aviso">Ao confirmar, o fechamento será registrado com data, horário e responsável. Os pedidos ativos serão zerados somente após uma nova validação do servidor.</p>
+                <p class="eliel-previa-aviso">Ao confirmar, será registrada uma fotografia imutável desta competência, com data, horário e responsável. Pedidos e dados de outros meses não serão apagados ou alterados.</p>
                 <div class="eliel-modal-acoes">
                     <button type="button" onclick="fecharPreviaFechamentoEliel()">Voltar ao relatório</button>
-                    <button id="btnConfirmarFechamentoEliel" type="button" class="perigo" onclick="confirmarFechamentoMesEliel()">Confirmar e zerar mês</button>
+                    <button id="btnConfirmarFechamentoEliel" type="button" class="perigo" onclick="confirmarFechamentoMesEliel()">Confirmar fechamento</button>
                 </div>
             </div>
         </div>

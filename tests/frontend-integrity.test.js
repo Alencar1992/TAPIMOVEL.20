@@ -282,7 +282,7 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
   const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
 
   assert.match(html, /Prévia do fechamento mensal/);
-  assert.match(html, /Confirmar e zerar mês/);
+  assert.match(html, /Confirmar fechamento/);
   assert.match(html, /id="previaElielCombustivelTotal"/);
   assert.match(html, /Combustível total · 100%/);
   assert.match(html, /Liquidez Mensal · consulta/);
@@ -299,6 +299,12 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
   assert.match(backend, /pedidosPendentes/);
   assert.match(backend, /obterAbaFechamentosMensais_/);
   assert.match(backend, /Responsável/);
+  assert.match(html, /Produtos vendidos · Histórico Diário/);
+  assert.match(html, /visualizarHistoricoEliel\(\)/);
+  assert.match(eliel, /baixarHistoricoEliel/);
+  assert.match(backend, /function obterHistoricoVendasEliel/);
+  assert.doesNotMatch(backend, /setProperty\("pdv_vendas_ativas", "\[\]"\)/);
+  assert.match(html, /Pedidos e dados de outros meses não serão apagados ou alterados/);
 });
 
 test("gestão de itens usa pausa de 2 segundos, busca completa e ações em massa", () => {
