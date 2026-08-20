@@ -12,6 +12,7 @@
     let indiceAdicionalCarrinho = -1;
     let adicionaisSelecionadosModal = [];
     let agrupamentoGraficoEliel = "dia";
+    let historicoVendasElielAtual = null;
     const DURACAO_PRESSAO_GESTAO_ITEM = 2000;
     const PRECO_ADICIONAL = 4;
     const adicionaisSalgados = [
@@ -92,6 +93,7 @@
 
     window.abrirRelatorioEliel = function () {
         configurarFiltrosEliel();
+        ajustarPeriodoHistoricoEliel("mes");
         mudarTela("view-relatorio-eliel");
         const mes = Number(document.getElementById("elielMes").value);
         const ano = Number(document.getElementById("elielAno").value);
@@ -218,25 +220,39 @@
             elemento.innerHTML = '<p class="eliel-vazio">Sem vendas registradas.</p>';
             return;
         }
+
         const largura = 760;
-        const altura = 280;
-        const margem = { topo: 24, direita: 20, baixo: 42, esquerda: 38 };
+        const altura = 300;
+        const margem = { topo: 28, direita: 78, baixo: 52, esquerda: 58 };
         const areaLargura = largura - margem.esquerda - margem.direita;
         const areaAltura = altura - margem.topo - margem.baixo;
         const maxQuantidade = Math.max(1, ...dados.map(item => Number(item.quantidade || 0)));
         const maxFaturamento = Math.max(1, ...dados.map(item => Number(item.faturamento || 0)));
         const passo = areaLargura / dados.length;
         const larguraBarra = Math.max(5, Math.min(30, passo * .55));
+
+        function rotuloEscalaReais(valor) {
+            if (valor >= 1000) {
+                return "R$ " + (valor / 1000).toFixed(valor >= 10000 ? 0 : 1).replace(".", ",") + " mil";
+            }
+            return "R$ " + Math.round(valor);
+        }
+
         const pontos = dados.map((item, indice) => {
             const x = margem.esquerda + passo * indice + passo / 2;
             const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
             return `${x},${y}`;
         }).join(" ");
+
         const linhasGrade = [0, .25, .5, .75, 1].map(fracao => {
             const y = margem.topo + areaAltura * fracao;
+            const quantidade = Math.round(maxQuantidade * (1 - fracao));
+            const faturamento = maxFaturamento * (1 - fracao);
             return `<line x1="${margem.esquerda}" y1="${y}" x2="${largura - margem.direita}" y2="${y}" class="grade"/>
-                <text x="${margem.esquerda - 8}" y="${y + 4}" text-anchor="end">${Math.round(maxQuantidade * (1 - fracao))}</text>`;
+                <text x="${margem.esquerda - 10}" y="${y + 4}" text-anchor="end">${quantidade}</text>
+                <text x="${largura - margem.direita + 10}" y="${y + 4}" text-anchor="start">${rotuloEscalaReais(faturamento)}</text>`;
         }).join("");
+
         const barras = dados.map((item, indice) => {
             const xCentro = margem.esquerda + passo * indice + passo / 2;
             const alturaBarra = Number(item.quantidade || 0) / maxQuantidade * areaAltura;
@@ -244,19 +260,30 @@
             const rotulo = agrupamentoGraficoEliel === "semana"
                 ? String(item.semana || "").replace("Semana ", "S")
                 : String(item.dia || "").slice(0, 5);
-            return `<g tabindex="0">
-                <title>${escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"])}: ${item.quantidade || 0} tapiocas · ${moeda(item.faturamento)}</title>
+            const periodo = escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"]);
+            const descricao = `${periodo}: ${item.quantidade || 0} tapiocas e ${moeda(item.faturamento)} de faturamento`;
+            return `<g tabindex="0" role="img" aria-label="${escapar(descricao)}">
+                <title>${escapar(descricao)}</title>
                 <rect x="${xCentro - larguraBarra / 2}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="5" class="barra"/>
-                <text x="${xCentro}" y="${altura - 14}" text-anchor="middle">${escapar(rotulo)}</text>
+                <text x="${xCentro}" y="${altura - 18}" text-anchor="middle">${escapar(rotulo)}</text>
             </g>`;
         }).join("");
+
         const pontosLinha = dados.map((item, indice) => {
             const x = margem.esquerda + passo * indice + passo / 2;
             const y = margem.topo + areaAltura - Number(item.faturamento || 0) / maxFaturamento * areaAltura;
-            return `<circle cx="${x}" cy="${y}" r="4"><title>${moeda(item.faturamento)}</title></circle>`;
+            const periodo = escapar(item[agrupamentoGraficoEliel === "semana" ? "semana" : "dia"]);
+            const descricao = `${periodo}: ${moeda(item.faturamento)} de faturamento`;
+            return `<circle cx="${x}" cy="${y}" r="5" tabindex="0" role="img" aria-label="${escapar(descricao)}"><title>${escapar(descricao)}</title></circle>`;
         }).join("");
-        elemento.innerHTML = `<div class="eliel-grafico-legenda"><span><i class="unidades"></i>Unidades</span><span><i class="faturamento"></i>Faturamento</span></div>
-            <svg viewBox="0 0 ${largura} ${altura}" aria-hidden="true">
+
+        elemento.innerHTML = `<div class="eliel-grafico-legenda">
+                <span><i class="unidades"></i>Unidades · eixo esquerdo</span>
+                <span><i class="faturamento"></i>Faturamento · eixo direito</span>
+            </div>
+            <svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Gráfico de unidades vendidas e faturamento por ${agrupamentoGraficoEliel}">
+                <text x="16" y="${margem.topo + areaAltura / 2}" text-anchor="middle" transform="rotate(-90 16 ${margem.topo + areaAltura / 2})">Unidades</text>
+                <text x="${largura - 10}" y="${margem.topo + areaAltura / 2}" text-anchor="middle" transform="rotate(90 ${largura - 10} ${margem.topo + areaAltura / 2})">Faturamento</text>
                 ${linhasGrade}${barras}
                 <polyline points="${pontos}" class="linha-faturamento"/>
                 ${pontosLinha}
@@ -456,6 +483,77 @@
         URL.revokeObjectURL(url);
     }
 
+    function dataIsoLocal(data) {
+        return [data.getFullYear(), String(data.getMonth() + 1).padStart(2, "0"), String(data.getDate()).padStart(2, "0")].join("-");
+    }
+
+    window.ajustarPeriodoHistoricoEliel = function (tipo) {
+        const mes = Number(document.getElementById("elielMes").value) || new Date().getMonth() + 1;
+        const ano = Number(document.getElementById("elielAno").value) || new Date().getFullYear();
+        let inicio = new Date(ano, mes - 1, 1);
+        let fim = new Date(ano, mes, 0);
+        if (tipo === "dia") inicio = fim = new Date();
+        if (tipo === "semana") {
+            fim = new Date();
+            inicio = new Date(fim);
+            inicio.setDate(fim.getDate() - 6);
+        }
+        if (tipo === "ano") {
+            inicio = new Date(ano, 0, 1);
+            fim = new Date(ano, 11, 31);
+        }
+        document.getElementById("elielHistoricoInicio").value = dataIsoLocal(inicio);
+        document.getElementById("elielHistoricoFim").value = dataIsoLocal(fim);
+        historicoVendasElielAtual = null;
+        document.getElementById("elielHistoricoTabela").hidden = true;
+    };
+
+    function carregarHistoricoVendasEliel(callback) {
+        const inicio = document.getElementById("elielHistoricoInicio").value;
+        const fim = document.getElementById("elielHistoricoFim").value;
+        if (!inicio || !fim) return mostrarAlerta("Selecione a data inicial e a data final.");
+        google.script.run.withSuccessHandler(function (resposta) {
+            historicoVendasElielAtual = JSON.parse(resposta || "{}");
+            callback(historicoVendasElielAtual);
+        }).withFailureHandler(function (erro) {
+            mostrarAlerta("Não foi possível consultar o Histórico Diário.<br><small>" + escapar(erro.message) + "</small>");
+        }).obterHistoricoVendasEliel(inicio, fim);
+    }
+
+    window.visualizarHistoricoEliel = function () {
+        carregarHistoricoVendasEliel(function (dados) {
+            const tabela = document.getElementById("elielHistoricoTabela");
+            const cabecalho = dados.cabecalho || [];
+            const linhas = dados.linhas || [];
+            document.getElementById("elielHistoricoTotal").textContent = `${linhas.length} ${linhas.length === 1 ? "linha" : "linhas"}`;
+            tabela.innerHTML = linhas.length ? `<table class="eliel-tabela"><thead><tr>${cabecalho.map(item => `<th>${escapar(item)}</th>`).join("")}</tr></thead><tbody>${linhas.map(linha => `<tr>${linha.map((item, indice) => `<td>${indice === 5 || indice === 6 ? moeda(item) : escapar(item)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="eliel-vazio">Nenhuma venda encontrada neste período.</p>';
+            tabela.hidden = false;
+        });
+    };
+
+    window.baixarHistoricoEliel = function (formato) {
+        carregarHistoricoVendasEliel(async function (dados) {
+            const matriz = [dados.cabecalho || []].concat(dados.linhas || []);
+            const inicio = document.getElementById("elielHistoricoInicio").value;
+            const fim = document.getElementById("elielHistoricoFim").value;
+            const nome = `Historico_Diario_${inicio}_a_${fim}`;
+            if (formato === "csv") {
+                const csv = matriz.map(linha => linha.map(celula => `"${String(celula == null ? "" : celula).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+                baixarBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), nome + ".csv");
+                return;
+            }
+            try { await window.TapimovelVendors.load("xlsx"); } catch (erro) {
+                return mostrarAlerta("Não foi possível preparar o XLSX.<br><small>" + escapar(erro.message) + "</small>");
+            }
+            const planilha = window.XLSX.utils.aoa_to_sheet(matriz);
+            planilha["!cols"] = [{ wch: 14 }, { wch: 21 }, { wch: 34 }, { wch: 14 }, { wch: 9 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 42 }];
+            planilha["!autofilter"] = { ref: `A1:I${Math.max(1, matriz.length)}` };
+            const arquivo = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(arquivo, planilha, "Historico Diario");
+            window.XLSX.writeFile(arquivo, nome + ".xlsx");
+        });
+    };
+
     window.exportarRelatorioElielCsv = function () {
         if (!relatorioElielAtual) return;
         const csv = linhasExportacao(relatorioElielAtual)
@@ -622,13 +720,13 @@
     window.confirmarFechamentoMesEliel = function () {
         if (!previaFechamentoElielAtual || !previaFechamentoElielAtual.podeFechar) return;
         mostrarConfirmacao(
-            `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Os valores serão validados novamente e os pedidos ativos serão zerados.`,
+            `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Será salva uma fotografia desta competência sem alterar pedidos de outros meses.`,
             fecharMesElielConfirmado,
             {
                 titulo: "Confirmação final do CEO Eliel",
                 icone: "!",
                 textoCancelar: "Revisar novamente",
-                textoConfirmar: "Confirmar e zerar",
+                textoConfirmar: "Confirmar fechamento",
                 destrutiva: true
             }
         );
@@ -644,9 +742,8 @@
         google.script.run
             .withSuccessHandler(function () {
                 document.getElementById("loadingScreen").style.display = "none";
-                historicoNuvem = [];
                 fecharPreviaFechamentoEliel();
-                mostrarAlerta(`Mês ${chave} fechado com sucesso pelo CEO Eliel. O histórico mensal foi preservado.`);
+                mostrarAlerta(`Mês ${chave} fechado com sucesso. O histórico foi preservado e os dados dos demais meses continuam ativos.`);
                 carregarRelatorioEliel();
             })
             .withFailureHandler(function (erro) {

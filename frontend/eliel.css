@@ -615,6 +615,17 @@
     border-color: #d45a5a;
 }
 
+.eliel-historico-exportacao { margin-top: 18px; }
+.eliel-historico-filtros { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)) repeat(3, auto); gap: 10px; align-items: end; }
+.eliel-historico-filtros label { display: grid; gap: 6px; color: #a9b0b3; font-size: .78rem; font-weight: 700; }
+.eliel-historico-filtros button { min-height: 43px; border: 1px solid var(--eliel-line); border-radius: 10px; background: var(--eliel-surface-2); color: #fff; padding: 0 14px; font-weight: 700; cursor: pointer; }
+.eliel-historico-filtros button:first-of-type { background: var(--eliel-accent); color: #17130b; }
+.eliel-historico-exportacao .eliel-tabela-wrap { margin-top: 16px; max-height: 440px; }
+.eliel-historico-exportacao .eliel-tabela { min-width: 1120px; }
+
+@media (max-width: 900px) { .eliel-historico-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 430px) { .eliel-historico-filtros { grid-template-columns: 1fr; } .eliel-historico-filtros button { width: 100%; } }
+
 /* Relatório Eliel · Premium Executivo */
 .relatorio-eliel-view .nav-voltar {
     width: max-content;

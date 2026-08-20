@@ -1045,6 +1045,7 @@ function executarAcaoApi_(action, args, token) {
     "obterRelatorioEliel",
     "registrarAcessoRelatorioEliel",
     "obterConfiguracoesRelatorioEliel",
+    "obterHistoricoVendasEliel",
     "obterPreviaFechamentoRelatorioEliel",
     "fecharMesRelatorioEliel"
   ];
@@ -1084,6 +1085,7 @@ function executarAcaoApi_(action, args, token) {
     "obterRelatorioEliel",
     "registrarAcessoRelatorioEliel",
     "obterConfiguracoesRelatorioEliel",
+    "obterHistoricoVendasEliel",
     "salvarConfiguracoesRelatorioEliel",
     "obterPreviaFechamentoRelatorioEliel",
     "fecharMesRelatorioEliel",
@@ -2313,6 +2315,42 @@ function obterPreviaFechamentoRelatorioEliel(mes, ano, catalogoJSON) {
   return JSON.stringify(montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON));
 }
 
+function obterHistoricoVendasEliel(dataInicial, dataFinal) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = ss.getSheetByName("Historico_Diario");
+  const cabecalhoPadrao = [
+    "ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.",
+    "Total Pago", "Forma Pagamento", "Observações"
+  ];
+  if (!aba || aba.getLastRow() < 2) {
+    return JSON.stringify({ cabecalho: cabecalhoPadrao, linhas: [] });
+  }
+  const inicio = extrairData_(dataInicial);
+  const fim = extrairData_(dataFinal);
+  if (!inicio || !fim) throw new Error("Informe um período válido para consultar o histórico.");
+  inicio.setHours(0, 0, 0, 0);
+  fim.setHours(23, 59, 59, 999);
+  if (inicio > fim) throw new Error("A data inicial não pode ser posterior à data final.");
+  const intervalo = aba.getDataRange();
+  const valores = intervalo.getValues();
+  const exibidos = intervalo.getDisplayValues();
+  const cabecalho = exibidos[0].slice(0, 9);
+  const linhas = [];
+  for (let i = 1; i < valores.length; i++) {
+    const data = extrairData_(valores[i][1] || exibidos[i][1]);
+    if (!data || data < inicio || data > fim) continue;
+    linhas.push([
+      exibidos[i][0],
+      Utilities.formatDate(data, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"),
+      exibidos[i][2], exibidos[i][3], normalizarNumero_(valores[i][4]),
+      normalizarNumero_(valores[i][5]), normalizarNumero_(valores[i][6]),
+      exibidos[i][7], exibidos[i][8]
+    ]);
+  }
+  linhas.sort(function(a, b) { return extrairData_(a[1]) - extrairData_(b[1]); });
+  return JSON.stringify({ cabecalho: cabecalho.length === 9 ? cabecalho : cabecalhoPadrao, linhas: linhas });
+}
+
 function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
   const lock = LockService.getDocumentLock();
   try {
@@ -2379,10 +2417,9 @@ function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
     }
     log.appendRow([new Date(), "FECHAMENTO DO MÊS", dados.chave, responsavel]);
 
-    PropertiesService.getScriptProperties().setProperty("pdv_vendas_ativas", "[]");
     PropertiesService.getScriptProperties().setProperty(
       "pdv_aviso_pendente",
-      "O mês " + dados.chave + " foi fechado no Relatório Eliel. Os pedidos ativos foram zerados."
+      "O mês " + dados.chave + " foi fechado no Relatório Eliel. Os pedidos do mês atual permanecem ativos."
     );
     return JSON.stringify({ ok: true, chave: dados.chave });
   } finally {
