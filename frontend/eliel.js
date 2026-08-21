@@ -704,7 +704,10 @@
             status.innerHTML = "<strong>Mês já fechado</strong><span>Esse período já existe no histórico e não pode ser fechado novamente.</span>";
         } else if (Number(previa.pedidosPendentes || 0) > 0) {
             status.classList.add("bloqueado");
-            status.innerHTML = `<strong>Fechamento bloqueado</strong><span>Existem ${Number(previa.pedidosPendentes)} pedido(s) pendente(s). Finalize-os no PDV e gere uma nova prévia.</span>`;
+            status.innerHTML = `<strong>Fechamento bloqueado</strong><span>Existem ${Number(previa.pedidosPendentes)} pedido(s) pendente(s) neste mês. Pedidos de outros meses não interferem neste fechamento.</span>`;
+        } else if (previa.recuperavel) {
+            status.classList.add("liberado");
+            status.innerHTML = "<strong>Recuperação segura disponível</strong><span>Uma tentativa anterior ficou incompleta. O sistema continuará somente as etapas ausentes, sem duplicar os registros já salvos.</span>";
         } else {
             status.classList.add("liberado");
             status.innerHTML = "<strong>Valores validados pelo servidor</strong><span>Nenhum fechamento duplicado ou pedido pendente foi encontrado.</span>";
@@ -719,14 +722,17 @@
 
     window.confirmarFechamentoMesEliel = function () {
         if (!previaFechamentoElielAtual || !previaFechamentoElielAtual.podeFechar) return;
+        const recuperacao = Boolean(previaFechamentoElielAtual.recuperavel);
         mostrarConfirmacao(
-            `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Será salva uma fotografia desta competência sem alterar pedidos de outros meses.`,
+            recuperacao
+                ? `Continuar a recuperação do fechamento de ${previaFechamentoElielAtual.chave}? Somente as etapas ainda ausentes serão concluídas.`
+                : `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Será salva uma fotografia desta competência sem alterar pedidos de outros meses.`,
             fecharMesElielConfirmado,
             {
-                titulo: "Confirmação final do CEO Eliel",
+                titulo: recuperacao ? "Recuperar fechamento incompleto" : "Confirmação final do CEO Eliel",
                 icone: "!",
                 textoCancelar: "Revisar novamente",
-                textoConfirmar: "Confirmar fechamento",
+                textoConfirmar: recuperacao ? "Continuar recuperação" : "Confirmar fechamento",
                 destrutiva: true
             }
         );
@@ -740,10 +746,16 @@
         document.getElementById("loadingText").textContent = "Fechando o mês no Relatório Eliel...";
         document.getElementById("loadingScreen").style.display = "flex";
         google.script.run
-            .withSuccessHandler(function () {
+            .withSuccessHandler(function (resposta) {
                 document.getElementById("loadingScreen").style.display = "none";
                 fecharPreviaFechamentoEliel();
-                mostrarAlerta(`Mês ${chave} fechado com sucesso. O histórico foi preservado e os dados dos demais meses continuam ativos.`);
+                let resultado = {};
+                try { resultado = JSON.parse(resposta || "{}"); } catch (erro) {}
+                mostrarAlerta(
+                    resultado.recuperado
+                        ? `Mês ${chave} recuperado e fechado com sucesso, sem duplicar os registros já existentes.`
+                        : `Mês ${chave} fechado com sucesso. O histórico foi preservado e os dados dos demais meses continuam ativos.`
+                );
                 carregarRelatorioEliel();
             })
             .withFailureHandler(function (erro) {

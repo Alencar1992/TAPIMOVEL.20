@@ -36,6 +36,9 @@ function createContext() {
       },
       formatDate(_date, _timezone, format) {
         if (format === "yyyy-MM-dd") return currentDay;
+        if (format === "yyyy-MM") {
+          return `${_date.getFullYear()}-${String(_date.getMonth() + 1).padStart(2, "0")}`;
+        }
         if (format === "u") return "2";
         if (format === "H") return "19";
         if (format === "HH:mm") return "19:30";
@@ -353,7 +356,20 @@ test("prévia identifica pedidos ainda pendentes antes do fechamento", () => {
     { numero: 3, produzido: true, timestamp: "" }
   ]));
 
-  assert.equal(context.obterPedidosPendentesFechamentoEliel_(), 2);
+  assert.equal(context.obterPedidosPendentesFechamentoEliel_(7, 2026), 2);
+});
+
+test("pedidos do mês atual não bloqueiam o fechamento atrasado", () => {
+  const { context, properties, setCurrentDay } = createContext();
+  setCurrentDay("2026-08-21");
+  properties.set("pdv_vendas_ativas", JSON.stringify([
+    { numero: 1, produzido: false, timestampCriacao: "2026-08-21T19:30:00" },
+    { numero: 2, produzido: true, timestampCriacao: "2026-08-21T19:35:00", timestamp: "" },
+    { numero: 3, produzido: false, timestampCriacao: "2026-07-29T19:40:00" }
+  ]));
+
+  assert.equal(context.obterPedidosPendentesFechamentoEliel_(7, 2026), 1);
+  assert.equal(context.obterPedidosPendentesFechamentoEliel_(8, 2026), 2);
 });
 
 test("histórico mensal reconhece referências antigas sem duplicar o mês", () => {
