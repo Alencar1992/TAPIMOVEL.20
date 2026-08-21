@@ -298,6 +298,11 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
   assert.match(backend, /O fechamento mensal é exclusivo do perfil CEO Eliel/);
   assert.match(backend, /pedidosPendentes/);
   assert.match(backend, /obterAbaFechamentosMensais_/);
+  assert.match(backend, /Fechamentos_Mensais_v2/);
+  assert.match(backend, /Controle_Operacoes/);
+  assert.match(backend, /STATUS_OPERACAO_ERRO_/);
+  assert.match(eliel, /Recuperação segura disponível/);
+  assert.match(eliel, /Pedidos de outros meses não interferem/);
   assert.match(backend, /Responsável/);
   assert.match(html, /Produtos vendidos · Histórico Diário/);
   assert.match(html, /visualizarHistoricoEliel\(\)/);
