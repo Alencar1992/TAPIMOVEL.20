@@ -378,17 +378,215 @@ function obterRegraOperacionalHoje_(config, data) {
 }
 
 // =========================================================
+// STORAGE RESILIENTE — FILAS NO GOOGLE SHEETS
+// =========================================================
+const ABA_STORAGE_PDV_ATIVOS_ = "Pedidos_Ativos";
+const ABA_STORAGE_ONLINE_PENDENTES_ = "Pedidos_Online_Pendentes";
+const CHAVE_LEGADA_PDV_ATIVOS_ = "pdv_vendas_ativas";
+const CHAVE_LEGADA_ONLINE_PENDENTES_ = "pedidos_online_pendentes";
+const CABECALHO_STORAGE_PEDIDOS_ = [
+  "Chave",
+  "Número",
+  "Código Online",
+  "Status",
+  "Criado em",
+  "Atualizado em",
+  "Payload JSON"
+];
+
+function obterOuCriarAbaFila_(nomeAba) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let aba = ss.getSheetByName(nomeAba);
+  if (!aba) {
+    aba = ss.insertSheet(nomeAba);
+  }
+  if (aba.getLastRow() === 0) {
+    aba.getRange(1, 1, 1, CABECALHO_STORAGE_PEDIDOS_.length)
+      .setValues([CABECALHO_STORAGE_PEDIDOS_]);
+    aba.setFrozenRows(1);
+    aba.getRange(1, 1, 1, CABECALHO_STORAGE_PEDIDOS_.length)
+      .setFontWeight("bold")
+      .setBackground("#d9ead3");
+  }
+  return aba;
+}
+
+function valorStorageSeguro_(valor) {
+  const texto = String(valor == null ? "" : valor);
+  return /^[=+\-@]/.test(texto) ? "'" + texto : texto;
+}
+
+function chavePersistenciaPedido_(pedido, indice) {
+  const p = pedido && typeof pedido === "object" ? pedido : {};
+  const codigo = String(p.codigoOnline || "").trim();
+  const numero = String(p.numero == null ? "" : p.numero).trim();
+  const timestamp = String(p.timestampCriacao || p.timestamp || "").trim();
+  if (codigo && timestamp) return "ONLINE:" + codigo + ":" + timestamp;
+  if (numero && timestamp) return "PDV:" + numero + ":" + timestamp;
+  if (codigo) return "ONLINE:" + codigo;
+  if (numero) return "PDV:" + numero;
+  return "SEM_ID:" + String(indice || 0) + ":" + JSON.stringify(p);
+}
+
+function lerFilaDaAba_(nomeAba) {
+  const aba = obterOuCriarAbaFila_(nomeAba);
+  const ultimaLinha = aba.getLastRow();
+  if (ultimaLinha <= 1) return [];
+
+  const linhas = aba.getRange(
+    2,
+    1,
+    ultimaLinha - 1,
+    CABECALHO_STORAGE_PEDIDOS_.length
+  ).getValues();
+
+  return linhas.reduce(function(lista, linha, indice) {
+    const vazia = linha.every(function(valor) {
+      return valor === "" || valor == null;
+    });
+    if (vazia) return lista;
+
+    const payload = linha[6];
+    if (!payload) {
+      throw new Error(
+        "Storage de pedidos corrompido em " + nomeAba + " na linha " + (indice + 2) + "."
+      );
+    }
+    try {
+      const pedido = JSON.parse(String(payload));
+      if (!pedido || typeof pedido !== "object" || Array.isArray(pedido)) {
+        throw new Error("payload inválido");
+      }
+      lista.push(pedido);
+      return lista;
+    } catch (erro) {
+      throw new Error(
+        "Falha ao ler pedido persistido em " + nomeAba + " na linha " + (indice + 2) + ": " + erro.message
+      );
+    }
+  }, []);
+}
+
+function gravarFilaNaAba_(nomeAba, pedidos) {
+  const lista = Array.isArray(pedidos) ? pedidos : [];
+  const aba = obterOuCriarAbaFila_(nomeAba);
+  const ultimaLinha = aba.getLastRow();
+  if (ultimaLinha > 1) {
+    aba.getRange(
+      2,
+      1,
+      ultimaLinha - 1,
+      CABECALHO_STORAGE_PEDIDOS_.length
+    ).clearContent();
+  }
+  if (!lista.length) return;
+
+  const atualizadoEm = Date.now();
+  const linhas = lista.map(function(pedido, indice) {
+    const p = pedido && typeof pedido === "object" ? pedido : {};
+    return [
+      chavePersistenciaPedido_(p, indice),
+      valorStorageSeguro_(p.numero),
+      valorStorageSeguro_(p.codigoOnline),
+      valorStorageSeguro_(p.statusOnline || p.status || ""),
+      Number(p.timestampCriacao || p.timestamp || 0) || "",
+      atualizadoEm,
+      JSON.stringify(p)
+    ];
+  });
+  aba.getRange(2, 1, linhas.length, CABECALHO_STORAGE_PEDIDOS_.length).setValues(linhas);
+}
+
+function mesclarFilasSemDuplicar_(atual, legado) {
+  const saida = [];
+  const vistos = {};
+  [atual || [], legado || []].forEach(function(lista) {
+    lista.forEach(function(pedido, indice) {
+      const chave = chavePersistenciaPedido_(pedido, indice);
+      if (vistos[chave]) return;
+      vistos[chave] = true;
+      saida.push(pedido);
+    });
+  });
+  return saida;
+}
+
+function migrarFilaLegadaSeNecessario_(nomeAba, chaveLegada) {
+  const atual = lerFilaDaAba_(nomeAba);
+  const props = PropertiesService.getScriptProperties();
+  const bruto = props.getProperty(chaveLegada);
+  if (bruto == null) return atual;
+
+  let legado;
+  try {
+    legado = JSON.parse(bruto || "[]");
+  } catch (erro) {
+    throw new Error(
+      "Não foi possível migrar " + chaveLegada + " para Google Sheets. O legado foi preservado: " + erro.message
+    );
+  }
+  if (!Array.isArray(legado)) {
+    throw new Error(
+      "Não foi possível migrar " + chaveLegada + " para Google Sheets. O legado não é uma fila válida."
+    );
+  }
+
+  const consolidada = mesclarFilasSemDuplicar_(atual, legado);
+  gravarFilaNaAba_(nomeAba, consolidada);
+  props.deleteProperty(chaveLegada);
+  console.info(
+    "Migração de storage concluída:",
+    chaveLegada,
+    "->",
+    nomeAba,
+    "registros:",
+    consolidada.length
+  );
+  return consolidada;
+}
+
+function carregarFilaPdvAtivos_() {
+  return migrarFilaLegadaSeNecessario_(
+    ABA_STORAGE_PDV_ATIVOS_,
+    CHAVE_LEGADA_PDV_ATIVOS_
+  );
+}
+
+function substituirFilaPdvAtivos_(pedidos) {
+  gravarFilaNaAba_(ABA_STORAGE_PDV_ATIVOS_, pedidos);
+  PropertiesService.getScriptProperties().deleteProperty(CHAVE_LEGADA_PDV_ATIVOS_);
+}
+
+function carregarFilaPedidosOnlinePendentes_() {
+  return migrarFilaLegadaSeNecessario_(
+    ABA_STORAGE_ONLINE_PENDENTES_,
+    CHAVE_LEGADA_ONLINE_PENDENTES_
+  );
+}
+
+function substituirFilaPedidosOnlinePendentes_(pedidos) {
+  gravarFilaNaAba_(ABA_STORAGE_ONLINE_PENDENTES_, pedidos);
+  PropertiesService.getScriptProperties().deleteProperty(CHAVE_LEGADA_ONLINE_PENDENTES_);
+}
+
+// =========================================================
 // 2. SISTEMA DE NUVEM (BLINDADO COM LOCKSERVICE)
 // =========================================================
 function carregarDadosNuvem() {
-  return PropertiesService.getScriptProperties().getProperty("pdv_vendas_ativas") || "[]";
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    return JSON.stringify(carregarFilaPdvAtivos_());
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function salvarNuvemCompleta(historicoJSON) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
-    PropertiesService.getScriptProperties().setProperty("pdv_vendas_ativas", historicoJSON);
+    substituirFilaPdvAtivos_(JSON.parse(historicoJSON || "[]"));
   } catch(e) {
     console.error("Erro salvarNuvemCompleta: ", e);
     throw e;
@@ -403,9 +601,9 @@ function salvarVendaRealTime(pedidoJSON) {
     lock.waitLock(10000);
     const p = JSON.parse(pedidoJSON);
     const c = PropertiesService.getScriptProperties();
-    let a = JSON.parse(c.getProperty("pdv_vendas_ativas") || "[]");
+    let a = carregarFilaPdvAtivos_();
     a.push(p);
-    c.setProperty("pdv_vendas_ativas", JSON.stringify(a));
+    substituirFilaPdvAtivos_(a);
   } catch (e) {
     console.error("Erro salvarVendaRealTime: ", e);
     throw e;
@@ -420,11 +618,11 @@ function atualizarVendaRealTime(pedidoJSON) {
     lock.waitLock(10000);
     const p = JSON.parse(pedidoJSON);
     const c = PropertiesService.getScriptProperties();
-    let a = JSON.parse(c.getProperty("pdv_vendas_ativas") || "[]");
+    let a = carregarFilaPdvAtivos_();
     const i = a.findIndex(x => x.numero == p.numero);
     if (i !== -1) {
       a[i] = p;
-      c.setProperty("pdv_vendas_ativas", JSON.stringify(a));
+      substituirFilaPdvAtivos_(a);
     }
   } catch (e) {
     console.error("Erro atualizarVendaRealTime: ", e);
@@ -439,9 +637,9 @@ function excluirVendaRealTime(num) {
   try {
     lock.waitLock(10000);
     const c = PropertiesService.getScriptProperties();
-    let a = JSON.parse(c.getProperty("pdv_vendas_ativas") || "[]");
+    let a = carregarFilaPdvAtivos_();
     const n = a.filter(x => x.numero != num);
-    c.setProperty("pdv_vendas_ativas", JSON.stringify(n));
+    substituirFilaPdvAtivos_(n);
   } catch (e) {
     console.error("Erro excluirVendaRealTime: ", e);
     throw e;
@@ -1505,7 +1703,7 @@ function registrarPedidoPdv(pedidoJSON) {
     lock.waitLock(15000);
     const pedido = normalizarPedidoPdv_(JSON.parse(pedidoJSON || "{}"));
     const props = PropertiesService.getScriptProperties();
-    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const ativos = carregarFilaPdvAtivos_();
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
     const numerosHoje = ativos.filter(function(item) {
       const ts = item.timestampCriacao || item.timestamp;
@@ -1522,7 +1720,7 @@ function registrarPedidoPdv(pedidoJSON) {
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
     ativos.push(pedido);
     lancarPedidoPlanilha(JSON.stringify(pedido));
-    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
+    substituirFilaPdvAtivos_(ativos);
     return pedido;
   } finally {
     lock.releaseLock();
@@ -1539,7 +1737,7 @@ function atualizarPedidoPdv(pedidoJSON) {
   try {
     lock.waitLock(15000);
     const props = PropertiesService.getScriptProperties();
-    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const ativos = carregarFilaPdvAtivos_();
     const indice = ativos.findIndex(function(item) {
       return Number(item.numero) === numero;
     });
@@ -1564,7 +1762,7 @@ function atualizarPedidoPdv(pedidoJSON) {
       throw erro;
     }
     ativos[indice] = pedido;
-    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
+    substituirFilaPdvAtivos_(ativos);
     return pedido;
   } finally {
     lock.releaseLock();
@@ -1637,7 +1835,7 @@ function registrarPedidoOnline(pedidoJSON) {
       );
     }
 
-    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
+    const pendentes = carregarFilaPedidosOnlinePendentes_();
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
     let contadorOnline = {};
     try { contadorOnline = JSON.parse(props.getProperty("pedidos_online_contador") || "{}"); } catch (erro) {}
@@ -1648,7 +1846,7 @@ function registrarPedidoOnline(pedidoJSON) {
     pedido.timestampCriacao = Date.now();
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
     pendentes.push(pedido);
-    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    substituirFilaPedidosOnlinePendentes_(pendentes);
     const resultado = { numero: pedido.codigoOnline, pedido: pedido };
     cache.put(chaveDuplicidade, JSON.stringify(resultado), 120);
     cache.put(chaveLimite, String(quantidadeRecente + 1), 600);
@@ -1659,12 +1857,16 @@ function registrarPedidoOnline(pedidoJSON) {
 }
 
 function listarPedidosOnlinePendentes() {
-  const pendentes = JSON.parse(
-    PropertiesService.getScriptProperties().getProperty("pedidos_online_pendentes") || "[]"
-  );
-  return pendentes.sort(function(a, b) {
-    return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
-  });
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const pendentes = carregarFilaPedidosOnlinePendentes_();
+    return pendentes.sort(function(a, b) {
+      return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function aceitarPedidoOnline(codigoOnline) {
@@ -1673,7 +1875,7 @@ function aceitarPedidoOnline(codigoOnline) {
   try {
     lock.waitLock(15000);
     const props = PropertiesService.getScriptProperties();
-    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
+    const pendentes = carregarFilaPedidosOnlinePendentes_();
     const indice = pendentes.findIndex(function(item) {
       return String(item.codigoOnline) === codigo;
     });
@@ -1682,7 +1884,7 @@ function aceitarPedidoOnline(codigoOnline) {
     }
 
     const pedido = pendentes[indice];
-    const ativos = JSON.parse(props.getProperty("pdv_vendas_ativas") || "[]");
+    const ativos = carregarFilaPdvAtivos_();
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
     const numerosHoje = ativos.filter(function(item) {
       const ts = item.timestampCriacao || item.timestamp;
@@ -1696,8 +1898,8 @@ function aceitarPedidoOnline(codigoOnline) {
     lancarPedidoPlanilha(JSON.stringify(pedido));
     ativos.push(pedido);
     pendentes.splice(indice, 1);
-    props.setProperty("pdv_vendas_ativas", JSON.stringify(ativos));
-    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    substituirFilaPdvAtivos_(ativos);
+    substituirFilaPedidosOnlinePendentes_(pendentes);
     return pedido;
   } finally {
     lock.releaseLock();
@@ -1711,7 +1913,7 @@ function recusarPedidoOnline(codigoOnline, motivo) {
   try {
     lock.waitLock(15000);
     const props = PropertiesService.getScriptProperties();
-    const pendentes = JSON.parse(props.getProperty("pedidos_online_pendentes") || "[]");
+    const pendentes = carregarFilaPedidosOnlinePendentes_();
     const indice = pendentes.findIndex(function(item) {
       return String(item.codigoOnline) === codigo;
     });
@@ -1723,7 +1925,7 @@ function recusarPedidoOnline(codigoOnline, motivo) {
     pedido.motivoRecusa = motivoSeguro;
     pedido.recusadoEm = Date.now();
     pendentes.splice(indice, 1);
-    props.setProperty("pedidos_online_pendentes", JSON.stringify(pendentes));
+    substituirFilaPedidosOnlinePendentes_(pendentes);
     return pedido;
   } finally {
     lock.releaseLock();
@@ -2523,22 +2725,22 @@ function chaveMesDaDataFechamento_(data) {
 }
 
 function obterPedidosPendentesFechamentoEliel_(mes, ano) {
-  const bruto = PropertiesService.getScriptProperties().getProperty("pdv_vendas_ativas") || "[]";
-  let pedidos = [];
+  const lock = LockService.getScriptLock();
   try {
-    pedidos = JSON.parse(bruto);
-  } catch (e) {
-    pedidos = [];
+    lock.waitLock(10000);
+    const pedidos = carregarFilaPdvAtivos_();
+    const chaveAlvo = chaveMes_(mes, ano);
+    const chaveAtual = String(obterDiaSessaoAdmin_()).substring(0, 7);
+    return (Array.isArray(pedidos) ? pedidos : []).filter(function(pedido) {
+      const pendente = !pedido || !pedido.produzido || !pedido.timestamp;
+      if (!pendente) return false;
+      const data = obterDataReferenciaPedidoFechamento_(pedido);
+      if (!data) return chaveAlvo === chaveAtual;
+      return chaveMesDaDataFechamento_(data) === chaveAlvo;
+    }).length;
+  } finally {
+    lock.releaseLock();
   }
-  const chaveAlvo = chaveMes_(mes, ano);
-  const chaveAtual = String(obterDiaSessaoAdmin_()).substring(0, 7);
-  return (Array.isArray(pedidos) ? pedidos : []).filter(function(pedido) {
-    const pendente = !pedido || !pedido.produzido || !pedido.timestamp;
-    if (!pendente) return false;
-    const data = obterDataReferenciaPedidoFechamento_(pedido);
-    if (!data) return chaveAlvo === chaveAtual;
-    return chaveMesDaDataFechamento_(data) === chaveAlvo;
-  }).length;
 }
 
 function obterChavesFechamentosExistentes_() {
