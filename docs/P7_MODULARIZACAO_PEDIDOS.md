@@ -22,7 +22,7 @@ Não foram movidos nesta etapa histórico, cancelamentos, fechamento mensal, rel
 
 ## Validação
 
-O CI deve validar o bundle completo de `apps-script/*.gs`, preservando os contratos públicos e as regras de adicionais, preço, filas e pedidos após a separação do `Code.gs`.
+O CI deve validar o bundle completo de `apps-script/*.gs`, preservando os contratos públicos e as regras de adicionais, preço, filas e pedidos após a separação do `Code.gs`. Os testes de adicionais e do fluxo de pedidos online também validam o bundle modular, sem depender da localização física das funções em um único arquivo.
 
 ## Deploy manual
 
