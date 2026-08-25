@@ -1,0 +1,63 @@
+name: P7 modularização PedidoService
+
+on:
+  push:
+    branches:
+      - agent/p7-pedido-service
+    paths:
+      - scripts/apply_p7_pedido_service.py
+      - .github/workflows/p7-pedido-service-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p7-pedido-service
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Aplicar P7
+        run: python scripts/apply_p7_pedido_service.py
+
+      - name: Executar CI completo
+        run: npm run ci
+
+      - name: Validar PedidoService
+        run: |
+          test -f apps-script/PedidoService.gs
+          grep -q 'function registrarPedidoOnline(' apps-script/PedidoService.gs
+          grep -q 'function registrarPedidoPdv(' apps-script/PedidoService.gs
+          grep -q 'function atualizarPedidoPdv(' apps-script/PedidoService.gs
+          grep -q 'function aceitarPedidoOnline(' apps-script/PedidoService.gs
+          grep -q 'function recusarPedidoOnline(' apps-script/PedidoService.gs
+          ! grep -q 'function registrarPedidoOnline(' apps-script/Code.gs
+          ! grep -q 'function registrarPedidoPdv(' apps-script/Code.gs
+
+      - name: Remover aplicador temporário
+        run: |
+          rm scripts/apply_p7_pedido_service.py
+          rm .github/workflows/p7-pedido-service-apply.yml
+
+      - name: Commitar produto final
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P7: modularizar serviço de pedidos'
+          git push origin HEAD:agent/p7-pedido-service
