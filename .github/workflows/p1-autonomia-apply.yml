@@ -18,6 +18,18 @@ jobs:
           ref: agent/p1-autonomia-operacional
           fetch-depth: 0
 
+      - name: Preservar compatibilidade dos testes existentes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply_p1_autonomia.py')
+          s = p.read_text(encoding='utf-8')
+          trecho = '''cliente = replace_once(cliente, "                return { dia: diaSimulado, hora: horaSimulada };", "                return { dia: diaSimulado, hora: horaSimulada, minuto: 0 };", "horário teste com minuto")\n'''
+          if trecho not in s:
+              raise SystemExit('Trecho de compatibilidade não encontrado')
+          p.write_text(s.replace(trecho, '', 1), encoding='utf-8')
+          PY
+
       - name: Aplicar alterações P1
         run: python scripts/apply_p1_autonomia.py
 
