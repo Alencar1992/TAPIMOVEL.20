@@ -529,3 +529,33 @@ test("recusa online exige motivo e preserva WhatsApp para a mensagem ao cliente"
   assert.equal(recusado.motivoRecusa, "Fora da rota");
   assert.equal(context.listarPedidosOnlinePendentes().length, 0);
 });
+
+
+test("configuração operacional migra legado e persiste no Google Sheets", () => {
+  const { context, properties } = createContext();
+  const legado = context.configuracaoOperacionalPadrao_();
+  legado.adicionais.valor = 5;
+  legado.horarios["2"].inicio = "17:30";
+  properties.set("tapimovel_config_operacional_v1", JSON.stringify(legado));
+
+  const migrada = JSON.parse(context.obterConfiguracaoOperacional());
+  assert.equal(migrada.adicionais.valor, 5);
+  assert.equal(migrada.horarios["2"].inicio, "17:30");
+  assert.equal(properties.has("tapimovel_config_operacional_v1"), false);
+
+  const ss = context.SpreadsheetApp.getActiveSpreadsheet();
+  ["Config_Horarios", "Config_Rotas", "Config_MonteSua", "Config_Adicionais"].forEach(nome => {
+    assert.ok(ss.getSheetByName(nome), `aba ${nome} deve existir`);
+  });
+
+  const nova = JSON.parse(JSON.stringify(migrada));
+  nova.adicionais.valor = 6;
+  nova.rotas["2"].push("ROTA TESTE");
+  context.registrarLogConfiguracao_ = () => {};
+  context.salvarConfiguracaoOperacional(JSON.stringify(nova), "Administrador");
+
+  const recarregada = JSON.parse(context.obterConfiguracaoOperacional());
+  assert.equal(recarregada.adicionais.valor, 6);
+  assert.ok(recarregada.rotas["2"].includes("ROTA TESTE"));
+  assert.equal(properties.has("tapimovel_config_operacional_v1"), false);
+});
