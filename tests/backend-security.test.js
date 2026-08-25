@@ -10,6 +10,75 @@ function createContext() {
   const cache = new Map();
   let currentDay = "2026-07-28";
   const lock = { waitLock() {}, releaseLock() {} };
+  class MemoryRange {
+    constructor(sheet, row, col, rows, cols) {
+      this.sheet = sheet;
+      this.row = row;
+      this.col = col;
+      this.rows = rows;
+      this.cols = cols;
+    }
+    setValues(values) {
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          this.sheet.set(this.row + r, this.col + c, values[r][c]);
+        }
+      }
+      return this;
+    }
+    getValues() {
+      const values = [];
+      for (let r = 0; r < this.rows; r++) {
+        const row = [];
+        for (let c = 0; c < this.cols; c++) {
+          row.push(this.sheet.get(this.row + r, this.col + c));
+        }
+        values.push(row);
+      }
+      return values;
+    }
+    clearContent() {
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          this.sheet.set(this.row + r, this.col + c, "");
+        }
+      }
+      return this;
+    }
+    setFontWeight() { return this; }
+    setBackground() { return this; }
+  }
+  class MemorySheet {
+    constructor(name) {
+      this.name = name;
+      this.cells = [];
+    }
+    set(row, col, value) {
+      while (this.cells.length < row) this.cells.push([]);
+      while (this.cells[row - 1].length < col) this.cells[row - 1].push("");
+      this.cells[row - 1][col - 1] = value;
+    }
+    get(row, col) {
+      return (this.cells[row - 1] && this.cells[row - 1][col - 1]) ?? "";
+    }
+    getLastRow() {
+      for (let row = this.cells.length; row >= 1; row--) {
+        if ((this.cells[row - 1] || []).some(value => value !== "" && value != null)) return row;
+      }
+      return 0;
+    }
+    getRange(row, col, rows, cols) { return new MemoryRange(this, row, col, rows, cols); }
+    setFrozenRows() { return this; }
+  }
+  const spreadsheet = {
+    sheets: new Map(),
+    getSheetByName(name) { return this.sheets.get(name) || null; },
+    insertSheet(name) {
+      const sheet = new MemorySheet(name);
+      this.sheets.set(name, sheet);
+      return sheet;
+    }
+  };
   const context = {
     console,
     Date,
@@ -71,9 +140,7 @@ function createContext() {
       getScriptTimeZone() { return "America/Sao_Paulo"; }
     },
     SpreadsheetApp: {
-      getActiveSpreadsheet() {
-        throw new Error("Spreadsheet não deve ser acessada neste teste.");
-      }
+      getActiveSpreadsheet() { return spreadsheet; }
     },
     ContentService: {
       MimeType: { JSON: "JSON" },
@@ -434,14 +501,14 @@ test("pedido online aguarda aceite e entra uma única vez na Produção e no Cai
   const resposta = context.registrarPedidoOnline(JSON.stringify(onlineOrder()));
 
   assert.match(resposta.numero, /^ON\d{3}$/);
-  assert.equal(JSON.parse(properties.get("pdv_vendas_ativas") || "[]").length, 0);
+  assert.equal(context.carregarFilaPdvAtivos_().length, 0);
   assert.equal(context.listarPedidosOnlinePendentes().length, 1);
 
   const aceito = context.aceitarPedidoOnline(resposta.numero);
   assert.equal(aceito.numero, 1);
   assert.equal(aceito.statusOnline, "Aceito");
   assert.equal(context.listarPedidosOnlinePendentes().length, 0);
-  assert.equal(JSON.parse(properties.get("pdv_vendas_ativas")).length, 1);
+  assert.equal(context.carregarFilaPdvAtivos_().length, 1);
   assert.throws(() => context.aceitarPedidoOnline(resposta.numero), /já foi aceito ou recusado/);
 
   const segundo = context.registrarPedidoOnline(JSON.stringify(onlineOrder({
