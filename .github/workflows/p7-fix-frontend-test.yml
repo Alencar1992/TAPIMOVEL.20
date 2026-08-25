@@ -26,23 +26,9 @@ jobs:
         with:
           node-version: 22
 
-      - name: Adaptar teste ao backend modular
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('tests/frontend-integrity.test.js')
-          s = p.read_text(encoding='utf-8')
-          old = '  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");'
-          new = '''  const appsScriptDir = path.join(root, "apps-script");
-  const backend = fs.readdirSync(appsScriptDir)
-    .filter(nome => nome.endsWith(".gs"))
-    .sort()
-    .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
-    .join("\\n\\n");'''
-          if old not in s:
-              raise SystemExit('Trecho do teste não encontrado')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
-          PY
+      - name: Adaptar teste ao PedidoService
+        run: >-
+          python -c "from pathlib import Path; p=Path('tests/frontend-integrity.test.js'); s=p.read_text(encoding='utf-8'); old='const backend = fs.readFileSync(path.join(root, \"apps-script/Code.gs\"), \"utf8\");'; new='const backend = fs.readFileSync(path.join(root, \"apps-script/PedidoService.gs\"), \"utf8\");'; assert old in s; p.write_text(s.replace(old,new,1),encoding='utf-8')"
 
       - name: Executar CI completo
         run: npm run ci
@@ -52,5 +38,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add tests/frontend-integrity.test.js
-          git commit -m 'P7: adaptar teste de adicionais ao backend modular'
+          git commit -m 'P7: adaptar teste de adicionais ao PedidoService'
           git push origin HEAD:agent/p7-pedido-service
