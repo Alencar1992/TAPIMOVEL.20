@@ -35,6 +35,14 @@ jobs:
       - name: Aplicar P7
         run: python scripts/apply_p7_pedido_service.py
 
+      - name: Commitar candidato P7 para diagnóstico
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script/Code.gs apps-script/PedidoService.gs tests/autonomia-operacional.test.js tests/modularizacao-p7.test.js docs/P7_MODULARIZACAO_PEDIDOS.md
+          git commit -m 'P7: gerar candidato modularizado para validação'
+          git push origin HEAD:agent/p7-pedido-service
+
       - name: Executar CI completo
         run: npm run ci
 
@@ -49,15 +57,10 @@ jobs:
           ! grep -q 'function registrarPedidoOnline(' apps-script/Code.gs
           ! grep -q 'function registrarPedidoPdv(' apps-script/Code.gs
 
-      - name: Remover aplicador temporário
+      - name: Remover aplicador temporário após validação
         run: |
           rm scripts/apply_p7_pedido_service.py
           rm .github/workflows/p7-pedido-service-apply.yml
-
-      - name: Commitar produto final
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'P7: modularizar serviço de pedidos'
+          git commit -m 'P7: finalizar modularização do serviço de pedidos'
           git push origin HEAD:agent/p7-pedido-service
