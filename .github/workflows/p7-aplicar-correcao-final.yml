@@ -1,0 +1,78 @@
+name: P7 aplicar correção final
+
+on:
+  push:
+    branches:
+      - agent/p7-pedido-service
+    paths:
+      - .github/workflows/p7-aplicar-correcao-final.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p7-pedido-service
+          fetch-depth: 0
+
+      - name: Corrigir exatamente o teste de adicionais
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tests/frontend-integrity.test.js')
+          texto = p.read_text(encoding='utf-8')
+          marcador = 'test("adicionais pagos ficam vinculados à tapioca e respeitam a categoria", () => {'
+          inicio = texto.find(marcador)
+          if inicio < 0:
+              raise SystemExit('Teste de adicionais não encontrado.')
+
+          antigo = '  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");'
+          pos = texto.find(antigo, inicio)
+          if pos < 0:
+              raise SystemExit('Leitura antiga de Code.gs não encontrada dentro do teste de adicionais.')
+
+          proximo_teste = texto.find('\ntest(', inicio + len(marcador))
+          if proximo_teste >= 0 and pos > proximo_teste:
+              raise SystemExit('A leitura encontrada não pertence ao teste de adicionais.')
+
+          novo = '''  const appsScriptDir = path.join(root, "apps-script");
+          const backend = fs.readdirSync(appsScriptDir)
+            .filter(nome => nome.endsWith(".gs"))
+            .sort()
+            .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+            .join("\\n\\n");'''
+
+          texto = texto[:pos] + novo + texto[pos + len(antigo):]
+          p.write_text(texto, encoding='utf-8')
+          PY
+
+      - name: Limpar arquivos temporários do P7
+        shell: bash
+        run: |
+          rm -f .github/workflows/p7-pedido-service-apply.yml
+          rm -f .github/workflows/p7-ci-diagnostico.yml
+          rm -f .github/workflows/p7-fix-frontend-test.yml
+          rm -f .github/workflows/p7-finalize.yml
+          rm -f .github/workflows/p7-diagnostico-2.yml
+          rm -f .github/workflows/p7-aplicar-correcao-final.yml
+          rm -f scripts/apply_p7_pedido_service.py
+          rm -f docs/P7_CI_DIAGNOSTICO.txt
+          rm -f docs/P7_CI_DIAGNOSTICO_2.txt
+          rm -f docs/P7_CI_DIAGNOSTICO_2.status
+
+      - name: Commitar produto limpo do P7
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P7: corrigir teste modular e limpar diagnóstico'
+          git push origin HEAD:agent/p7-pedido-service
