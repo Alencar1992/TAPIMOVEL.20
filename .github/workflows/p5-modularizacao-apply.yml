@@ -6,6 +6,7 @@ on:
       - agent/p5-modularizacao-repositories
     paths:
       - scripts/apply_p5_modularizacao.py
+      - scripts/fix_p5_fechamento_test.py
       - .github/workflows/p5-modularizacao-apply.yml
 
 permissions:
@@ -35,6 +36,9 @@ jobs:
       - name: Aplicar modularização
         run: python scripts/apply_p5_modularizacao.py
 
+      - name: Adaptar teste P0 ao bundle modular
+        run: python scripts/fix_p5_fechamento_test.py
+
       - name: Executar CI completo
         run: npm run ci
 
@@ -47,9 +51,10 @@ jobs:
           grep -q 'function hashSeguro_(' apps-script/SecurityUtils.gs
           grep -q 'function obterOuCriarAbaFila_(' apps-script/SheetsRepository.gs
 
-      - name: Remover aplicador temporário
+      - name: Remover aplicadores temporários
         run: |
           rm scripts/apply_p5_modularizacao.py
+          rm scripts/fix_p5_fechamento_test.py
           rm .github/workflows/p5-modularizacao-apply.yml
 
       - name: Commitar produto final
