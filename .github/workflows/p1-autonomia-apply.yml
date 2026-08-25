@@ -39,8 +39,11 @@ jobs:
       - name: Testes fechamento P0
         run: node --test tests/fechamento-p0.test.js
 
-      - name: Testes frontend
-        run: node --test tests/frontend-integrity.test.js
+      - name: Frontend compila
+        run: node --test --test-name-pattern="scripts locais e scripts embutidos compilam" tests/frontend-integrity.test.js
+
+      - name: Frontend restante
+        run: node --test --test-name-pattern="^(?!scripts locais e scripts embutidos compilam).*" tests/frontend-integrity.test.js
 
       - name: Testes autonomia operacional
         run: node --test tests/autonomia-operacional.test.js
