@@ -1,0 +1,675 @@
+name: Aplicar P1 autonomia operacional
+
+on:
+  push:
+    branches:
+      - agent/p1-autonomia-operacional
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    if: ${{ !contains(github.event.head_commit.message, '[p1-autonomia-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-autonomia-operacional
+          fetch-depth: 0
+
+      - name: Aplicar configuração operacional dinâmica
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"Padrão não encontrado: {label}")
+              return text.replace(old, new, 1)
+
+          code_path = Path('apps-script/Code.gs')
+          code = code_path.read_text(encoding='utf-8')
+
+          anchor = '''function include(filename) {
+            return HtmlService.createHtmlOutputFromFile(filename).getContent();
+          }
+'''
+          bloco = r'''
+
+// =========================================================
+// CONFIGURAÇÃO OPERACIONAL DINÂMICA
+// =========================================================
+const CHAVE_CONFIG_OPERACIONAL_ = "tapimovel_config_operacional_v1";
+
+function configuracaoOperacionalPadrao_() {
+  return {
+    versao: 1,
+    horarios: {
+      "1": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "2": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "3": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "4": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "5": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "6": { ativo: false, inicio: "18:00", fim: "22:00" },
+      "7": { ativo: false, inicio: "18:00", fim: "22:00" }
+    },
+    rotas: {
+      "1": ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
+      "2": ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
+      "3": ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
+      "4": ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
+      "5": ["JD SOUZA", "COPACABANA", "TUPI"],
+      "6": [],
+      "7": []
+    },
+    monteSua: {
+      combinacoes: {
+        "Calabresa": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+        "Frango": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+        "Carne Seca": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+        "Salame": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+        "Bacon": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 },
+        "Peito de Peru": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 }
+      }
+    },
+    adicionais: {
+      valor: 4,
+      salgado: ["Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco", "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"],
+      doce: ["Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim", "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco", "Banana", "Goiabada", "Paçoca"]
+    }
+  };
+}
+
+function horarioOperacionalValido_(valor) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(valor || ""));
+}
+
+function textoOperacionalSeguro_(valor, limite) {
+  return String(valor == null ? "" : valor)
+    .replace(/[\u0000-\u001F\u007F<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, limite || 120);
+}
+
+function normalizarConfiguracaoOperacional_(recebida) {
+  const padrao = configuracaoOperacionalPadrao_();
+  const config = recebida && typeof recebida === "object" && !Array.isArray(recebida)
+    ? recebida : {};
+  const saida = configuracaoOperacionalPadrao_();
+
+  for (let dia = 1; dia <= 7; dia++) {
+    const chave = String(dia);
+    const regra = config.horarios && config.horarios[chave] || padrao.horarios[chave];
+    const inicio = horarioOperacionalValido_(regra.inicio) ? String(regra.inicio) : padrao.horarios[chave].inicio;
+    const fim = horarioOperacionalValido_(regra.fim) ? String(regra.fim) : padrao.horarios[chave].fim;
+    if (inicio >= fim) throw new Error("O horário inicial precisa ser anterior ao horário final no dia " + chave + ".");
+    saida.horarios[chave] = { ativo: regra.ativo === true, inicio: inicio, fim: fim };
+
+    const rotas = config.rotas && Array.isArray(config.rotas[chave]) ? config.rotas[chave] : padrao.rotas[chave];
+    saida.rotas[chave] = rotas
+      .map(function(rota) { return textoOperacionalSeguro_(rota, 120).toUpperCase(); })
+      .filter(function(rota) { return Boolean(rota); })
+      .filter(function(rota, indice, lista) { return lista.indexOf(rota) === indice; })
+      .slice(0, 60);
+  }
+
+  const combinacoesRecebidas = config.monteSua && config.monteSua.combinacoes;
+  if (combinacoesRecebidas && typeof combinacoesRecebidas === "object" && !Array.isArray(combinacoesRecebidas)) {
+    const combinacoes = {};
+    Object.keys(combinacoesRecebidas).slice(0, 30).forEach(function(carneBruta) {
+      const carne = textoOperacionalSeguro_(carneBruta, 80);
+      const queijosRecebidos = combinacoesRecebidas[carneBruta];
+      if (!carne || !queijosRecebidos || typeof queijosRecebidos !== "object" || Array.isArray(queijosRecebidos)) return;
+      const queijos = {};
+      Object.keys(queijosRecebidos).slice(0, 30).forEach(function(queijoBruto) {
+        const queijo = textoOperacionalSeguro_(queijoBruto, 80);
+        const preco = Number(queijosRecebidos[queijoBruto]);
+        if (queijo && isFinite(preco) && preco > 0 && preco <= 500) {
+          queijos[queijo] = Math.round(preco * 100) / 100;
+        }
+      });
+      if (Object.keys(queijos).length) combinacoes[carne] = queijos;
+    });
+    if (!Object.keys(combinacoes).length) throw new Error("O Monte Sua precisa ter ao menos uma combinação válida.");
+    saida.monteSua.combinacoes = combinacoes;
+  }
+
+  const adicionaisRecebidos = config.adicionais || {};
+  const valorAdicional = Number(adicionaisRecebidos.valor);
+  saida.adicionais.valor = isFinite(valorAdicional) && valorAdicional >= 0 && valorAdicional <= 100
+    ? Math.round(valorAdicional * 100) / 100
+    : padrao.adicionais.valor;
+  ["salgado", "doce"].forEach(function(tipo) {
+    const lista = Array.isArray(adicionaisRecebidos[tipo]) ? adicionaisRecebidos[tipo] : padrao.adicionais[tipo];
+    saida.adicionais[tipo] = lista
+      .map(function(item) { return textoOperacionalSeguro_(item, 80); })
+      .filter(function(item) { return Boolean(item); })
+      .filter(function(item, indice, todos) { return todos.indexOf(item) === indice; })
+      .slice(0, 60);
+  });
+  saida.versao = 1;
+  return saida;
+}
+
+function obterConfiguracaoOperacional() {
+  const props = PropertiesService.getScriptProperties();
+  const salva = props.getProperty(CHAVE_CONFIG_OPERACIONAL_);
+  if (!salva) return JSON.stringify(configuracaoOperacionalPadrao_());
+  try {
+    return JSON.stringify(normalizarConfiguracaoOperacional_(JSON.parse(salva)));
+  } catch (erro) {
+    console.error("Configuração operacional inválida; usando padrão:", erro);
+    return JSON.stringify(configuracaoOperacionalPadrao_());
+  }
+}
+
+function salvarConfiguracaoOperacional(configJSON, responsavel) {
+  const config = normalizarConfiguracaoOperacional_(JSON.parse(configJSON || "{}"));
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    PropertiesService.getScriptProperties().setProperty(CHAVE_CONFIG_OPERACIONAL_, JSON.stringify(config));
+    if (typeof registrarLogConfiguracao_ === "function") {
+      registrarLogConfiguracao_(
+        normalizarResponsavelConfiguracao_(responsavel || "Administrador"),
+        "CONFIGURAÇÃO OPERACIONAL ATUALIZADA",
+        "Operação",
+        "rotas/horários/Monte Sua/adicionais",
+        null,
+        { versao: config.versao }
+      );
+    }
+    return JSON.stringify(config);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function obterRegraOperacionalHoje_(config, data) {
+  const momento = data || new Date();
+  const fuso = Session.getScriptTimeZone();
+  const diaIso = Number(Utilities.formatDate(momento, fuso, "u"));
+  const chaveDia = String(diaIso);
+  return {
+    diaIso: diaIso,
+    chaveDia: chaveDia,
+    horario: config.horarios[chaveDia] || { ativo: false, inicio: "00:00", fim: "00:00" },
+    rotas: config.rotas[chaveDia] || [],
+    agora: Utilities.formatDate(momento, fuso, "HH:mm")
+  };
+}
+'''
+          code = replace_once(code, anchor, anchor + bloco, 'inserção da configuração operacional')
+
+          code = replace_once(
+              code,
+              '"obterStatusCardapio"\n      ];',
+              '"obterStatusCardapio",\n        "obterConfiguracaoOperacional"\n      ];',
+              'GET configuração operacional'
+          )
+
+          old_online = '''    const diaSemana = Number(
+              Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "u")
+            );
+            const horaAtual = Number(
+              Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "H")
+            );
+            const rotasPorDia = {
+              1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
+              2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
+              3: ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
+              4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
+              5: ["JD SOUZA", "COPACABANA", "TUPI"]
+            };
+            const rotasPermitidas = rotasPorDia[diaSemana] || [];
+'''
+          new_online = '''    const configOperacional = JSON.parse(obterConfiguracaoOperacional());
+            const regraOperacional = obterRegraOperacionalHoje_(configOperacional, new Date());
+            const diaSemana = regraOperacional.diaIso;
+            const horarioHoje = regraOperacional.horario;
+            const horaAtual = regraOperacional.agora;
+            const rotasPermitidas = regraOperacional.rotas;
+'''
+          code = replace_once(code, old_online, new_online, 'rotas e horário do pedido online')
+          code = replace_once(
+              code,
+              '''    if (diaSemana < 1 || diaSemana > 5) {
+              throw new Error("O cardápio on-line funciona somente de segunda a sexta-feira.");
+            }
+            if (horaAtual < 18 || horaAtual >= 22) {
+              throw new Error("O cardápio digital funciona das 18h às 22h.");
+            }
+''',
+              '''    if (!horarioHoje.ativo) {
+              throw new Error("O cardápio on-line está fechado para pedidos hoje.");
+            }
+            if (horaAtual < horarioHoje.inicio || horaAtual >= horarioHoje.fim) {
+              throw new Error(
+                "O cardápio digital funciona hoje das " + horarioHoje.inicio + " às " + horarioHoje.fim + "."
+              );
+            }
+''',
+              'validação dinâmica de funcionamento'
+          )
+
+          pattern_preco = re.compile(r'function precoMonteSua_\(nome\) \{[\s\S]*?\n\}\n\nfunction normalizarPedidoOnline_', re.M)
+          novo_preco = r'''function precoMonteSua_(nome) {
+            const config = JSON.parse(obterConfiguracaoOperacional());
+            const combinacoes = config.monteSua && config.monteSua.combinacoes || {};
+            const match = String(nome || "").match(/^Monte Sua: (.+) c\/ (.+)$/);
+            if (!match || !combinacoes[match[1]] || combinacoes[match[1]][match[2]] == null) {
+              throw erroApi_("INVALID_ORDER", "A combinação do Monte a Sua não é válida.");
+            }
+            return Number(combinacoes[match[1]][match[2]]);
+          }
+
+          function normalizarPedidoOnline_'''
+          code, count = pattern_preco.subn(novo_preco, code, count=1)
+          if count != 1:
+              raise SystemExit('Não foi possível substituir precoMonteSua_')
+
+          old_adicionais = '''  const adicionaisPermitidos = {
+            salgado: [
+              "Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco",
+              "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"
+            ],
+            doce: [
+              "Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim",
+              "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco",
+              "Banana", "Goiabada", "Paçoca"
+            ]
+          };
+'''
+          new_adicionais = '''  const configOperacional = JSON.parse(obterConfiguracaoOperacional());
+            const adicionaisPermitidos = {
+              salgado: (configOperacional.adicionais && configOperacional.adicionais.salgado) || [],
+              doce: (configOperacional.adicionais && configOperacional.adicionais.doce) || []
+            };
+            const valorAdicional = Number(configOperacional.adicionais && configOperacional.adicionais.valor) || 0;
+'''
+          code = replace_once(code, old_adicionais, new_adicionais, 'adicionais dinâmicos PDV')
+          code = code.replace('preco = preco - (adicionais.length * 4);', 'preco = preco - (adicionais.length * valorAdicional);')
+          code = code.replace('(precoBase + adicionais.length * 4)', '(precoBase + adicionais.length * valorAdicional)')
+
+          code = replace_once(
+              code,
+              '"registrarPedidoOnline",\n    "loginAcesso",',
+              '"registrarPedidoOnline",\n    "obterConfiguracaoOperacional",\n    "loginAcesso",',
+              'ação pública configuração'
+          )
+          code = replace_once(
+              code,
+              '"removerItemCatalogo",\n    "obterRelatorioEliel",',
+              '"removerItemCatalogo",\n    "salvarConfiguracaoOperacional",\n    "obterRelatorioEliel",',
+              'ação Eliel configuração operacional'
+          )
+          code = replace_once(
+              code,
+              '"removerItemCatalogo",\n    "excluirContadorTapiocasHoje",',
+              '"removerItemCatalogo",\n    "salvarConfiguracaoOperacional",\n    "excluirContadorTapiocasHoje",',
+              'ação administrativa configuração operacional'
+          )
+          code = replace_once(
+              code,
+              'if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;',
+              'if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;\n      if (action === "salvarConfiguracaoOperacional") args[1] = NOME_PERFIL_ELIEL_;',
+              'responsável Eliel configuração operacional'
+          )
+          code_path.write_text(code, encoding='utf-8')
+
+          cliente_path = Path('frontend/cliente.html')
+          cliente = cliente_path.read_text(encoding='utf-8')
+          cliente = replace_once(cliente, '        const precosMonteSua = {', '        let precosMonteSua = {', 'preços Monte Sua mutáveis')
+          cliente = replace_once(cliente, '        const rotasDaSemana = {', '        let rotasDaSemana = {', 'rotas mutáveis')
+          cliente = replace_once(cliente, '        let lojaAberta = false;\n', '        let lojaAberta = false;\n        let minutoAtualInt = 0;\n        let configuracaoOperacional = null;\n', 'estado operacional cliente')
+          cliente = replace_once(
+              cliente,
+              '            carregarConfiguracoesDia();\n            abrirAvisoAtendimento();',
+              '            carregarConfiguracoesDia();\n            carregarConfiguracaoOperacional();\n            abrirAvisoAtendimento();',
+              'carregamento configuração cliente'
+          )
+
+          anchor_cliente = '''        function obterHorarioSaoPaulo(agora = new Date()) {
+'''
+          funcoes_cliente = r'''        function configuracaoOperacionalPadraoCliente() {
+            return {
+              horarios: {
+                "1": { ativo: true, inicio: "18:00", fim: "22:00" }, "2": { ativo: true, inicio: "18:00", fim: "22:00" },
+                "3": { ativo: true, inicio: "18:00", fim: "22:00" }, "4": { ativo: true, inicio: "18:00", fim: "22:00" },
+                "5": { ativo: true, inicio: "18:00", fim: "22:00" }, "6": { ativo: false, inicio: "18:00", fim: "22:00" },
+                "7": { ativo: false, inicio: "18:00", fim: "22:00" }
+              },
+              rotas: Object.assign({ "6": [], "7": [] }, rotasDaSemana),
+              monteSua: { combinacoes: precosMonteSua },
+              adicionais: { valor: 4, salgado: [], doce: [] }
+            };
+        }
+
+        function chaveDiaOperacional(diaJs) {
+            return String(diaJs === 0 ? 7 : diaJs);
+        }
+
+        function regraOperacionalDoDia(diaJs) {
+            const config = configuracaoOperacional || configuracaoOperacionalPadraoCliente();
+            return config.horarios[chaveDiaOperacional(diaJs)] || { ativo: false, inicio: '00:00', fim: '00:00' };
+        }
+
+        function rotasOperacionaisDoDia(diaJs) {
+            const config = configuracaoOperacional || configuracaoOperacionalPadraoCliente();
+            return config.rotas[chaveDiaOperacional(diaJs)] || [];
+        }
+
+        function minutosHorario(valor) {
+            const partes = String(valor || '00:00').split(':').map(Number);
+            return (partes[0] || 0) * 60 + (partes[1] || 0);
+        }
+
+        function textoHorarioHoje() {
+            const regra = regraOperacionalDoDia(diaAtualInt);
+            return `${regra.inicio} às ${regra.fim}`;
+        }
+
+        function carregarConfiguracaoOperacional() {
+            google.script.run
+              .withSuccessHandler(function(resposta) {
+                try {
+                  const recebida = JSON.parse(resposta || '{}');
+                  configuracaoOperacional = recebida;
+                  rotasDaSemana = {};
+                  for (let diaJs = 0; diaJs <= 6; diaJs++) {
+                    rotasDaSemana[diaJs] = (recebida.rotas && recebida.rotas[chaveDiaOperacional(diaJs)]) || [];
+                  }
+                  if (recebida.monteSua && recebida.monteSua.combinacoes) {
+                    precosMonteSua = recebida.monteSua.combinacoes;
+                  }
+                  atualizarRelogioAtendimento(false);
+                  carregarConfiguracoesDia();
+                  removerDoCarrinhoItensForaDoCatalogo();
+                  mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+                } catch (erro) {
+                  console.error('Configuração operacional recebida em formato inválido:', erro);
+                }
+              })
+              .withFailureHandler(function(erro) {
+                console.error('Não foi possível carregar a configuração operacional:', erro);
+              })
+              .obterConfiguracaoOperacional();
+        }
+
+'''
+          cliente = replace_once(cliente, anchor_cliente, funcoes_cliente + anchor_cliente, 'funções configuração cliente')
+
+          cliente = replace_once(
+              cliente,
+              "                return { dia: diaSimulado, hora: horaSimulada };",
+              "                return { dia: diaSimulado, hora: horaSimulada, minuto: 0 };",
+              'horário teste com minuto'
+          )
+          cliente = replace_once(
+              cliente,
+              "                hour: '2-digit',\n                hourCycle: 'h23'",
+              "                hour: '2-digit',\n                minute: '2-digit',\n                hourCycle: 'h23'",
+              'minuto horário São Paulo'
+          )
+          cliente = replace_once(
+              cliente,
+              "            return { dia: dias[partes.weekday], hora: Number(partes.hour) };",
+              "            return { dia: dias[partes.weekday], hora: Number(partes.hour), minuto: Number(partes.minute || 0) };",
+              'retorno horário São Paulo'
+          )
+
+          pattern_relogio = re.compile(r"        function atualizarRelogioAtendimento\(recarregarTela = true\) \{[\s\S]*?\n        \}\n\n        function removerDoCarrinhoItensForaDoCatalogo", re.M)
+          novo_relogio = r'''        function atualizarRelogioAtendimento(recarregarTela = true) {
+            const anterior = `${diaAtualInt}-${horaAtualInt}-${minutoAtualInt}-${lojaAberta}`;
+            const horario = obterHorarioSaoPaulo();
+            diaAtualInt = horario.dia;
+            horaAtualInt = horario.hora;
+            minutoAtualInt = horario.minuto || 0;
+            const regra = regraOperacionalDoDia(diaAtualInt);
+            const agoraMinutos = horaAtualInt * 60 + minutoAtualInt;
+            lojaAberta = regra.ativo && agoraMinutos >= minutosHorario(regra.inicio) && agoraMinutos < minutosHorario(regra.fim);
+            const logo = document.querySelector('.header-logo');
+            if (logo) {
+                logo.classList.remove('status-aberta', 'status-encerrando', 'status-fechada');
+                const faltam = minutosHorario(regra.fim) - agoraMinutos;
+                logo.classList.add(!lojaAberta ? 'status-fechada' : (faltam <= 60 ? 'status-encerrando' : 'status-aberta'));
+            }
+            const atual = `${diaAtualInt}-${horaAtualInt}-${minutoAtualInt}-${lojaAberta}`;
+            if (recarregarTela && anterior !== atual) {
+                carregarConfiguracoesDia();
+                mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+            }
+        }
+
+        function removerDoCarrinhoItensForaDoCatalogo'''
+          cliente, count = pattern_relogio.subn(novo_relogio, cliente, count=1)
+          if count != 1:
+              raise SystemExit('Não foi possível substituir relógio operacional')
+
+          cliente = cliente.replace('let rotasDeHoje = rotasDaSemana[diaAtualInt] || [];', 'let rotasDeHoje = rotasOperacionaisDoDia(diaAtualInt);')
+          cliente = cliente.replace("statusTexto.textContent = 'Atendimento das 18h às 22h · ' + rotasDeHoje.join(' • ');", "statusTexto.textContent = 'Atendimento das ' + textoHorarioHoje() + ' · ' + rotasDeHoje.join(' • ');")
+          cliente = cliente.replace("if (diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt < 18)", "if (regraOperacionalDoDia(diaAtualInt).ativo && (horaAtualInt * 60 + minutoAtualInt) < minutosHorario(regraOperacionalDoDia(diaAtualInt).inicio))")
+          cliente = cliente.replace("'O atendimento de hoje abre às 18h e encerra às 22h.'", "'O atendimento de hoje funciona das ' + textoHorarioHoje() + '.'")
+          cliente = cliente.replace("'O cardápio digital funciona de segunda a sexta-feira, das 18h às 22h.'", "'O cardápio digital está fechado neste momento. Consulte os horários e rotas disponíveis.'")
+
+          cliente = replace_once(
+              cliente,
+              "                grid.innerHTML = `<h3 class=\"sub-title\" style=\"text-align:center;\">Passo 1: Escolha a Carne</h3>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(c => `<article class=\"card\" style=\"border: 1px dashed var(--primary);\"><img class=\"card-image\" src=\"./assets/menu/${imagensMonteSua.carnes[c]}\" alt=\"Foto ilustrativa de ${c}\" loading=\"lazy\" decoding=\"async\"><div class=\"card-body\"><h3>${c}</h3><button type=\"button\" class=\"btn-add\" ${lojaAberta ? '' : 'disabled'} onclick=\"passo2Monte('${c}')\">${lojaAberta ? 'Escolher' : 'Fechado hoje'}</button></div></article>`).join('');",
+              "                grid.innerHTML = `<h3 class=\"sub-title\" style=\"text-align:center;\">Passo 1: Escolha a Carne</h3>` + Object.keys(precosMonteSua).map(c => { const img = imagensMonteSua.carnes[c] || 'tapioca-queijos.webp'; return `<article class=\"card\" style=\"border: 1px dashed var(--primary);\"><img class=\"card-image\" src=\"./assets/menu/${img}\" alt=\"Foto ilustrativa de ${escaparHtml(c)}\" loading=\"lazy\" decoding=\"async\"><div class=\"card-body\"><h3>${escaparHtml(c)}</h3><button type=\"button\" class=\"btn-add\" ${lojaAberta ? '' : 'disabled'} onclick=\"passo2Monte(${JSON.stringify(c).replace(/\"/g, '&quot;')})\">${lojaAberta ? 'Escolher' : 'Fechado hoje'}</button></div></article>`; }).join('');",
+              'carnes Monte Sua dinâmicas'
+          )
+          cliente = replace_once(
+              cliente,
+              "            ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(q => {",
+              "            Object.keys(precosMonteSua[carne] || {}).forEach(q => {",
+              'queijos Monte Sua dinâmicos'
+          )
+          cliente = cliente.replace("src=\"./assets/menu/${imagensMonteSua.queijos[q]}\"", "src=\"./assets/menu/${imagensMonteSua.queijos[q] || 'tapioca-queijos.webp'}\"")
+          cliente_path.write_text(cliente, encoding='utf-8')
+
+          config_js = r'''(function () {
+            "use strict";
+
+            var DIAS = [
+              ["1", "Segunda-feira"], ["2", "Terça-feira"], ["3", "Quarta-feira"],
+              ["4", "Quinta-feira"], ["5", "Sexta-feira"], ["6", "Sábado"], ["7", "Domingo"]
+            ];
+            var configAtual = null;
+
+            function escapar(v) {
+              return String(v == null ? "" : v).replace(/[&<>"']/g, function(c) {
+                return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c];
+              });
+            }
+
+            function criarEstrutura() {
+              if (document.getElementById("configOperacionalCard")) return;
+              var view = document.getElementById("view-configuracao");
+              if (!view) return;
+              var card = document.createElement("section");
+              card.id = "configOperacionalCard";
+              card.className = "config-operacional-card";
+              card.innerHTML = `
+                <style>
+                  .config-operacional-card{margin:24px 0;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.04)}
+                  .config-operacional-card h2{margin:0 0 6px}.config-operacional-card .sub{opacity:.75;margin:0 0 18px}
+                  .op-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.op-box{padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:14px}
+                  .op-box label{display:block;font-size:.84rem;margin:7px 0 4px}.op-box input,.op-box textarea{width:100%;box-sizing:border-box;padding:9px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.2);color:inherit}
+                  .op-day-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.op-hours{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+                  .op-table{width:100%;border-collapse:collapse}.op-table td,.op-table th{padding:7px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}.op-table input{width:100%;box-sizing:border-box}
+                  .op-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}.op-actions button{padding:11px 16px;border:0;border-radius:10px;font-weight:700;cursor:pointer}.op-save{background:#36c96b;color:#08210f}.op-add{background:rgba(255,255,255,.12);color:inherit}
+                </style>
+                <h2>⚙️ Configuração operacional</h2>
+                <p class="sub">Rotas, horários, Monte Sua e adicionais passam a ser administrados aqui e validados pelo servidor.</p>
+                <div id="opHorarios" class="op-grid"></div>
+                <div class="op-grid" style="margin-top:14px">
+                  <div class="op-box"><h3>Adicionais</h3><label>Valor por adicional (R$)</label><input id="opValorAdicional" type="number" min="0" step="0.01"><label>Salgados — um por linha</label><textarea id="opAdicionaisSalgado" rows="7"></textarea><label>Doces — um por linha</label><textarea id="opAdicionaisDoce" rows="7"></textarea></div>
+                  <div class="op-box"><h3>Monte Sua</h3><div style="overflow:auto"><table class="op-table"><thead><tr><th>Base</th><th>Queijo</th><th>Preço</th><th></th></tr></thead><tbody id="opMonteLinhas"></tbody></table></div><button type="button" id="opAddCombinacao" class="op-add" style="margin-top:10px">+ Adicionar combinação</button></div>
+                </div>
+                <div class="op-actions"><button type="button" id="opSalvar" class="op-save">Salvar configuração operacional</button></div>`;
+              var alvo = view.querySelector(".config-page, .container, main") || view;
+              alvo.appendChild(card);
+              document.getElementById("opAddCombinacao").addEventListener("click", function(){ adicionarLinhaMonte("", "", ""); });
+              document.getElementById("opSalvar").addEventListener("click", salvar);
+            }
+
+            function renderizar(config) {
+              configAtual = config;
+              var horarios = document.getElementById("opHorarios");
+              horarios.innerHTML = DIAS.map(function(d) {
+                var regra = config.horarios[d[0]] || {ativo:false,inicio:"18:00",fim:"22:00"};
+                var rotas = (config.rotas[d[0]] || []).join("\n");
+                return `<div class="op-box" data-dia="${d[0]}"><div class="op-day-head"><strong>${d[1]}</strong><label><input class="op-ativo" type="checkbox" ${regra.ativo ? "checked" : ""}> Ativo</label></div><div class="op-hours"><div><label>Início</label><input class="op-inicio" type="time" value="${escapar(regra.inicio)}"></div><div><label>Fim</label><input class="op-fim" type="time" value="${escapar(regra.fim)}"></div></div><label>Rotas — uma por linha</label><textarea class="op-rotas" rows="5">${escapar(rotas)}</textarea></div>`;
+              }).join("");
+              document.getElementById("opValorAdicional").value = Number(config.adicionais.valor || 0).toFixed(2);
+              document.getElementById("opAdicionaisSalgado").value = (config.adicionais.salgado || []).join("\n");
+              document.getElementById("opAdicionaisDoce").value = (config.adicionais.doce || []).join("\n");
+              var corpo = document.getElementById("opMonteLinhas");
+              corpo.innerHTML = "";
+              Object.keys(config.monteSua.combinacoes || {}).forEach(function(base) {
+                Object.keys(config.monteSua.combinacoes[base] || {}).forEach(function(queijo) {
+                  adicionarLinhaMonte(base, queijo, config.monteSua.combinacoes[base][queijo]);
+                });
+              });
+            }
+
+            function adicionarLinhaMonte(base, queijo, preco) {
+              var corpo = document.getElementById("opMonteLinhas");
+              if (!corpo) return;
+              var tr = document.createElement("tr");
+              tr.innerHTML = `<td><input class="op-base" value="${escapar(base)}"></td><td><input class="op-queijo" value="${escapar(queijo)}"></td><td><input class="op-preco" type="number" min="0.01" step="0.01" value="${escapar(preco)}"></td><td><button type="button" class="op-remove">×</button></td>`;
+              tr.querySelector(".op-remove").addEventListener("click", function(){ tr.remove(); });
+              corpo.appendChild(tr);
+            }
+
+            function linhas(valor) {
+              return String(valor || "").split(/\n+/).map(function(v){return v.trim();}).filter(Boolean);
+            }
+
+            function coletar() {
+              var config = { versao:1, horarios:{}, rotas:{}, monteSua:{combinacoes:{}}, adicionais:{} };
+              document.querySelectorAll("#opHorarios [data-dia]").forEach(function(box) {
+                var dia = box.dataset.dia;
+                config.horarios[dia] = { ativo: box.querySelector(".op-ativo").checked, inicio: box.querySelector(".op-inicio").value, fim: box.querySelector(".op-fim").value };
+                config.rotas[dia] = linhas(box.querySelector(".op-rotas").value);
+              });
+              config.adicionais.valor = Number(document.getElementById("opValorAdicional").value || 0);
+              config.adicionais.salgado = linhas(document.getElementById("opAdicionaisSalgado").value);
+              config.adicionais.doce = linhas(document.getElementById("opAdicionaisDoce").value);
+              document.querySelectorAll("#opMonteLinhas tr").forEach(function(tr) {
+                var base = tr.querySelector(".op-base").value.trim();
+                var queijo = tr.querySelector(".op-queijo").value.trim();
+                var preco = Number(tr.querySelector(".op-preco").value);
+                if (!base || !queijo || !preco) return;
+                config.monteSua.combinacoes[base] = config.monteSua.combinacoes[base] || {};
+                config.monteSua.combinacoes[base][queijo] = preco;
+              });
+              return config;
+            }
+
+            function carregar() {
+              criarEstrutura();
+              google.script.run.withSuccessHandler(function(resposta){
+                try { renderizar(JSON.parse(resposta || "{}")); }
+                catch (erro) { if (window.mostrarAlerta) mostrarAlerta("Não foi possível interpretar a configuração operacional."); }
+              }).withFailureHandler(function(erro){
+                if (window.mostrarAlerta) mostrarAlerta("Não foi possível carregar a configuração operacional.<br><small>" + escapar(erro.message) + "</small>");
+              }).obterConfiguracaoOperacional();
+            }
+
+            function salvar() {
+              var botao = document.getElementById("opSalvar");
+              botao.disabled = true; botao.textContent = "Salvando...";
+              var sessao = window.TapimovelAuth && window.TapimovelAuth.getSession ? window.TapimovelAuth.getSession() : null;
+              google.script.run.withSuccessHandler(function(resposta){
+                botao.disabled = false; botao.textContent = "Salvar configuração operacional";
+                renderizar(JSON.parse(resposta || "{}"));
+                if (window.mostrarToast) mostrarToast("Configuração operacional atualizada.");
+              }).withFailureHandler(function(erro){
+                botao.disabled = false; botao.textContent = "Salvar configuração operacional";
+                if (window.mostrarAlerta) mostrarAlerta("Não foi possível salvar.<br><small>" + escapar(erro.message) + "</small>");
+              }).salvarConfiguracaoOperacional(JSON.stringify(coletar()), sessao && sessao.nome || "Administrador");
+            }
+
+            window.TapimovelConfigOperacional = { carregar: carregar };
+            if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", carregar);
+            else carregar();
+          })();
+'''
+          Path('frontend/config-operacional.js').write_text(config_js, encoding='utf-8')
+
+          cfg_path = Path('frontend/configuracao.js')
+          cfg = cfg_path.read_text(encoding='utf-8')
+          loader = r'''
+
+  function carregarModuloConfiguracaoOperacional() {
+    if (document.querySelector('script[data-tapimovel-config-operacional]')) return;
+    var script = document.createElement('script');
+    script.src = './config-operacional.js?v=20260825.1';
+    script.dataset.tapimovelConfigOperacional = '1';
+    document.head.appendChild(script);
+  }
+'''
+          cfg = replace_once(cfg, '  window.addEventListener("DOMContentLoaded", function () {\n', loader + '\n  window.addEventListener("DOMContentLoaded", function () {\n    carregarModuloConfiguracaoOperacional();\n', 'loader configuração operacional admin')
+          cfg_path.write_text(cfg, encoding='utf-8')
+
+          tests = r'''const test = require("node:test");
+          const assert = require("node:assert/strict");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = path.join(__dirname, "..");
+
+          test("P1 centraliza rotas, horários, Monte Sua e adicionais no backend", () => {
+            const code = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+            assert.match(code, /CHAVE_CONFIG_OPERACIONAL_/);
+            assert.match(code, /function obterConfiguracaoOperacional\(/);
+            assert.match(code, /function salvarConfiguracaoOperacional\(/);
+            assert.match(code, /const configOperacional = JSON\.parse\(obterConfiguracaoOperacional\(\)\)/);
+            assert.match(code, /const valorAdicional = Number\(configOperacional\.adicionais/);
+            assert.match(code, /function precoMonteSua_\(nome\)[\s\S]{0,400}obterConfiguracaoOperacional/);
+          });
+
+          test("cardápio consome configuração operacional dinâmica", () => {
+            const html = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
+            assert.match(html, /let precosMonteSua = \{/);
+            assert.match(html, /let rotasDaSemana = \{/);
+            assert.match(html, /function carregarConfiguracaoOperacional\(/);
+            assert.match(html, /\.obterConfiguracaoOperacional\(\)/);
+            assert.match(html, /Object\.keys\(precosMonteSua\)/);
+            assert.match(html, /regraOperacionalDoDia/);
+          });
+
+          test("painel administrativo possui editor operacional", () => {
+            const config = fs.readFileSync(path.join(root, "frontend/config-operacional.js"), "utf8");
+            const loader = fs.readFileSync(path.join(root, "frontend/configuracao.js"), "utf8");
+            assert.match(config, /Configuração operacional/);
+            assert.match(config, /salvarConfiguracaoOperacional/);
+            assert.match(config, /opMonteLinhas/);
+            assert.match(config, /opAdicionaisSalgado/);
+            assert.match(loader, /config-operacional\.js/);
+          });
+'''
+          Path('tests/autonomia-operacional.test.js').write_text(tests, encoding='utf-8')
+
+          # O workflow é descartável e se remove no mesmo commit aplicado.
+          Path('.github/workflows/p1-autonomia-apply.yml').unlink()
+          PY
+
+      - name: Validar alterações
+        run: |
+          npm test
+          node --check frontend/config-operacional.js
+          node --check frontend/configuracao.js
+          git diff --check
+
+      - name: Commitar P1
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "P1: autonomia operacional dinâmica [p1-autonomia-applied]"
+          git push origin HEAD:agent/p1-autonomia-operacional
