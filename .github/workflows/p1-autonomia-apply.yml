@@ -33,6 +33,9 @@ jobs:
       - name: Aplicar alterações P1
         run: python scripts/apply_p1_autonomia.py
 
+      - name: Completar autonomia de adicionais
+        run: python scripts/p1_fixups.py
+
       - name: Testes backend e segurança
         run: node --test tests/backend-security.test.js
 
@@ -53,6 +56,9 @@ jobs:
 
       - name: Sintaxe configuração admin
         run: node --check frontend/configuracao.js
+
+      - name: Sintaxe PDV/Relatório
+        run: node --check frontend/eliel.js
 
       - name: Integridade do diff
         run: git diff --check
