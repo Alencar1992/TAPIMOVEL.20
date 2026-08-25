@@ -36,8 +36,8 @@ function checkSyntax(rel) {
 
 function checkConflictMarkers(rel) {
   const text = read(rel);
-  const markers = ["<".repeat(7), "=".repeat(7), ">".repeat(7)];
-  assert(!markers.some(marker => text.includes(marker)), `Marcador de conflito encontrado em ${rel}`);
+  const conflictLine = /^(?:<<<<<<<(?: .*)?|=======$|>>>>>>>(?: .*)?)$/m;
+  assert(!conflictLine.test(text), `Marcador de conflito encontrado em ${rel}`);
 }
 
 parseJson("package.json");
