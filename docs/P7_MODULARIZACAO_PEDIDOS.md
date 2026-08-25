@@ -20,6 +20,10 @@ A persistência das filas continua em `SheetsRepository.gs`. Autenticação e ro
 
 Não foram movidos nesta etapa histórico, cancelamentos, fechamento mensal, relatórios, catálogo ou configuração operacional.
 
+## Validação
+
+O CI deve validar o bundle completo de `apps-script/*.gs`, preservando os contratos públicos e as regras de adicionais, preço, filas e pedidos após a separação do `Code.gs`.
+
 ## Deploy manual
 
 Antes de substituir o `Code.gs` no Apps Script, crie `PedidoService.gs` e cole o conteúdo correspondente da `main`. Mantenha todos os módulos P5/P6 existentes. Depois publique uma nova versão da implantação atual preservando o mesmo `/exec`.
