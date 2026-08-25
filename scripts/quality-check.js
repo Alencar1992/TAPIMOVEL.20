@@ -47,11 +47,14 @@ const manifest = JSON.parse(read("apps-script/appsscript.json"));
 assert(manifest.timeZone === "America/Sao_Paulo", "appsscript.json deve usar America/Sao_Paulo");
 assert(manifest.runtimeVersion === "V8", "appsscript.json deve usar runtime V8");
 
-checkSyntax("apps-script/Code.gs");
+const appsScriptFiles = walk("apps-script", new Set([".gs"])).sort();
+for (const rel of appsScriptFiles) checkSyntax(rel);
+new vm.Script(appsScriptFiles.map(read).join("\n\n"), { filename: "AppsScript.bundle.gs" });
+console.log("Sintaxe OK: bundle completo do Apps Script");
 for (const rel of walk("frontend", new Set([".js"]))) checkSyntax(rel);
 
 const conflictFiles = [
-  "apps-script/Code.gs",
+  ...appsScriptFiles,
   ...walk("frontend", new Set([".js", ".html", ".css"])),
   ...walk("tests", new Set([".js"])),
   ...walk("docs", new Set([".md"])),
@@ -59,7 +62,7 @@ const conflictFiles = [
 ];
 for (const rel of conflictFiles) checkConflictMarkers(rel);
 
-const code = read("apps-script/Code.gs");
+const code = appsScriptFiles.map(read).join("\n\n");
 const forbiddenWrites = [
   /setProperty\s*\(\s*["']pdv_vendas_ativas["']/,
   /setProperty\s*\(\s*["']pedidos_online_pendentes["']/,
