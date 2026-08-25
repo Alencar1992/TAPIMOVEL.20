@@ -14,12 +14,12 @@
     let agrupamentoGraficoEliel = "dia";
     let historicoVendasElielAtual = null;
     const DURACAO_PRESSAO_GESTAO_ITEM = 2000;
-    const PRECO_ADICIONAL = 4;
-    const adicionaisSalgados = [
+    let PRECO_ADICIONAL = 4;
+    let adicionaisSalgados = [
         "Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco",
         "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"
     ];
-    const adicionaisDoces = [
+    let adicionaisDoces = [
         "Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim",
         "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco",
         "Banana", "Goiabada", "Paçoca"
@@ -29,6 +29,34 @@
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
     ];
+
+
+    function carregarConfiguracaoOperacionalPdv_() {
+        if (!window.google || !google.script || !google.script.run) return;
+        google.script.run
+            .withSuccessHandler(function (resposta) {
+                try {
+                    const config = JSON.parse(resposta || "{}");
+                    const adicionais = config.adicionais || {};
+                    const valor = Number(adicionais.valor);
+                    if (Number.isFinite(valor) && valor >= 0) PRECO_ADICIONAL = valor;
+                    if (Array.isArray(adicionais.salgado)) adicionaisSalgados = adicionais.salgado.slice();
+                    if (Array.isArray(adicionais.doce)) adicionaisDoces = adicionais.doce.slice();
+                } catch (erro) {
+                    console.error("Não foi possível aplicar a configuração operacional no PDV:", erro);
+                }
+            })
+            .withFailureHandler(function (erro) {
+                console.error("Não foi possível carregar a configuração operacional no PDV:", erro);
+            })
+            .obterConfiguracaoOperacional();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", carregarConfiguracaoOperacionalPdv_);
+    } else {
+        carregarConfiguracaoOperacionalPdv_();
+    }
 
     function escapar(valor) {
         return String(valor == null ? "" : valor)

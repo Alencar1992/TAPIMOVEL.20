@@ -190,7 +190,8 @@ function doGet(e) {
       const permitidasViaGet = [
         "obterDisponibilidadeCardapio",
         "obterCatalogoCardapio",
-        "obterStatusCardapio"
+        "obterStatusCardapio",
+        "obterConfiguracaoOperacional"
       ];
       if (permitidasViaGet.indexOf(e.parameter.action) === -1) {
         return responderApi_({
@@ -220,6 +221,160 @@ function doGet(e) {
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+
+// =========================================================
+// CONFIGURAÇÃO OPERACIONAL DINÂMICA
+// =========================================================
+const CHAVE_CONFIG_OPERACIONAL_ = "tapimovel_config_operacional_v1";
+
+function configuracaoOperacionalPadrao_() {
+  return {
+    versao: 1,
+    horarios: {
+      "1": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "2": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "3": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "4": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "5": { ativo: true, inicio: "18:00", fim: "22:00" },
+      "6": { ativo: false, inicio: "18:00", fim: "22:00" },
+      "7": { ativo: false, inicio: "18:00", fim: "22:00" }
+    },
+    rotas: {
+      "1": ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
+      "2": ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
+      "3": ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
+      "4": ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
+      "5": ["JD SOUZA", "COPACABANA", "TUPI"],
+      "6": [],
+      "7": []
+    },
+    monteSua: {
+      combinacoes: {
+        "Calabresa": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+        "Frango": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
+        "Carne Seca": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+        "Salame": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
+        "Bacon": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 },
+        "Peito de Peru": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 }
+      }
+    },
+    adicionais: {
+      valor: 4,
+      salgado: ["Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco", "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"],
+      doce: ["Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim", "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco", "Banana", "Goiabada", "Paçoca"]
+    }
+  };
+}
+
+function horarioOperacionalValido_(valor) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(valor || ""));
+}
+
+function textoOperacionalSeguro_(valor, limite) {
+  return String(valor == null ? "" : valor)
+    .replace(/[\u0000-\u001F\u007F<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, limite || 120);
+}
+
+function normalizarConfiguracaoOperacional_(recebida) {
+  const padrao = configuracaoOperacionalPadrao_();
+  const config = recebida && typeof recebida === "object" && !Array.isArray(recebida) ? recebida : {};
+  const saida = configuracaoOperacionalPadrao_();
+
+  for (let dia = 1; dia <= 7; dia++) {
+    const chave = String(dia);
+    const regra = config.horarios && config.horarios[chave] || padrao.horarios[chave];
+    const inicio = horarioOperacionalValido_(regra.inicio) ? String(regra.inicio) : padrao.horarios[chave].inicio;
+    const fim = horarioOperacionalValido_(regra.fim) ? String(regra.fim) : padrao.horarios[chave].fim;
+    if (inicio >= fim) throw new Error("O horário inicial precisa ser anterior ao horário final no dia " + chave + ".");
+    saida.horarios[chave] = { ativo: regra.ativo === true, inicio: inicio, fim: fim };
+
+    const rotas = config.rotas && Array.isArray(config.rotas[chave]) ? config.rotas[chave] : padrao.rotas[chave];
+    saida.rotas[chave] = rotas
+      .map(function(rota) { return textoOperacionalSeguro_(rota, 120).toUpperCase(); })
+      .filter(function(rota) { return Boolean(rota); })
+      .filter(function(rota, indice, lista) { return lista.indexOf(rota) === indice; })
+      .slice(0, 60);
+  }
+
+  const combinacoesRecebidas = config.monteSua && config.monteSua.combinacoes;
+  if (combinacoesRecebidas && typeof combinacoesRecebidas === "object" && !Array.isArray(combinacoesRecebidas)) {
+    const combinacoes = {};
+    Object.keys(combinacoesRecebidas).slice(0, 30).forEach(function(carneBruta) {
+      const carne = textoOperacionalSeguro_(carneBruta, 80);
+      const queijosRecebidos = combinacoesRecebidas[carneBruta];
+      if (!carne || !queijosRecebidos || typeof queijosRecebidos !== "object" || Array.isArray(queijosRecebidos)) return;
+      const queijos = {};
+      Object.keys(queijosRecebidos).slice(0, 30).forEach(function(queijoBruto) {
+        const queijo = textoOperacionalSeguro_(queijoBruto, 80);
+        const preco = Number(queijosRecebidos[queijoBruto]);
+        if (queijo && isFinite(preco) && preco > 0 && preco <= 500) queijos[queijo] = Math.round(preco * 100) / 100;
+      });
+      if (Object.keys(queijos).length) combinacoes[carne] = queijos;
+    });
+    if (!Object.keys(combinacoes).length) throw new Error("O Monte Sua precisa ter ao menos uma combinação válida.");
+    saida.monteSua.combinacoes = combinacoes;
+  }
+
+  const adicionaisRecebidos = config.adicionais || {};
+  const valorAdicional = Number(adicionaisRecebidos.valor);
+  saida.adicionais.valor = isFinite(valorAdicional) && valorAdicional >= 0 && valorAdicional <= 100
+    ? Math.round(valorAdicional * 100) / 100 : padrao.adicionais.valor;
+  ["salgado", "doce"].forEach(function(tipo) {
+    const lista = Array.isArray(adicionaisRecebidos[tipo]) ? adicionaisRecebidos[tipo] : padrao.adicionais[tipo];
+    saida.adicionais[tipo] = lista
+      .map(function(item) { return textoOperacionalSeguro_(item, 80); })
+      .filter(function(item) { return Boolean(item); })
+      .filter(function(item, indice, todos) { return todos.indexOf(item) === indice; })
+      .slice(0, 60);
+  });
+  saida.versao = 1;
+  return saida;
+}
+
+function obterConfiguracaoOperacional() {
+  const props = PropertiesService.getScriptProperties();
+  const salva = props.getProperty(CHAVE_CONFIG_OPERACIONAL_);
+  if (!salva) return JSON.stringify(configuracaoOperacionalPadrao_());
+  try {
+    return JSON.stringify(normalizarConfiguracaoOperacional_(JSON.parse(salva)));
+  } catch (erro) {
+    console.error("Configuração operacional inválida; usando padrão:", erro);
+    return JSON.stringify(configuracaoOperacionalPadrao_());
+  }
+}
+
+function salvarConfiguracaoOperacional(configJSON, responsavel) {
+  const config = normalizarConfiguracaoOperacional_(JSON.parse(configJSON || "{}"));
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    PropertiesService.getScriptProperties().setProperty(CHAVE_CONFIG_OPERACIONAL_, JSON.stringify(config));
+    if (typeof registrarLogConfiguracao_ === "function") {
+      registrarLogConfiguracao_(normalizarResponsavelConfiguracao_(responsavel || "Administrador"), "CONFIGURAÇÃO OPERACIONAL ATUALIZADA", "Operação", "rotas/horários/Monte Sua/adicionais", null, { versao: config.versao });
+    }
+    return JSON.stringify(config);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function obterRegraOperacionalHoje_(config, data) {
+  const momento = data || new Date();
+  const fuso = Session.getScriptTimeZone();
+  const diaIso = Number(Utilities.formatDate(momento, fuso, "u"));
+  const chaveDia = String(diaIso);
+  return {
+    diaIso: diaIso,
+    chaveDia: chaveDia,
+    horario: config.horarios[chaveDia] || { ativo: false, inicio: "00:00", fim: "00:00" },
+    rotas: config.rotas[chaveDia] || [],
+    agora: Utilities.formatDate(momento, fuso, "HH:mm")
+  };
 }
 
 // =========================================================
@@ -1030,6 +1185,7 @@ function executarAcaoApi_(action, args, token) {
     "obterCatalogoCardapio",
     "obterStatusCardapio",
     "registrarPedidoOnline",
+    "obterConfiguracaoOperacional",
     "loginAcesso",
     "loginAdministrador",
     "validarSessaoAcesso",
@@ -1042,6 +1198,7 @@ function executarAcaoApi_(action, args, token) {
     "inicializarCatalogoConfiguracao",
     "salvarItemCatalogo",
     "removerItemCatalogo",
+    "salvarConfiguracaoOperacional",
     "obterRelatorioEliel",
     "registrarAcessoRelatorioEliel",
     "obterConfiguracoesRelatorioEliel",
@@ -1081,6 +1238,7 @@ function executarAcaoApi_(action, args, token) {
     "inicializarCatalogoConfiguracao",
     "salvarItemCatalogo",
     "removerItemCatalogo",
+    "salvarConfiguracaoOperacional",
     "excluirContadorTapiocasHoje",
     "obterRelatorioEliel",
     "registrarAcessoRelatorioEliel",
@@ -1116,6 +1274,7 @@ function executarAcaoApi_(action, args, token) {
       if (action === "inicializarCatalogoConfiguracao") args[1] = NOME_PERFIL_ELIEL_;
       if (action === "salvarItemCatalogo") args[2] = NOME_PERFIL_ELIEL_;
       if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;
+      if (action === "salvarConfiguracaoOperacional") args[1] = NOME_PERFIL_ELIEL_;
       if (action === "fecharMesRelatorioEliel") args[3] = NOME_PERFIL_ELIEL_;
     }
   }
@@ -1162,19 +1321,13 @@ function valorSeguroPlanilha_(valor) {
 }
 
 function precoMonteSua_(nome) {
-  const combinacoes = {
-    "Calabresa": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
-    "Frango": { "Catupiry (Orig.)": 14, "Cheddar": 14, "Cream Cheese": 14, "Muçarela": 14, "Queijo Branco": 14 },
-    "Carne Seca": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
-    "Salame": { "Catupiry (Orig.)": 15, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 15 },
-    "Bacon": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 },
-    "Peito de Peru": { "Catupiry (Orig.)": 16, "Cheddar": 15, "Cream Cheese": 15, "Muçarela": 15, "Queijo Branco": 16 }
-  };
+  const config = JSON.parse(obterConfiguracaoOperacional());
+  const combinacoes = config.monteSua && config.monteSua.combinacoes || {};
   const match = String(nome || "").match(/^Monte Sua: (.+) c\/ (.+)$/);
   if (!match || !combinacoes[match[1]] || combinacoes[match[1]][match[2]] == null) {
     throw erroApi_("INVALID_ORDER", "A combinação do Monte a Sua não é válida.");
   }
-  return combinacoes[match[1]][match[2]];
+  return Number(combinacoes[match[1]][match[2]]);
 }
 
 function normalizarPedidoOnline_(pedidoRecebido, catalogo) {
@@ -1265,17 +1418,12 @@ function normalizarPedidoPdv_(pedidoRecebido) {
     throw erroApi_("INVALID_ORDER", "O pedido deve conter entre 1 e 50 itens.");
   }
   const tipos = ["tapioca", "bebida", "extra"];
+  const configOperacional = JSON.parse(obterConfiguracaoOperacional());
   const adicionaisPermitidos = {
-    salgado: [
-      "Frango", "Calabresa", "Carne seca", "Salame", "Presunto", "Queijo branco",
-      "Muçarela", "Catupiry", "Cheddar", "Cream cheese", "Bacon", "Peito de peru"
-    ],
-    doce: [
-      "Chocolate ao leite", "Chocolate avelã", "Nutella", "Castanha de amendoim",
-      "Granulado", "Leite condensado", "Ninho", "Sonho de Valsa", "Morango", "Coco",
-      "Banana", "Goiabada", "Paçoca"
-    ]
+    salgado: (configOperacional.adicionais && configOperacional.adicionais.salgado) || [],
+    doce: (configOperacional.adicionais && configOperacional.adicionais.doce) || []
   };
+  const valorAdicional = Number(configOperacional.adicionais && configOperacional.adicionais.valor) || 0;
   const itens = pedidoRecebido.itens.map(function(item) {
     const quantidade = Number(item && item.quantidade);
     const preco = Number(item && item.preco);
@@ -1312,10 +1460,10 @@ function normalizarPedidoPdv_(pedidoRecebido) {
     }
     let precoBase = Number(item && item.precoBase);
     if (!isFinite(precoBase) || precoBase <= 0) {
-      precoBase = preco - (adicionais.length * 4);
+      precoBase = preco - (adicionais.length * valorAdicional);
     }
     precoBase = Math.round(precoBase * 100) / 100;
-    const precoEsperado = Math.round((precoBase + adicionais.length * 4) * 100) / 100;
+    const precoEsperado = Math.round((precoBase + adicionais.length * valorAdicional) * 100) / 100;
     if (tipo === "tapioca" && adicionais.length && Math.abs(preco - precoEsperado) > 0.001) {
       throw erroApi_("INVALID_ORDER", "O valor dos adicionais não corresponde ao total do item.");
     }
@@ -1430,20 +1578,12 @@ function registrarPedidoOnline(pedidoJSON) {
     const props = PropertiesService.getScriptProperties();
     const catalogo = catalogoConfigurado_("{}");
     const pedido = normalizarPedidoOnline_(JSON.parse(pedidoJSON || "{}"), catalogo);
-    const diaSemana = Number(
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "u")
-    );
-    const horaAtual = Number(
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "H")
-    );
-    const rotasPorDia = {
-      1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
-      2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
-      3: ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
-      4: ["JD ALFREDO", "JD DAS FLORES", "BANDEIRANTE"],
-      5: ["JD SOUZA", "COPACABANA", "TUPI"]
-    };
-    const rotasPermitidas = rotasPorDia[diaSemana] || [];
+    const configOperacional = JSON.parse(obterConfiguracaoOperacional());
+    const regraOperacional = obterRegraOperacionalHoje_(configOperacional, new Date());
+    const diaSemana = regraOperacional.diaIso;
+    const horarioHoje = regraOperacional.horario;
+    const horaAtual = regraOperacional.agora;
+    const rotasPermitidas = regraOperacional.rotas;
     const endereco = String(pedido.enderecoCliente || "").trim().toUpperCase();
     const itensIndisponiveis = JSON.parse(
       props.getProperty("cardapio_itens_indisponiveis") || "[]"
@@ -1451,11 +1591,11 @@ function registrarPedidoOnline(pedidoJSON) {
     const itemEsgotado = (pedido.itens || []).find(function(item) {
       return itensIndisponiveis.indexOf(item.nome) !== -1;
     });
-    if (diaSemana < 1 || diaSemana > 5) {
-      throw new Error("O cardápio on-line funciona somente de segunda a sexta-feira.");
+    if (!horarioHoje.ativo) {
+      throw new Error("O cardápio on-line está fechado para pedidos hoje.");
     }
-    if (horaAtual < 18 || horaAtual >= 22) {
-      throw new Error("O cardápio digital funciona das 18h às 22h.");
+    if (horaAtual < horarioHoje.inicio || horaAtual >= horarioHoje.fim) {
+      throw new Error("O cardápio digital funciona hoje das " + horarioHoje.inicio + " às " + horarioHoje.fim + ".");
     }
     if (!rotasPermitidas.some(function(rota) { return endereco.indexOf(rota) === 0; })) {
       throw new Error("O endereço informado não pertence à rota disponível hoje.");
