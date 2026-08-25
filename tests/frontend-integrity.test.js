@@ -348,13 +348,14 @@ test("adicionais pagos ficam vinculados à tapioca e respeitam a categoria", () 
 
   assert.match(html, /id="listaAdicionais"/);
   assert.doesNotMatch(html, /id="inputDescAdicional"/);
-  assert.match(eliel, /const PRECO_ADICIONAL = 4/);
-  assert.match(eliel, /const adicionaisSalgados/);
-  assert.match(eliel, /const adicionaisDoces/);
+  assert.match(eliel, /let PRECO_ADICIONAL = 4/);
+  assert.match(eliel, /let adicionaisSalgados/);
+  assert.match(eliel, /let adicionaisDoces/);
   assert.match(eliel, /item\.precoBase \+ item\.adicionais\.length \* PRECO_ADICIONAL/);
   assert.match(html, /item\.adicionais\.map\(escaparHtml\)/);
   assert.match(backend, /adicionaisPermitidos/);
-  assert.match(backend, /precoBase \+ adicionais\.length \* 4/);
+  assert.match(backend, /precoBase \+ adicionais\.length \* valorAdicional/);
+  assert.match(eliel, /obterConfiguracaoOperacional/);
 });
 
 test("cardápio do cliente usa as rotas atualizadas e endereço completo obrigatório", () => {

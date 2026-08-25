@@ -300,7 +300,7 @@
     <script>
         const bdCatalogo = window.TapimovelCatalogoBase.criar();
 
-        const precosMonteSua = {
+        let precosMonteSua = {
             'Calabresa': { 'Catupiry (Orig.)': 14, 'Cheddar': 14, 'Cream Cheese': 14, 'Muçarela': 14, 'Queijo Branco': 14 },
             'Frango': { 'Catupiry (Orig.)': 14, 'Cheddar': 14, 'Cream Cheese': 14, 'Muçarela': 14, 'Queijo Branco': 14 },
             'Carne Seca': { 'Catupiry (Orig.)': 15, 'Cheddar': 15, 'Cream Cheese': 15, 'Muçarela': 15, 'Queijo Branco': 15 },
@@ -327,7 +327,7 @@
             }
         };
 
-        const rotasDaSemana = {
+        let rotasDaSemana = {
             1: ["RUA NOVA TUPAROQUERA", "RUA ARIBUGU", "RUA ROMÃO MANZINI CERQUEIRA", "RUA BAUCIS", "RUA PAULO LEMORE", "RUA PEDRO FLAMENCO"],
             2: ["JD SÃO FRANCISCO", "COND. PQ EUROPA"],
             3: ["JD LETICIA", "PQ STO ANTONIO", "CHACARA SANTANA"],
@@ -345,6 +345,8 @@
         let diaAtualInt = 0;
         let horaAtualInt = 0;
         let lojaAberta = false;
+        let minutoAtualInt = 0;
+        let configuracaoOperacional = null;
         let assinaturaSugestaoIgnorada = '';
         let envioEmAndamento = false;
         const parametrosTeste = new URLSearchParams(window.location.search);
@@ -363,6 +365,7 @@
             if (modoTeste) document.getElementById('modoTesteAviso').style.display = 'block';
             atualizarRelogioAtendimento(false);
             carregarConfiguracoesDia();
+            carregarConfiguracaoOperacional();
             abrirAvisoAtendimento();
             carregarDisponibilidadeCardapio();
             TapimovelCatalogo.carregar(bdCatalogo, function() {
@@ -379,6 +382,55 @@
             }, 60000);
         };
 
+        function configuracaoOperacionalPadraoCliente() {
+            return {
+              horarios: {
+                "1": { ativo: true, inicio: "18:00", fim: "22:00" }, "2": { ativo: true, inicio: "18:00", fim: "22:00" },
+                "3": { ativo: true, inicio: "18:00", fim: "22:00" }, "4": { ativo: true, inicio: "18:00", fim: "22:00" },
+                "5": { ativo: true, inicio: "18:00", fim: "22:00" }, "6": { ativo: false, inicio: "18:00", fim: "22:00" },
+                "7": { ativo: false, inicio: "18:00", fim: "22:00" }
+              },
+              rotas: Object.assign({ "6": [], "7": [] }, rotasDaSemana),
+              monteSua: { combinacoes: precosMonteSua },
+              adicionais: { valor: 4, salgado: [], doce: [] }
+            };
+        }
+
+        function chaveDiaOperacional(diaJs) { return String(diaJs === 0 ? 7 : diaJs); }
+        function regraOperacionalDoDia(diaJs) {
+            const config = configuracaoOperacional || configuracaoOperacionalPadraoCliente();
+            return config.horarios[chaveDiaOperacional(diaJs)] || { ativo: false, inicio: '00:00', fim: '00:00' };
+        }
+        function rotasOperacionaisDoDia(diaJs) {
+            const config = configuracaoOperacional || configuracaoOperacionalPadraoCliente();
+            return config.rotas[chaveDiaOperacional(diaJs)] || [];
+        }
+        function minutosHorario(valor) {
+            const partes = String(valor || '00:00').split(':').map(Number);
+            return (partes[0] || 0) * 60 + (partes[1] || 0);
+        }
+        function textoHorarioHoje() {
+            const regra = regraOperacionalDoDia(diaAtualInt);
+            return `${regra.inicio} às ${regra.fim}`;
+        }
+        function carregarConfiguracaoOperacional() {
+            google.script.run.withSuccessHandler(function(resposta) {
+                try {
+                  const recebida = JSON.parse(resposta || '{}');
+                  configuracaoOperacional = recebida;
+                  rotasDaSemana = {};
+                  for (let diaJs = 0; diaJs <= 6; diaJs++) rotasDaSemana[diaJs] = (recebida.rotas && recebida.rotas[chaveDiaOperacional(diaJs)]) || [];
+                  if (recebida.monteSua && recebida.monteSua.combinacoes) precosMonteSua = recebida.monteSua.combinacoes;
+                  atualizarRelogioAtendimento(false);
+                  carregarConfiguracoesDia();
+                  removerDoCarrinhoItensForaDoCatalogo();
+                  mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
+                } catch (erro) { console.error('Configuração operacional recebida em formato inválido:', erro); }
+            }).withFailureHandler(function(erro) {
+                console.error('Não foi possível carregar a configuração operacional:', erro);
+            }).obterConfiguracaoOperacional();
+        }
+
         function obterHorarioSaoPaulo(agora = new Date()) {
             if (modoTeste) {
                 const diaSimulado = Math.min(5, Math.max(1, Number(parametrosTeste.get('dia')) || 1));
@@ -389,27 +441,32 @@
                 timeZone: 'America/Sao_Paulo',
                 weekday: 'short',
                 hour: '2-digit',
+                minute: '2-digit',
                 hourCycle: 'h23'
             }).formatToParts(agora).reduce((obj, parte) => {
                 obj[parte.type] = parte.value;
                 return obj;
             }, {});
             const dias = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-            return { dia: dias[partes.weekday], hora: Number(partes.hour) };
+            return { dia: dias[partes.weekday], hora: Number(partes.hour), minuto: Number(partes.minute || 0) };
         }
 
         function atualizarRelogioAtendimento(recarregarTela = true) {
-            const anterior = `${diaAtualInt}-${horaAtualInt}-${lojaAberta}`;
+            const anterior = `${diaAtualInt}-${horaAtualInt}-${minutoAtualInt}-${lojaAberta}`;
             const horario = obterHorarioSaoPaulo();
             diaAtualInt = horario.dia;
             horaAtualInt = horario.hora;
-            lojaAberta = diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt >= 18 && horaAtualInt < 22;
+            minutoAtualInt = horario.minuto || 0;
+            const regra = regraOperacionalDoDia(diaAtualInt);
+            const agoraMinutos = horaAtualInt * 60 + minutoAtualInt;
+            lojaAberta = regra.ativo && agoraMinutos >= minutosHorario(regra.inicio) && agoraMinutos < minutosHorario(regra.fim);
             const logo = document.querySelector('.header-logo');
             if (logo) {
                 logo.classList.remove('status-aberta', 'status-encerrando', 'status-fechada');
-                logo.classList.add(!lojaAberta ? 'status-fechada' : (horaAtualInt === 21 ? 'status-encerrando' : 'status-aberta'));
+                const faltam = minutosHorario(regra.fim) - agoraMinutos;
+                logo.classList.add(!lojaAberta ? 'status-fechada' : (faltam <= 60 ? 'status-encerrando' : 'status-aberta'));
             }
-            const atual = `${diaAtualInt}-${horaAtualInt}-${lojaAberta}`;
+            const atual = `${diaAtualInt}-${horaAtualInt}-${minutoAtualInt}-${lojaAberta}`;
             if (recarregarTela && anterior !== atual) {
                 carregarConfiguracoesDia();
                 mudarAba(categoriaAtiva, document.querySelector(`.tab[data-categoria="${categoriaAtiva}"]`));
@@ -521,7 +578,7 @@
             let status = document.getElementById('menuStatus');
             let statusTitulo = document.getElementById('menuStatusTitulo');
             let statusTexto = document.getElementById('menuStatusTexto');
-            let rotasDeHoje = rotasDaSemana[diaAtualInt] || [];
+            let rotasDeHoje = rotasOperacionaisDoDia(diaAtualInt);
 
             inputLivre.style.display = 'none';
             selectRota.style.display = 'block';
@@ -535,7 +592,7 @@
                 });
                 status.classList.remove('fechado');
                 statusTitulo.textContent = 'Pedidos abertos';
-                statusTexto.textContent = 'Atendimento das 18h às 22h · ' + rotasDeHoje.join(' • ');
+                statusTexto.textContent = 'Atendimento das ' + textoHorarioHoje() + ' · ' + rotasDeHoje.join(' • ');
             } else {
                 lojaAberta = false;
                 selectRota.innerHTML = '<option value="">Cardápio fechado hoje</option>';
@@ -543,11 +600,11 @@
                 status.classList.add('fechado');
                 statusTitulo.textContent = 'Cardápio fechado';
                 if (diaAtualInt >= 1 && diaAtualInt <= 5 && horaAtualInt < 18) {
-                    statusTexto.textContent = 'O atendimento de hoje abre às 18h e encerra às 22h.';
+                    statusTexto.textContent = 'O atendimento de hoje funciona das ' + textoHorarioHoje() + '.';
                 } else if (diaAtualInt >= 1 && diaAtualInt <= 5) {
                     statusTexto.textContent = `O atendimento desta rota encerrou às 22h. Passaremos novamente na próxima ${nomesDias[diaAtualInt].toUpperCase()}.`;
                 } else {
-                    statusTexto.textContent = 'O cardápio digital funciona de segunda a sexta-feira, das 18h às 22h.';
+                    statusTexto.textContent = 'O cardápio digital está fechado neste momento. Consulte os horários e rotas disponíveis.';
                 }
             }
         }
@@ -614,7 +671,7 @@
             else if(cat === 'doces') grid.innerHTML = `<h3 class="sub-title">Tradicionais</h3>` + bdCatalogo.doces_tradicionais.map(gerarCard).join('') + `<h3 class="sub-title">Linha Avelã</h3>` + bdCatalogo.doces_avela.map(gerarCard).join('') + `<h3 class="sub-title">Linha Nutella</h3>` + bdCatalogo.doces_nutella.map(gerarCard).join('');
             else if(cat === 'bebidas') grid.innerHTML = bdCatalogo.bebidas.map(gerarCard).join('');
             else if(cat === 'monte') {
-                grid.innerHTML = `<h3 class="sub-title" style="text-align:center;">Passo 1: Escolha a Carne</h3>` + ['Calabresa', 'Frango', 'Carne Seca', 'Salame', 'Bacon', 'Peito de Peru'].map(c => `<article class="card" style="border: 1px dashed var(--primary);"><img class="card-image" src="./assets/menu/${imagensMonteSua.carnes[c]}" alt="Foto ilustrativa de ${c}" loading="lazy" decoding="async"><div class="card-body"><h3>${c}</h3><button type="button" class="btn-add" ${lojaAberta ? '' : 'disabled'} onclick="passo2Monte('${c}')">${lojaAberta ? 'Escolher' : 'Fechado hoje'}</button></div></article>`).join('');
+                grid.innerHTML = `<h3 class="sub-title" style="text-align:center;">Passo 1: Escolha a Carne</h3>` + Object.keys(precosMonteSua).map(c => { const img = imagensMonteSua.carnes[c] || 'tapioca-queijos.webp'; return `<article class="card" style="border: 1px dashed var(--primary);"><img class="card-image" src="./assets/menu/${img}" alt="Foto ilustrativa de ${escaparHtml(c)}" loading="lazy" decoding="async"><div class="card-body"><h3>${escaparHtml(c)}</h3><button type="button" class="btn-add" ${lojaAberta ? '' : 'disabled'} onclick='passo2Monte(${JSON.stringify(c)})'>${lojaAberta ? 'Escolher' : 'Fechado hoje'}</button></div></article>`; }).join('');
             }
         }
 
@@ -622,11 +679,11 @@
             baseSelecionadaMonte = carne;
             const grid = document.getElementById('gridProdutos');
             let html = `<h3 class="sub-title" style="text-align:center;">Passo 2: Qual queijo em ${carne}?</h3>`;
-            ['Catupiry (Orig.)', 'Cheddar', 'Cream Cheese', 'Muçarela', 'Queijo Branco'].forEach(q => {
+            Object.keys(precosMonteSua[carne] || {}).forEach(q => {
                 let pr = precosMonteSua[carne][q];
                 let pObj = { nome: `Monte Sua: ${carne} c/ ${q}`, preco: pr, tipo: 'tapioca', ing: `${carne} e ${q}` };
                 const nomeQueijo = q === 'Catupiry (Orig.)' ? 'Catupiry (Original)' : (q === 'Cheddar' ? 'Cheddar (Scala)' : q);
-                html += `<article class="card"><img class="card-image" src="./assets/menu/${imagensMonteSua.queijos[q]}" alt="Foto ilustrativa de ${nomeQueijo}" loading="lazy" decoding="async"><div class="card-body"><h3>${nomeQueijo}</h3><div class="card-footer"><p class="price">${formatar(pr)}</p><button type="button" class="btn-add" onclick='prepararItem(${jsonSeguroAtributo(pObj)})'>Adicionar</button></div></div></article>`;
+                html += `<article class="card"><img class="card-image" src="./assets/menu/${imagensMonteSua.queijos[q] || 'tapioca-queijos.webp'}" alt="Foto ilustrativa de ${nomeQueijo}" loading="lazy" decoding="async"><div class="card-body"><h3>${nomeQueijo}</h3><div class="card-footer"><p class="price">${formatar(pr)}</p><button type="button" class="btn-add" onclick='prepararItem(${jsonSeguroAtributo(pObj)})'>Adicionar</button></div></div></article>`;
             });
             html += `<button class="btn-large btn-close" style="grid-column: 1/-1;" onclick="mudarAba('monte', document.querySelectorAll('.tab')[3])">⬅️ Voltar para Carnes</button>`;
             grid.innerHTML = html;

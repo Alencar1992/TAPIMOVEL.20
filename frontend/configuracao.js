@@ -261,7 +261,18 @@
       .removerItemCatalogo(nome, responsavelAtual);
   }
 
+
+
+  function carregarModuloConfiguracaoOperacional() {
+    if (document.querySelector('script[data-tapimovel-config-operacional]')) return;
+    var script = document.createElement('script');
+    script.src = './config-operacional.js?v=20260825.1';
+    script.dataset.tapimovelConfigOperacional = '1';
+    document.head.appendChild(script);
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
+    carregarModuloConfiguracaoOperacional();
     TapimovelCatalogo.carregar(bdCatalogo, function () {
       if (typeof renderizarCatalogo === "function" && abaAtivaCatalogo) {
         renderizarCatalogo(abaAtivaCatalogo);
