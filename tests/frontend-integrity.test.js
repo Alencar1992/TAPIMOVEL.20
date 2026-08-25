@@ -398,7 +398,12 @@ test("cardápio informa horários, fim de semana, rotas e contato após as 22h",
 test("fluxo de pedidos online aguarda aceite, alerta o PDV e prepara WhatsApp", () => {
   const cliente = fs.readFileSync(path.join(root, "frontend/cliente.html"), "utf8");
   const pdv = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
-  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+  const appsScriptDir = path.join(root, "apps-script");
+const backend = fs.readdirSync(appsScriptDir)
+  .filter(nome => nome.endsWith(".gs"))
+  .sort()
+  .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+  .join("\n\n");
 
   assert.match(cliente, /id="cliTelefone"/);
   assert.match(cliente, /btnEnviarPedidoWhatsapp/);
