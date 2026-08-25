@@ -33,8 +33,17 @@ jobs:
       - name: Aplicar alterações P1
         run: python scripts/apply_p1_autonomia.py
 
-      - name: Testes automatizados
-        run: npm test
+      - name: Testes backend e segurança
+        run: node --test tests/backend-security.test.js
+
+      - name: Testes fechamento P0
+        run: node --test tests/fechamento-p0.test.js
+
+      - name: Testes frontend
+        run: node --test tests/frontend-integrity.test.js
+
+      - name: Testes autonomia operacional
+        run: node --test tests/autonomia-operacional.test.js
 
       - name: Sintaxe config operacional
         run: node --check frontend/config-operacional.js
