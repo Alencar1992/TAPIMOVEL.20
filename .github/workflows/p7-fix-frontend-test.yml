@@ -1,0 +1,56 @@
+name: P7 corrigir teste modular
+
+on:
+  push:
+    branches:
+      - agent/p7-pedido-service
+    paths:
+      - .github/workflows/p7-fix-frontend-test.yml
+
+permissions:
+  contents: write
+
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p7-pedido-service
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Adaptar teste ao backend modular
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/frontend-integrity.test.js')
+          s = p.read_text(encoding='utf-8')
+          old = '  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");'
+          new = '''  const appsScriptDir = path.join(root, "apps-script");
+  const backend = fs.readdirSync(appsScriptDir)
+    .filter(nome => nome.endsWith(".gs"))
+    .sort()
+    .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+    .join("\\n\\n");'''
+          if old not in s:
+              raise SystemExit('Trecho do teste não encontrado')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Executar CI completo
+        run: npm run ci
+
+      - name: Commitar correção validada
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/frontend-integrity.test.js
+          git commit -m 'P7: adaptar teste de adicionais ao backend modular'
+          git push origin HEAD:agent/p7-pedido-service
