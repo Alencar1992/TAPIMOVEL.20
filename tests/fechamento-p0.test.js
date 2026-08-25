@@ -186,11 +186,14 @@ function createContext(options = {}) {
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(
-    fs.readFileSync(path.join(__dirname, "../apps-script/Code.gs"), "utf8"),
-    context,
-    { filename: "Code.gs" }
-  );
+  const appsScriptDir = path.join(__dirname, "../apps-script");
+  const arquivosGs = fs.readdirSync(appsScriptDir)
+    .filter(nome => nome.endsWith(".gs"))
+    .sort();
+  const code = arquivosGs
+    .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+    .join("\n\n");
+  vm.runInContext(code, context, { filename: "AppsScript.bundle.gs" });
   context.obterRelatorioEliel = (month, year) => JSON.stringify(report(month, year));
   return { context, spreadsheet, properties };
 }

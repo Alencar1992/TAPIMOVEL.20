@@ -4,7 +4,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const code = fs.readFileSync(path.join(__dirname, "..", "apps-script", "Code.gs"), "utf8");
+const appsScriptDir = path.join(__dirname, "..", "apps-script");
+const codeGs = fs.readFileSync(path.join(appsScriptDir, "Code.gs"), "utf8");
+const sheetsRepository = fs.readFileSync(path.join(appsScriptDir, "SheetsRepository.gs"), "utf8");
+const propertiesRepository = fs.readFileSync(path.join(appsScriptDir, "PropertiesRepository.gs"), "utf8");
+const code = fs.readdirSync(appsScriptDir)
+  .filter(nome => nome.endsWith(".gs"))
+  .sort()
+  .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+  .join("\n\n");
 
 test("filas operacionais não são mais escritas no PropertiesService", () => {
   assert.doesNotMatch(code, /setProperty\(["']pdv_vendas_ativas["']/);
@@ -110,10 +118,11 @@ function criarAmbiente() {
     console: { info() {}, error() {} },
   };
 
-  const inicio = code.indexOf("// STORAGE RESILIENTE — FILAS NO GOOGLE SHEETS");
-  const fim = code.indexOf("// 2. SISTEMA DE NUVEM (BLINDADO COM LOCKSERVICE)");
-  assert.ok(inicio >= 0 && fim > inicio, "bloco de storage deve existir");
-  const bloco = code.slice(inicio, fim) + `\nthis.__storage = {
+  const inicio = codeGs.indexOf("// STORAGE RESILIENTE — FILAS NO GOOGLE SHEETS");
+  const fim = codeGs.indexOf("// 2. SISTEMA DE NUVEM (BLINDADO COM LOCKSERVICE)");
+  assert.ok(inicio >= 0 && fim > inicio, "constantes do storage devem existir");
+  const constantes = codeGs.slice(inicio, fim);
+  const bloco = constantes + "\n" + propertiesRepository + "\n" + sheetsRepository + `\nthis.__storage = {
     carregarFilaPdvAtivos_, substituirFilaPdvAtivos_,
     carregarFilaPedidosOnlinePendentes_, substituirFilaPedidosOnlinePendentes_
   };`;

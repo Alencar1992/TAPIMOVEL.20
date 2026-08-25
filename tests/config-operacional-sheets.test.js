@@ -3,7 +3,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const code = fs.readFileSync(path.join(__dirname, "../apps-script/Code.gs"), "utf8");
+const appsScriptDir = path.join(__dirname, "../apps-script");
+const code = fs.readdirSync(appsScriptDir)
+  .filter(nome => nome.endsWith(".gs"))
+  .sort()
+  .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+  .join("\n\n");
 
 test("configuração operacional usa tabelas estruturadas no Google Sheets", () => {
   assert.match(code, /ABA_CONFIG_HORARIOS_ = "Config_Horarios"/);
