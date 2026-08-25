@@ -46,7 +46,7 @@ test("bundle completo de Apps Script continua sintaticamente válido", () => {
   assert.doesNotThrow(() => new vm.Script(all, { filename: "AppsScript.bundle.gs" }));
 });
 
-test("contratos públicos críticos continuam no Code.gs", () => {
+test("contratos públicos críticos continuam no bundle modular", () => {
   for (const assinatura of [
     /function loginAdministrador\(pin\)/,
     /function obterConfiguracaoOperacional\(\)/,
@@ -54,5 +54,5 @@ test("contratos públicos críticos continuam no Code.gs", () => {
     /function carregarDadosNuvem\(\)/,
     /function salvarNuvemCompleta\(historicoJSON\)/,
     /function listarPedidosOnlinePendentes\(\)/
-  ]) assert.match(code, assinatura);
+  ]) assert.match(all, assinatura);
 });
