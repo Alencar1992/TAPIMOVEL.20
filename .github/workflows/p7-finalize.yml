@@ -1,0 +1,71 @@
+name: P7 finalizar correção
+
+on:
+  push:
+    branches:
+      - agent/p7-pedido-service
+    paths:
+      - .github/workflows/p7-finalize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p7-pedido-service
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Atualizar teste para backend modular
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tests/frontend-integrity.test.js')
+          texto = p.read_text(encoding='utf-8')
+          antigo = '  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");'
+          novo = '''  const appsScriptDir = path.join(root, "apps-script");
+          const backend = fs.readdirSync(appsScriptDir)
+            .filter(nome => nome.endsWith(".gs"))
+            .sort()
+            .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+            .join("\\n\\n");'''
+
+          if antigo not in texto:
+              raise SystemExit('Trecho antigo do teste não encontrado; abortando sem alterar nada.')
+
+          p.write_text(texto.replace(antigo, novo, 1), encoding='utf-8')
+          PY
+
+      - name: Executar CI completo
+        run: npm run ci
+
+      - name: Limpar arquivos temporários do diagnóstico
+        shell: bash
+        run: |
+          rm -f .github/workflows/p7-pedido-service-apply.yml
+          rm -f .github/workflows/p7-ci-diagnostico.yml
+          rm -f .github/workflows/p7-fix-frontend-test.yml
+          rm -f .github/workflows/p7-finalize.yml
+          rm -f scripts/apply_p7_pedido_service.py
+          rm -f docs/P7_CI_DIAGNOSTICO.txt
+
+      - name: Commitar correção final do P7
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P7: corrigir teste modular e limpar diagnóstico'
+          git push origin HEAD:agent/p7-pedido-service
