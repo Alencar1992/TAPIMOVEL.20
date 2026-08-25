@@ -1,0 +1,64 @@
+name: P6 modularização API/Auth
+
+on:
+  push:
+    branches:
+      - agent/p6-api-auth-modularizacao
+    paths:
+      - scripts/apply_p6_api_auth.py
+      - .github/workflows/p6-api-auth-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p6-api-auth-modularizacao
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Aplicar P6
+        run: python scripts/apply_p6_api_auth.py
+
+      - name: Executar CI completo
+        run: npm run ci
+
+      - name: Validar módulos do P6
+        run: |
+          test -f apps-script/Api.gs
+          test -f apps-script/AuthService.gs
+          grep -q 'function doGet(e)' apps-script/Api.gs
+          grep -q 'function doPost(e)' apps-script/Api.gs
+          grep -q 'function executarAcaoApi_' apps-script/Api.gs
+          grep -q 'function loginAdministrador(pin)' apps-script/AuthService.gs
+          grep -q 'function validarSessaoAcesso(token)' apps-script/AuthService.gs
+          ! grep -q 'function doGet(e)' apps-script/Code.gs
+          ! grep -q 'function loginAdministrador(pin)' apps-script/Code.gs
+
+      - name: Remover aplicador temporário
+        run: |
+          rm scripts/apply_p6_api_auth.py
+          rm .github/workflows/p6-api-auth-apply.yml
+
+      - name: Commitar produto final
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P6: modularizar API e autenticação'
+          git push origin HEAD:agent/p6-api-auth-modularizacao
