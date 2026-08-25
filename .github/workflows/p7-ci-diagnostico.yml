@@ -1,0 +1,42 @@
+name: P7 diagnóstico CI
+
+on:
+  push:
+    branches:
+      - agent/p7-pedido-service
+    paths:
+      - .github/workflows/p7-ci-diagnostico.yml
+
+permissions:
+  contents: write
+
+jobs:
+  diagnosticar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p7-pedido-service
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Capturar saída do CI
+        shell: bash
+        run: |
+          set +e
+          npm run ci > p7-ci-output.txt 2>&1
+          STATUS=$?
+          cat p7-ci-output.txt
+          cp p7-ci-output.txt docs/P7_CI_DIAGNOSTICO.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/P7_CI_DIAGNOSTICO.txt
+          git commit -m 'P7: registrar diagnóstico do CI' || true
+          git push origin HEAD:agent/p7-pedido-service
+          exit $STATUS
