@@ -1,0 +1,82 @@
+name: Deploy Apps Script - produção
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmacao:
+        description: Digite PUBLICAR para confirmar produção
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-apps-script-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: apps-script-production
+    steps:
+      - name: Confirmar operação
+        shell: bash
+        env:
+          CONFIRMACAO: ${{ inputs.confirmacao }}
+        run: test "$CONFIRMACAO" = "PUBLICAR"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar main atual
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar código
+        run: |
+          npm run ci
+          npm run deploy:validate
+
+      - name: Preparar clasp
+        shell: bash
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          npx -y @google/clasp@3.3.0 --version
+
+      - name: Validar deployment de produção
+        shell: bash
+        env:
+          DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: |
+          test -n "$DEPLOYMENT_ID"
+          npx -y @google/clasp@3.3.0 list-deployments | tee /tmp/deployments.txt
+          grep -Fq "$DEPLOYMENT_ID" /tmp/deployments.txt
+
+      - name: Publicar código
+        run: |
+          npx -y @google/clasp@3.3.0 show-file-status
+          npx -y @google/clasp@3.3.0 push --force
+
+      - name: Atualizar deployment existente
+        shell: bash
+        env:
+          DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: |
+          npx -y @google/clasp@3.3.0 update-deployment "$DEPLOYMENT_ID" --description "GitHub ${GITHUB_SHA:0:12}"
+          npx -y @google/clasp@3.3.0 list-deployments | grep -F "$DEPLOYMENT_ID"
