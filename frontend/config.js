@@ -3,7 +3,7 @@ window.TAPIMOVEL_CONFIG = {
 };
 
 (function carregarControleFechamentoEliel() {
-  const versao = "20260826.2";
+  const versao = "20260826.3";
 
   const css = document.createElement("link");
   css.rel = "stylesheet";
