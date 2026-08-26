@@ -54,3 +54,10 @@ test('workflow de produção é manual, revalida CI e atualiza somente deploymen
   assert.match(workflow, /CLASPRC_JSON/);
   assert.doesNotMatch(workflow, /create-deployment/);
 });
+
+test('input PUBLICAR não é interpolado diretamente no shell', () => {
+  const workflow = read('.github/workflows/deploy-apps-script.yml');
+  assert.match(workflow, /CONFIRMACAO: \$\{\{ inputs\.confirmacao \}\}/);
+  assert.match(workflow, /test "\$CONFIRMACAO" = "PUBLICAR"/);
+  assert.doesNotMatch(workflow, /run:\s*test "\$\{\{ inputs\.confirmacao \}\}" = "PUBLICAR"/);
+});
