@@ -22,7 +22,10 @@ jobs:
     environment: apps-script-production
     steps:
       - name: Confirmar operação
-        run: test "${{ inputs.confirmacao }}" = "PUBLICAR"
+        shell: bash
+        env:
+          CONFIRMACAO: ${{ inputs.confirmacao }}
+        run: test "$CONFIRMACAO" = "PUBLICAR"
 
       - name: Checkout
         uses: actions/checkout@v4
