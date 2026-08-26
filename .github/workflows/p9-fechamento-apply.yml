@@ -1,0 +1,49 @@
+name: P9 aplicar FechamentoService
+
+on:
+  push:
+    branches:
+      - agent/p9-fechamento-service
+    paths:
+      - .github/workflows/p9-fechamento-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p9-fechamento-service
+          fetch-depth: 0
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Aplicar P9
+        run: python scripts/apply_p9_fechamento_service.py
+
+      - name: Validar CI completo
+        run: npm run ci
+
+      - name: Validar preflight de deploy
+        run: npm run deploy:validate
+
+      - name: Remover automação temporária
+        run: |
+          rm -f scripts/apply_p9_fechamento_service.py
+          rm -f .github/workflows/p9-fechamento-apply.yml
+
+      - name: Commitar resultado final
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P9: modularizar serviço de fechamento mensal'
+          git push origin HEAD:agent/p9-fechamento-service
