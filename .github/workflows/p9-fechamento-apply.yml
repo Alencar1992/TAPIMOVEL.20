@@ -29,6 +29,9 @@ jobs:
       - name: Aplicar P9
         run: python scripts/apply_p9_fechamento_service.py
 
+      - name: Ajustar testes para o bundle modular
+        run: python scripts/fix_p9_tests.py
+
       - name: Validar CI completo
         run: npm run ci
 
@@ -38,6 +41,7 @@ jobs:
       - name: Remover automação temporária
         run: |
           rm -f scripts/apply_p9_fechamento_service.py
+          rm -f scripts/fix_p9_tests.py
           rm -f .github/workflows/p9-fechamento-apply.yml
 
       - name: Commitar resultado final
