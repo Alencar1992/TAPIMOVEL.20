@@ -3,6 +3,11 @@
 
     let ultimoEstado = null;
     let observadorConteudo = null;
+    let sequenciaConsulta = 0;
+    let periodoRelatorioCarregado = null;
+    let periodoRelatorioPendente = null;
+    let carregamentoRelatorioEmCurso = null;
+    let carregarRelatorioOriginal = null;
 
     function ehAcessoEliel() {
         return new URLSearchParams(window.location.search).get("acesso") === "eliel";
@@ -13,8 +18,17 @@
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
+            .replace(/\"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+    function chaveSelecionada() {
+        const campoMes = document.getElementById("elielMes");
+        const campoAno = document.getElementById("elielAno");
+        const mes = Number(campoMes && campoMes.value);
+        const ano = Number(campoAno && campoAno.value);
+        if (!mes || !ano) return "";
+        return String(ano) + "-" + String(mes).padStart(2, "0");
     }
 
     function catalogoCompletoControle() {
@@ -100,8 +114,35 @@
         badge.className = "eliel-fechamento-badge" + (classe ? " " + classe : "");
     }
 
-    function renderizarEstado(status) {
-        ultimoEstado = status || {};
+    function marcarSincronizacao(chave, mensagem) {
+        ultimoEstado = null;
+        sequenciaConsulta++;
+        definirBadge("SINCRONIZANDO", "");
+        const periodo = document.getElementById("elielFechamentoPeriodo");
+        const status = document.getElementById("elielFechamentoStatus");
+        const pendentes = document.getElementById("elielFechamentoPendentes");
+        const operacao = document.getElementById("elielFechamentoOperacao");
+        const aviso = document.getElementById("elielFechamentoMensagem");
+        const botao = document.getElementById("btnFecharMesElielPrincipal");
+        if (periodo) periodo.textContent = chave || "-";
+        if (status) status.textContent = "Atualizando relatório...";
+        if (pendentes) pendentes.textContent = "-";
+        if (operacao) operacao.textContent = "-";
+        if (aviso) aviso.textContent = mensagem || "Aguarde o relatório do período selecionado terminar de carregar antes de fechar o mês.";
+        if (botao) {
+            botao.disabled = true;
+            botao.textContent = "Aguardando relatório";
+        }
+    }
+
+    function renderizarEstado(status, chaveEsperada) {
+        const recebido = status || {};
+        const chaveEstado = String(recebido.chave || chaveEsperada || "");
+        if (!chaveEsperada || chaveEstado !== chaveEsperada || chaveSelecionada() !== chaveEsperada || periodoRelatorioCarregado !== chaveEsperada) {
+            return false;
+        }
+
+        ultimoEstado = Object.assign({}, recebido, { chave: chaveEstado });
         const pendentes = Number(ultimoEstado.pedidosPendentes || 0);
         const duplicado = ultimoEstado.duplicado === true;
         const recuperavel = ultimoEstado.recuperavel === true;
@@ -132,33 +173,47 @@
         }
 
         if (botao) {
-            botao.disabled = duplicado || pendentes > 0;
+            const periodoSincronizado = periodoRelatorioCarregado === chaveEsperada && chaveSelecionada() === chaveEsperada;
+            botao.disabled = duplicado || pendentes > 0 || !periodoSincronizado;
             botao.textContent = duplicado
                 ? "Mês já fechado"
                 : recuperavel ? "Revisar e recuperar fechamento" : "Revisar e fechar mês";
         }
+        return true;
     }
 
     function atualizarControleFechamentoEliel() {
-        const mes = Number(document.getElementById("elielMes") && document.getElementById("elielMes").value);
-        const ano = Number(document.getElementById("elielAno") && document.getElementById("elielAno").value);
-        if (!mes || !ano || !window.google || !google.script || !google.script.run) return;
+        const campoMes = document.getElementById("elielMes");
+        const campoAno = document.getElementById("elielAno");
+        const mes = Number(campoMes && campoMes.value);
+        const ano = Number(campoAno && campoAno.value);
+        const chave = chaveSelecionada();
+        if (!mes || !ano || !chave || !window.google || !google.script || !google.script.run) return;
 
+        if (periodoRelatorioCarregado !== chave) {
+            marcarSincronizacao(chave);
+            return;
+        }
+
+        const idConsulta = ++sequenciaConsulta;
         definirBadge("CONSULTANDO", "");
-        document.getElementById("elielFechamentoPeriodo").textContent = String(ano) + "-" + String(mes).padStart(2, "0");
+        document.getElementById("elielFechamentoPeriodo").textContent = chave;
         document.getElementById("elielFechamentoStatus").textContent = "Consultando estado...";
 
         google.script.run
             .withSuccessHandler(function (resposta) {
+                if (idConsulta !== sequenciaConsulta || chaveSelecionada() !== chave || periodoRelatorioCarregado !== chave) return;
                 try {
-                    renderizarEstado(JSON.parse(resposta || "{}"));
+                    renderizarEstado(JSON.parse(resposta || "{}"), chave);
                 } catch (erro) {
+                    if (idConsulta !== sequenciaConsulta) return;
                     definirBadge("ERRO", "bloqueado");
                     document.getElementById("elielFechamentoStatus").textContent = "Resposta inválida";
                     document.getElementById("elielFechamentoMensagem").innerHTML = escapar(erro.message);
                 }
             })
             .withFailureHandler(function (erro) {
+                if (idConsulta !== sequenciaConsulta || chaveSelecionada() !== chave || periodoRelatorioCarregado !== chave) return;
                 definirBadge("ERRO", "bloqueado");
                 document.getElementById("elielFechamentoStatus").textContent = "Falha na consulta";
                 document.getElementById("elielFechamentoMensagem").textContent =
@@ -176,10 +231,72 @@
             window.location.assign("./index.html?acesso=eliel");
             return;
         }
-        if (ultimoEstado && (ultimoEstado.duplicado || Number(ultimoEstado.pedidosPendentes || 0) > 0)) return;
+
+        const chave = chaveSelecionada();
+        const estadoSincronizado = ultimoEstado && String(ultimoEstado.chave || "") === chave;
+        if (!chave || periodoRelatorioCarregado !== chave || !estadoSincronizado) {
+            periodoRelatorioPendente = chave;
+            marcarSincronizacao(chave, "O período selecionado ainda não está sincronizado com o relatório. O sistema vai recarregar os dados antes de liberar o fechamento.");
+            if (typeof window.carregarRelatorioEliel === "function") window.carregarRelatorioEliel();
+            return;
+        }
+
+        if (ultimoEstado.duplicado || Number(ultimoEstado.pedidosPendentes || 0) > 0) return;
         if (typeof window.abrirFechamentoMesEliel === "function") {
             window.abrirFechamentoMesEliel();
         }
+    }
+
+    function instalarSincronizacaoRelatorio() {
+        if (typeof window.carregarRelatorioEliel !== "function") return false;
+        if (window.carregarRelatorioEliel.__fechamentoSincronizado) return true;
+
+        carregarRelatorioOriginal = window.carregarRelatorioEliel;
+        const carregarRelatorioSincronizado = function () {
+            const chave = chaveSelecionada();
+            if (!chave) return carregarRelatorioOriginal.apply(this, arguments);
+
+            if (carregamentoRelatorioEmCurso) {
+                periodoRelatorioPendente = chave;
+                marcarSincronizacao(chave, "Há uma atualização em andamento. O período mais recente será carregado em seguida.");
+                return;
+            }
+
+            carregamentoRelatorioEmCurso = { chave: chave };
+            periodoRelatorioPendente = null;
+            periodoRelatorioCarregado = null;
+            marcarSincronizacao(chave);
+            return carregarRelatorioOriginal.apply(this, arguments);
+        };
+        carregarRelatorioSincronizado.__fechamentoSincronizado = true;
+        window.carregarRelatorioEliel = carregarRelatorioSincronizado;
+        return true;
+    }
+
+    function concluirCarregamentoRelatorio() {
+        const chaveAtual = chaveSelecionada();
+        if (carregamentoRelatorioEmCurso) {
+            const chaveConcluida = carregamentoRelatorioEmCurso.chave;
+            carregamentoRelatorioEmCurso = null;
+            const proxima = periodoRelatorioPendente;
+            periodoRelatorioPendente = null;
+
+            if ((proxima && proxima !== chaveConcluida) || chaveAtual !== chaveConcluida) {
+                const chaveDesejada = proxima || chaveAtual;
+                marcarSincronizacao(chaveDesejada, "O período mudou durante a atualização. Carregando agora a seleção mais recente.");
+                window.setTimeout(function () {
+                    if (typeof window.carregarRelatorioEliel === "function") window.carregarRelatorioEliel();
+                }, 0);
+                return;
+            }
+
+            periodoRelatorioCarregado = chaveConcluida;
+            atualizarControleFechamentoEliel();
+            return;
+        }
+
+        if (!periodoRelatorioCarregado && chaveAtual) periodoRelatorioCarregado = chaveAtual;
+        atualizarControleFechamentoEliel();
     }
 
     function observarPeriodo() {
@@ -188,22 +305,28 @@
             if (!campo || campo.dataset.fechamentoListener === "1") return;
             campo.dataset.fechamentoListener = "1";
             campo.addEventListener("change", function () {
-                window.setTimeout(atualizarControleFechamentoEliel, 50);
+                const chave = chaveSelecionada();
+                periodoRelatorioPendente = chave;
+                marcarSincronizacao(chave, "Atualizando o Relatório Eliel para o período selecionado antes de liberar o fechamento.");
+                window.setTimeout(function () {
+                    if (typeof window.carregarRelatorioEliel === "function") window.carregarRelatorioEliel();
+                }, 50);
             });
         });
     }
 
     function iniciar() {
+        instalarSincronizacaoRelatorio();
         if (!criarPainel()) return;
         const conteudo = document.getElementById("elielConteudo");
         if (conteudo && !observadorConteudo) {
             observadorConteudo = new MutationObserver(function () {
                 aplicarPerfilVisual();
-                if (!conteudo.hidden) window.setTimeout(atualizarControleFechamentoEliel, 80);
+                if (!conteudo.hidden) window.setTimeout(concluirCarregamentoRelatorio, 80);
             });
             observadorConteudo.observe(conteudo, { attributes: true, attributeFilter: ["hidden"] });
         }
-        if (conteudo && !conteudo.hidden) atualizarControleFechamentoEliel();
+        if (conteudo && !conteudo.hidden) concluirCarregamentoRelatorio();
     }
 
     if (document.readyState === "loading") {
