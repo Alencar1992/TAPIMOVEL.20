@@ -21,6 +21,7 @@ test('P8 valida todos os módulos críticos antes de qualquer publicação', () 
     'FechamentoService.gs',
     'PedidoService.gs',
     'PropertiesRepository.gs',
+    'RelatorioElielService.gs',
     'SecurityUtils.gs',
     'SheetsRepository.gs'
   ]) {
