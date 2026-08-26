@@ -14,6 +14,7 @@ const REQUIRED_MODULES = [
   'FechamentoService.gs',
   'PedidoService.gs',
   'PropertiesRepository.gs',
+  'RelatorioElielService.gs',
   'SecurityUtils.gs',
   'SheetsRepository.gs'
 ];
@@ -91,6 +92,11 @@ const requiredContracts = [
   'function registrarPedidoPdv',
   'function obterPreviaFechamentoRelatorioEliel',
   'function fecharMesRelatorioEliel',
+  'function obterRelatorioEliel',
+  'function registrarAcessoRelatorioEliel',
+  'function obterConfiguracoesRelatorioEliel',
+  'function salvarConfiguracoesRelatorioEliel',
+  'function obterHistoricoVendasEliel',
   'function carregarFilaPdvAtivos_',
   'function carregarFilaPedidosOnlinePendentes_'
 ];
