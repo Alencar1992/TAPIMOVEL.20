@@ -65,6 +65,15 @@ function loginAcesso(pin, perfilSolicitado) {
   }
 
   cache.remove(CHAVE_TENTATIVAS_LOGIN_);
+
+  if (perfil === "admin" && typeof garantirTriggerFechamentoDiarioAutomatico_ === "function") {
+    try {
+      garantirTriggerFechamentoDiarioAutomatico_();
+    } catch (erroTrigger) {
+      console.error("Não foi possível garantir o trigger de fechamento diário automático:", erroTrigger);
+    }
+  }
+
   return criarSessaoAcesso_(
     perfil,
     perfil === "eliel" ? NOME_PERFIL_ELIEL_ : "Administrador"
