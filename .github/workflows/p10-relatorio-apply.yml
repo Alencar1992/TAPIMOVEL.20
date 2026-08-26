@@ -1,0 +1,49 @@
+name: P10 aplicar RelatorioElielService
+
+on:
+  push:
+    branches:
+      - agent/p10-relatorio-eliel-service
+    paths:
+      - .github/workflows/p10-relatorio-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p10-relatorio-eliel-service
+          fetch-depth: 0
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Aplicar P10
+        run: python scripts/apply_p10_relatorio_eliel_service.py
+
+      - name: Validar CI completo
+        run: npm run ci
+
+      - name: Validar preflight de deploy
+        run: npm run deploy:validate
+
+      - name: Remover automação temporária
+        run: |
+          rm -f scripts/apply_p10_relatorio_eliel_service.py
+          rm -f .github/workflows/p10-relatorio-apply.yml
+
+      - name: Commitar resultado final
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'P10: modularizar Relatório Eliel'
+          git push origin HEAD:agent/p10-relatorio-eliel-service
