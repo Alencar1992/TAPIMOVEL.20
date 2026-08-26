@@ -11,6 +11,7 @@ const REQUIRED_MODULES = [
   'Api.gs',
   'AuthService.gs',
   'Code.gs',
+  'FechamentoService.gs',
   'PedidoService.gs',
   'PropertiesRepository.gs',
   'SecurityUtils.gs',
@@ -88,6 +89,8 @@ const requiredContracts = [
   'function registrarPedidoOnline',
   'function aceitarPedidoOnline',
   'function registrarPedidoPdv',
+  'function obterPreviaFechamentoRelatorioEliel',
+  'function fecharMesRelatorioEliel',
   'function carregarFilaPdvAtivos_',
   'function carregarFilaPedidosOnlinePendentes_'
 ];

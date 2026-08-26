@@ -279,7 +279,12 @@ test("Relatório Eliel premium mantém indicadores interativos e gráficos respo
 test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () => {
   const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const eliel = fs.readFileSync(path.join(root, "frontend/eliel.js"), "utf8");
-  const backend = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+  const appsScriptDir = path.join(root, "apps-script");
+  const backend = fs.readdirSync(appsScriptDir)
+    .filter(nome => nome.endsWith(".gs"))
+    .sort()
+    .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+    .join("\n\n");
 
   assert.match(html, /Prévia do fechamento mensal/);
   assert.match(html, /Confirmar fechamento/);
