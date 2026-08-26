@@ -15,3 +15,11 @@ window.TAPIMOVEL_CONFIG = {
   script.async = false;
   document.head.appendChild(script);
 })();
+
+(function carregarFechamentoDiarioSeguro() {
+  const versao = "20260826.1";
+  const script = document.createElement("script");
+  script.src = "./fechamento-diario-seguro.js?v=" + versao;
+  script.async = false;
+  document.head.appendChild(script);
+})();
