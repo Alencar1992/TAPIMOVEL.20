@@ -10,7 +10,7 @@ test('P10.1 carrega módulo próprio de controle do fechamento', () => {
   const config = read('frontend/config.js');
   assert.match(config, /fechamento-eliel-ui\.css\?v=/);
   assert.match(config, /fechamento-eliel-ui\.js\?v=/);
-  assert.match(config, /20260826\.1/);
+  assert.match(config, /20260826\.2/);
 });
 
 test('painel mostra período, status, pendências e operação do mês', () => {
