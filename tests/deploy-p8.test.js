@@ -18,6 +18,7 @@ test('P8 valida todos os módulos críticos antes de qualquer publicação', () 
     'Api.gs',
     'AuthService.gs',
     'Code.gs',
+    'FechamentoDiarioService.gs',
     'FechamentoService.gs',
     'PedidoService.gs',
     'PropertiesRepository.gs',
