@@ -5,7 +5,12 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 
 test("P1 centraliza rotas, horários, Monte Sua e adicionais no backend", () => {
-  const code = fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8");
+  const appsScriptDir = path.join(root, "apps-script");
+  const code = fs.readdirSync(appsScriptDir)
+    .filter(nome => nome.endsWith(".gs"))
+    .sort()
+    .map(nome => fs.readFileSync(path.join(appsScriptDir, nome), "utf8"))
+    .join("\n\n");
   assert.match(code, /CHAVE_CONFIG_OPERACIONAL_/);
   assert.match(code, /function obterConfiguracaoOperacional\(/);
   assert.match(code, /function salvarConfiguracaoOperacional\(/);
