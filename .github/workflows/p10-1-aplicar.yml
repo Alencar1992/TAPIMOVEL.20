@@ -1,0 +1,46 @@
+name: P10.1 aplicar controle fechamento Eliel
+
+on:
+  push:
+    branches:
+      - agent/p10-1-controle-fechamento-eliel
+    paths:
+      - scripts/apply-p10-1.js
+      - .github/workflows/p10-1-aplicar.yml
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Aplicar P10.1
+        run: node scripts/apply-p10-1.js
+
+      - name: Validar código
+        run: |
+          npm run ci
+          npm run deploy:validate
+
+      - name: Gravar resultado final
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html frontend/eliel.js frontend/eliel.css tests/fechamento-eliel-ui.test.js docs/P10_1_CONTROLE_FECHAMENTO_ELIEL.md
+          git rm scripts/apply-p10-1.js .github/workflows/p10-1-aplicar.yml
+          git commit -m "P10.1: adicionar controle de fechamento ao Relatório Eliel"
+          git push origin HEAD:agent/p10-1-controle-fechamento-eliel
