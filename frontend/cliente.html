@@ -906,11 +906,6 @@
                     timestampCriacao: new Date().getTime()
                 };
 
-            if (novoPedido.itens.length > 0) {
-                let obsAntiga = novoPedido.itens[0].obs || "";
-                novoPedido.itens[0].obs = `🟢 CLI: ${nome} | 📍 ${rotaFinal} | 💳 ${pagamentoFinal} ${obsAntiga ? ' | OBS: ' + obsAntiga : ''}`;
-            }
-
             if (modoTeste) {
                 setTimeout(function() {
                     envioEmAndamento = false;
