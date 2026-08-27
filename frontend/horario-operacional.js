@@ -7,6 +7,7 @@
 
     var prepararOriginal = typeof window.prepararItem === "function" ? window.prepararItem : null;
     var validarOriginal = typeof window.validarPedido === "function" ? window.validarPedido : null;
+    var carregarConfigOriginal = typeof window.carregarConfiguracaoOperacional === "function" ? window.carregarConfiguracaoOperacional : null;
     var avisoTimer = null;
     var ultimaLeitura = 0;
 
@@ -57,6 +58,20 @@
         return;
       }
       logo.classList.add((e.fimMin - e.agora) <= 60 ? "status-encerrando" : "status-aberta");
+    }
+
+    function reconciliarAviso_() {
+      var modal = document.getElementById("modalStatusAtendimento");
+      if (!modal) return;
+      var e = estado_();
+      if (!e.carregado) return;
+      if (e.aberto) {
+        modal.style.display = "none";
+        return;
+      }
+      if (modal.style.display === "flex") {
+        window.abrirAvisoAtendimento();
+      }
     }
 
     window.atualizarRelogioAtendimento = function (recarregar) {
@@ -167,6 +182,15 @@
         window.atualizarRelogioAtendimento(false);
         if (!lojaAberta) return mostrarAlerta(mensagem_(estado_()));
         return validarOriginal.apply(this, arguments);
+      };
+    }
+
+    if (carregarConfigOriginal) {
+      window.carregarConfiguracaoOperacional = function () {
+        var retorno = carregarConfigOriginal.apply(this, arguments);
+        setTimeout(reconciliarAviso_, 300);
+        setTimeout(reconciliarAviso_, 1200);
+        return retorno;
       };
     }
 
