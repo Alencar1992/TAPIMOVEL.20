@@ -20,6 +20,22 @@ test("configuração operacional usa tabelas estruturadas no Google Sheets", () 
   assert.match(code, /CacheService\.getScriptCache\(\)/);
 });
 
+test("horários persistidos usam valor exibido HH:mm e não fallback silencioso", () => {
+  assert.match(code, /function linhasAbaConfigOperacionalExibidas_\(/);
+  assert.match(code, /getDisplayValues\(\)/);
+  assert.match(code, /function horarioConfiguracaoSheets_\(valor\)/);
+  assert.match(code, /horarioConfiguracaoSheets_\(linha\[2\]\)/);
+  assert.match(code, /horarioConfiguracaoSheets_\(linha\[3\]\)/);
+  assert.doesNotMatch(code, /String\(linha\[2\] \|\| config\.horarios\[dia\]\.inicio\)/);
+  assert.doesNotMatch(code, /String\(linha\[3\] \|\| config\.horarios\[dia\]\.fim\)/);
+});
+
+test("Config_Horarios existente precisa conter os sete dias válidos", () => {
+  assert.match(code, /const diasHorarioLidos = \{\}/);
+  assert.match(code, /Config_Horarios inválida no dia ISO/);
+  assert.match(code, /Config_Horarios incompleta: falta o dia ISO/);
+});
+
 test("PropertiesService fica somente como fonte legada de migração", () => {
   assert.doesNotMatch(code, /setProperty\(CHAVE_CONFIG_OPERACIONAL_/);
   assert.match(code, /getProperty\(CHAVE_CONFIG_OPERACIONAL_\)/);

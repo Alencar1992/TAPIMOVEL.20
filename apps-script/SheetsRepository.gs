@@ -23,6 +23,12 @@ function linhasAbaConfigOperacional_(aba, colunas) {
   return aba.getRange(2, 1, ultimaLinha - 1, colunas).getValues();
 }
 
+function linhasAbaConfigOperacionalExibidas_(aba, colunas) {
+  const ultimaLinha = aba.getLastRow();
+  if (ultimaLinha <= 1) return [];
+  return aba.getRange(2, 1, ultimaLinha - 1, colunas).getDisplayValues();
+}
+
 function reescreverAbaConfigOperacional_(nomeAba, cabecalho, linhas) {
   const aba = obterOuCriarAbaConfigOperacional_(nomeAba, cabecalho);
   const ultimaLinha = aba.getLastRow();
@@ -38,6 +44,13 @@ function booleanoConfiguracaoSheets_(valor) {
   if (valor === true) return true;
   const texto = String(valor == null ? "" : valor).trim().toLowerCase();
   return texto === "true" || texto === "verdadeiro" || texto === "sim" || texto === "1";
+}
+
+function horarioConfiguracaoSheets_(valor) {
+  const texto = String(valor == null ? "" : valor).trim();
+  const correspondencia = texto.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!correspondencia) return "";
+  return String(correspondencia[1]).padStart(2, "0") + ":" + correspondencia[2];
 }
 
 function lerConfiguracaoOperacionalSheets_() {
@@ -56,15 +69,38 @@ function lerConfiguracaoOperacionalSheets_() {
   config.adicionais.salgado = [];
   config.adicionais.doce = [];
 
-  linhasAbaConfigOperacional_(horariosAba, 4).forEach(function(linha) {
+  const diasHorarioLidos = {};
+  linhasAbaConfigOperacionalExibidas_(horariosAba, 4).forEach(function(linha) {
     const dia = String(Number(linha[0]));
     if (!/^[1-7]$/.test(dia)) return;
+
+    const inicio = horarioConfiguracaoSheets_(linha[2]);
+    const fim = horarioConfiguracaoSheets_(linha[3]);
+    if (!horarioOperacionalValido_(inicio) ||
+        !horarioOperacionalValido_(fim) ||
+        inicio >= fim) {
+      throw new Error(
+        "Config_Horarios inválida no dia ISO " + dia +
+        ". Corrija Início e Fim na configuração operacional."
+      );
+    }
+
     config.horarios[dia] = {
       ativo: booleanoConfiguracaoSheets_(linha[1]),
-      inicio: String(linha[2] || config.horarios[dia].inicio),
-      fim: String(linha[3] || config.horarios[dia].fim)
+      inicio: inicio,
+      fim: fim
     };
+    diasHorarioLidos[dia] = true;
   });
+
+  for (let dia = 1; dia <= 7; dia++) {
+    if (!diasHorarioLidos[String(dia)]) {
+      throw new Error(
+        "Config_Horarios incompleta: falta o dia ISO " + dia +
+        ". Salve novamente a configuração operacional."
+      );
+    }
+  }
 
   linhasAbaConfigOperacional_(rotasAba, 3)
     .sort(function(a, b) { return Number(a[1] || 0) - Number(b[1] || 0); })
