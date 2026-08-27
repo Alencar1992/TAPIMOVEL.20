@@ -70,7 +70,7 @@ function loginAcesso(pin, perfilSolicitado) {
     try {
       garantirTriggerFechamentoDiarioAutomatico_();
     } catch (erroTrigger) {
-      console.error("Não foi possível garantir o trigger de fechamento diário automático:", erroTrigger);
+      registrarErroAplicacao_("auth.trigger_fechamento_diario", erroTrigger);
     }
   }
 

@@ -1378,36 +1378,23 @@ function removerItemCatalogo(nomeItem, responsavel) {
 // RELATÓRIO ELIEL, FECHAMENTO MENSAL E AVISOS
 // =========================================================
 function normalizarNumero_(valor) {
-  if (typeof valor === "number") return valor;
-  const texto = String(valor == null ? "" : valor)
-    .replace(/\s/g, "")
-    .replace(/R\$/gi, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-  return Number(texto) || 0;
+  return numeroAplicacao_(valor);
 }
 
 function extrairData_(valor) {
-  if (valor instanceof Date && !isNaN(valor.getTime())) return valor;
-  const texto = String(valor || "");
-  let match = texto.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (match) return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
-  match = texto.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  const data = new Date(texto);
-  return isNaN(data.getTime()) ? null : data;
+  return dataAplicacao_(valor);
 }
 
 function pertenceAoMes_(data, mes, ano) {
-  return data && data.getMonth() + 1 === Number(mes) && data.getFullYear() === Number(ano);
+  return dataPertenceAoMesAplicacao_(data, mes, ano);
 }
 
 function chaveMes_(mes, ano) {
-  return String(ano) + "-" + ("0" + Number(mes)).slice(-2);
+  return chaveMesAplicacao_(mes, ano);
 }
 
 function nomeDia_(dia) {
-  return ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"][dia];
+  return nomeDiaSemanaAplicacao_(dia);
 }
 
 function obterStatusCardapio() {
