@@ -30,3 +30,13 @@ if (!paginaTapimovelEhCliente_()) {
     document.head.appendChild(script);
   })();
 }
+
+if (paginaTapimovelEhCliente_()) {
+  (function carregarAjustesCliente() {
+    const versao = "20260827.1";
+    const script = document.createElement("script");
+    script.src = "./cliente-hotfix.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+}
