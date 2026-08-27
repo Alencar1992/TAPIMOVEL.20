@@ -8,7 +8,7 @@ const propertiesRepository = fs.readFileSync('apps-script/PropertiesRepository.g
 
 test('cliente carrega módulo de ajustes com versão explícita', () => {
   assert.match(config, /cliente-hotfix\.js\?v=/);
-  assert.match(config, /paginaTapimovelEhCliente_\(\)/);
+  assert.match(config, /if \(!paginaTapimovelEhCliente_\(\)\)/);
 });
 
 test('sugestão oferece categorias doces e bebidas sem adicionar produto específico', () => {
@@ -19,7 +19,7 @@ test('sugestão oferece categorias doces e bebidas sem adicionar produto especí
   assert.ok(!hotfix.includes('adicionarSugestao('));
 });
 
-test('navegar pela sugestão preserva carrinho existente', () => {
+test('navegar pela sugestão preserva carrinho e não repete sugestão no mesmo pedido', () => {
   const trecho = hotfix.slice(
     hotfix.indexOf('function abrirCategoriaDaSugestao'),
     hotfix.indexOf('function abrirSugestaoPorCategoria_')
@@ -27,6 +27,8 @@ test('navegar pela sugestão preserva carrinho existente', () => {
   assert.match(trecho, /mudarAba\(categoria/);
   assert.ok(!trecho.includes('carrinho = []'));
   assert.ok(!trecho.includes('carrinho.length = 0'));
+  assert.match(hotfix, /sugestaoCategoriasDispensada = true/);
+  assert.match(hotfix, /if \(sugestaoCategoriasDispensada\) return false/);
 });
 
 test('VR usa valor canônico aceito pelo backend', () => {
@@ -34,10 +36,12 @@ test('VR usa valor canônico aceito pelo backend', () => {
   assert.match(hotfix, /option\.value = "VR \(Vale Refeição\)"/);
 });
 
-test('catálogo legado de bebida genérica é migrado para bebidas específicas', () => {
+test('catálogo legado é migrado somente com bebidas controladas pelo servidor', () => {
   assert.match(propertiesRepository, /catalogoTemBebidaGenericaLegada_/);
   assert.match(propertiesRepository, /refri \/ suco - lata/);
-  assert.match(propertiesRepository, /padrao\.bebidas\.length > 1/);
-  assert.match(propertiesRepository, /catalogo\.bebidas = padrao\.bebidas/);
+  assert.match(propertiesRepository, /function bebidasPadraoServidor_/);
+  assert.match(propertiesRepository, /Coca-Cola Zero - LATA/);
+  assert.match(propertiesRepository, /catalogoServidor\.bebidas/);
   assert.match(propertiesRepository, /props\.setProperty\(CHAVE_CATALOGO_CARDAPIO_/);
+  assert.ok(!propertiesRepository.includes('catalogo.bebidas = padrao.bebidas'));
 });
