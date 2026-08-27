@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  let sugestaoCategoriasDispensada = false;
+
   function assinaturaAtualCarrinho_() {
     try {
       return typeof obterAssinaturaCarrinho === "function"
@@ -12,6 +14,7 @@
   }
 
   function marcarSugestaoComoTratada_() {
+    sugestaoCategoriasDispensada = true;
     try {
       assinaturaSugestaoIgnorada = assinaturaAtualCarrinho_();
     } catch (_) {
@@ -24,6 +27,14 @@
     if (modal) modal.style.display = "none";
   }
 
+  function rolarAoTopo_() {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (_) {
+      window.scrollTo(0, 0);
+    }
+  }
+
   function abrirCategoriaDaSugestao(categoria) {
     marcarSugestaoComoTratada_();
     fecharModalSugestao_();
@@ -33,14 +44,18 @@
       mudarAba(categoria, tab || undefined);
     }
 
-    try {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (_) {
-      window.scrollTo(0, 0);
-    }
+    rolarAoTopo_();
+  }
+
+  function voltarAoCardapioDaSugestaoSeguro_() {
+    marcarSugestaoComoTratada_();
+    fecharModalSugestao_();
+    rolarAoTopo_();
   }
 
   function abrirSugestaoPorCategoria_() {
+    if (sugestaoCategoriasDispensada) return false;
+
     const assinatura = assinaturaAtualCarrinho_();
     let tipo = null;
 
@@ -103,6 +118,7 @@
     corrigirValorVr_();
     window.abrirCategoriaDaSugestao = abrirCategoriaDaSugestao;
     window.abrirSugestaoSeAplicavel = abrirSugestaoPorCategoria_;
+    window.voltarAoCardapioDaSugestao = voltarAoCardapioDaSugestaoSeguro_;
 
     document.addEventListener("change", function (evento) {
       if (evento.target && evento.target.id === "cliPag") corrigirValorVr_();
