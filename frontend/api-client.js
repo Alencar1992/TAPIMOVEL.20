@@ -13,9 +13,12 @@
   var DEFAULT_INACTIVITY_MS = 4 * 60 * 60 * 1000;
   var REQUEST_TIMEOUT_MS = 25000;
   var SAFE_RETRY_LIMIT = 1;
-  var SAFE_ACTION_PATTERN = /^(login|validar|carregar|obter|listar|buscar|calcular|verificar|consultar)/;
+  var ACTIVITY_PERSIST_INTERVAL_MS = 30000;
+  var SAFE_READ_ACTION_PATTERN = /^(validar|carregar|obter|listar|buscar|calcular|verificar|consultar)/;
   var inactivityMs = DEFAULT_INACTIVITY_MS;
   var connectionTimer = null;
+  var pendingReadRequests = Object.create(null);
+  var lastActivityPersistedAt = Number(localStorage.getItem(TOKEN_LAST_ACTIVITY_KEY) || 0);
 
   function getLocalDay() {
     var now = new Date();
@@ -46,11 +49,13 @@
       60 * 1000,
       Number(session.inatividadeSegundos || 0) * 1000 || DEFAULT_INACTIVITY_MS
     );
+    var agora = Date.now();
     localStorage.setItem(sessionPrefix + "token", String(session.token));
     localStorage.setItem(sessionPrefix + "token_day", String(session.diaSessao || getLocalDay()));
-    localStorage.setItem(sessionPrefix + "last_activity", String(Date.now()));
+    localStorage.setItem(sessionPrefix + "last_activity", String(agora));
     localStorage.setItem(sessionPrefix + "profile", String(session.perfil || sessionMode));
     localStorage.setItem(sessionPrefix + "name", String(session.nome || ""));
+    if (sessionMode === accessMode) lastActivityPersistedAt = agora;
   }
 
   function clearToken() {
@@ -59,11 +64,15 @@
     localStorage.removeItem(TOKEN_LAST_ACTIVITY_KEY);
     localStorage.removeItem(TOKEN_PROFILE_KEY);
     localStorage.removeItem(TOKEN_NAME_KEY);
+    lastActivityPersistedAt = 0;
   }
 
   function registerActivity() {
     if (!getToken()) return;
-    localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(Date.now()));
+    var agora = Date.now();
+    if (agora - lastActivityPersistedAt < ACTIVITY_PERSIST_INTERVAL_MS) return;
+    localStorage.setItem(TOKEN_LAST_ACTIVITY_KEY, String(agora));
+    lastActivityPersistedAt = agora;
   }
 
   function emitAuthRequired(message) {
@@ -132,7 +141,7 @@
   }
 
   function requestApi(action, args, token, attempt) {
-    var safeToRetry = SAFE_ACTION_PATTERN.test(action);
+    var safeToRetry = SAFE_READ_ACTION_PATTERN.test(action);
     var controller = new AbortController();
     var timeout = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     updateConnectionStatus(
@@ -179,6 +188,37 @@
       });
   }
 
+  function requestKey(action, args, token) {
+    try {
+      return action + "\n" + String(token || "") + "\n" + JSON.stringify(args || []);
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function requestApiShared(action, args, token) {
+    if (!SAFE_READ_ACTION_PATTERN.test(action)) {
+      return requestApi(action, args, token, 0);
+    }
+
+    var key = requestKey(action, args, token);
+    if (!key) return requestApi(action, args, token, 0);
+    if (pendingReadRequests[key]) return pendingReadRequests[key];
+
+    var request = requestApi(action, args, token, 0);
+    pendingReadRequests[key] = request.then(
+      function (payload) {
+        delete pendingReadRequests[key];
+        return payload;
+      },
+      function (error) {
+        delete pendingReadRequests[key];
+        throw error;
+      }
+    );
+    return pendingReadRequests[key];
+  }
+
   function createRunner(successHandler, failureHandler) {
     var target = {
       withSuccessHandler: function (handler) {
@@ -196,7 +236,7 @@
 
         return function () {
           var args = Array.prototype.slice.call(arguments);
-          return requestApi(prop, args, getToken(), 0)
+          return requestApiShared(prop, args, getToken())
             .then(function (payload) {
               if (!payload || payload.ok !== true) {
                 var apiError = new Error(
