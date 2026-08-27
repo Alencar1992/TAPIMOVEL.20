@@ -33,10 +33,16 @@ if (!paginaTapimovelEhCliente_()) {
 
 if (paginaTapimovelEhCliente_()) {
   (function carregarAjustesCliente() {
-    const versao = "20260827.2";
-    const script = document.createElement("script");
-    script.src = "./cliente-hotfix.js?v=" + versao;
-    script.async = false;
-    document.head.appendChild(script);
+    const versao = "20260827.3";
+
+    const hotfix = document.createElement("script");
+    hotfix.src = "./cliente-hotfix.js?v=" + versao;
+    hotfix.async = false;
+    document.head.appendChild(hotfix);
+
+    const horario = document.createElement("script");
+    horario.src = "./horario-operacional.js?v=" + versao;
+    horario.async = false;
+    document.head.appendChild(horario);
   })();
 }
