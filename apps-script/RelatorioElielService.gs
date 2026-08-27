@@ -83,7 +83,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   });
 
   if (historico) {
-    const dados = historico.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Historico_Diario");
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][1]);
       const tipo = String(dados[i][3] || "").toUpperCase();
@@ -115,7 +115,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   }
 
   if (fechamentos) {
-    const dados = fechamentos.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][0]);
       if (!pertenceAoMes_(data, mes, ano)) continue;
@@ -137,7 +137,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   }
 
   if (combustivel) {
-    const dados = combustivel.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Combustivel");
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][0]);
       if (pertenceAoMes_(data, mes, ano)) combustivelMes += normalizarNumero_(dados[i][1]);
@@ -301,7 +301,7 @@ function registrarAcessoRelatorioEliel(mes, ano) {
   let temDadosAnterior = false;
   const fechamentos = ss.getSheetByName("Fechamentos_Diarios");
   if (fechamentos) {
-    const dados = fechamentos.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
     temDadosAnterior = dados.slice(1).some(function(linha) {
       return pertenceAoMes_(extrairData_(linha[0]), anterior.getMonth() + 1, anterior.getFullYear()) &&
         normalizarNumero_(linha[1]) > 0;

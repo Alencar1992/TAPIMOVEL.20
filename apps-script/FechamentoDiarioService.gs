@@ -212,6 +212,8 @@ function gravarResumoFechamentoDiario_(resumo, origem, status) {
   abaTap.getRange(linhaTap, 1, 1, 2).setValues([[resumo.data, resumo.qtdTapiocas]]);
 
   SpreadsheetApp.flush();
+  invalidarCacheLeituraAnalitica_("Fechamentos_Diarios");
+  invalidarCacheLeituraAnalitica_("Tapiocas Diária");
 }
 
 function quaseIgualFechamentoDiario_(a, b) {
