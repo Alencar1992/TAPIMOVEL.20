@@ -7,15 +7,7 @@ function paginaTapimovelEhCliente_() {
   return /(?:^|\/)cliente\.html$/.test(caminho);
 }
 
-if (paginaTapimovelEhCliente_()) {
-  (function carregarAjustesCliente() {
-    const versao = "20260827.1";
-    const script = document.createElement("script");
-    script.src = "./cliente-hotfix.js?v=" + versao;
-    script.async = false;
-    document.head.appendChild(script);
-  })();
-} else {
+if (!paginaTapimovelEhCliente_()) {
   (function carregarControleFechamentoEliel() {
     const versao = "20260826.3";
 
@@ -34,6 +26,16 @@ if (paginaTapimovelEhCliente_()) {
     const versao = "20260826.1";
     const script = document.createElement("script");
     script.src = "./fechamento-diario-seguro.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+}
+
+if (paginaTapimovelEhCliente_()) {
+  (function carregarAjustesCliente() {
+    const versao = "20260827.1";
+    const script = document.createElement("script");
+    script.src = "./cliente-hotfix.js?v=" + versao;
     script.async = false;
     document.head.appendChild(script);
   })();
