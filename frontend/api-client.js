@@ -15,6 +15,7 @@
   var SAFE_RETRY_LIMIT = 1;
   var ACTIVITY_PERSIST_INTERVAL_MS = 30000;
   var SAFE_READ_ACTION_PATTERN = /^(validar|carregar|obter|listar|buscar|calcular|verificar|consultar)/;
+  var SAFE_ACTION_PATTERN = SAFE_READ_ACTION_PATTERN; // alias legado para testes/diagnóstico existentes
   var inactivityMs = DEFAULT_INACTIVITY_MS;
   var connectionTimer = null;
   var pendingReadRequests = Object.create(null);
