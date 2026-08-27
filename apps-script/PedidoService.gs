@@ -293,18 +293,32 @@ function atualizarPedidoPdv(pedidoJSON) {
 }
 
 function obterConfiguracaoOperacionalPedidoOnlineFresca_() {
-  try {
-    const configuracaoSheets = lerConfiguracaoOperacionalSheets_();
-    if (configuracaoSheets) {
+  let ultimoErro = null;
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      const configuracaoSheets = lerConfiguracaoOperacionalSheets_();
+      if (!configuracaoSheets) {
+        throw new Error("As abas da Configuração Operacional não foram encontradas ou estão vazias.");
+      }
       const normalizada = normalizarConfiguracaoOperacional_(configuracaoSheets);
       limparCacheConfiguracaoOperacional_();
       salvarCacheConfiguracaoOperacional_(normalizada);
       return normalizada;
+    } catch (erro) {
+      ultimoErro = erro;
+      console.error(
+        "Falha ao reler configuração operacional no envio do pedido online (tentativa " +
+        tentativa + "):",
+        erro
+      );
+      if (tentativa < 2) Utilities.sleep(120);
     }
-  } catch (erro) {
-    console.error("Falha ao reler configuração operacional no envio do pedido online:", erro);
   }
-  return JSON.parse(obterConfiguracaoOperacional());
+
+  throw erroApi_(
+    "CONFIG_UNAVAILABLE",
+    "Não foi possível validar o horário configurado no PDV. Atualize o cardápio e tente novamente."
+  );
 }
 
 function registrarPedidoOnline(pedidoJSON) {

@@ -3,8 +3,42 @@
 // Persistência estruturada de configuração operacional e filas.
 // =========================================================
 
+const CHAVE_SPREADSHEET_APLICACAO_ = "tapimovel_spreadsheet_aplicacao_v1";
+
+function obterSpreadsheetAplicacao_() {
+  const props = obterScriptProperties_();
+  const idPersistido = String(props.getProperty(CHAVE_SPREADSHEET_APLICACAO_) || "").trim();
+
+  if (idPersistido && typeof SpreadsheetApp.openById === "function") {
+    try {
+      return SpreadsheetApp.openById(idPersistido);
+    } catch (erro) {
+      console.error("Falha ao abrir a planilha operacional persistida; tentando vínculo ativo:", erro);
+    }
+  }
+
+  const ativa = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ativa) {
+    throw new Error(
+      "A planilha operacional do Tapimóvel não está disponível neste contexto. " +
+      "Abra o PDV administrativo e salve a Configuração Operacional novamente."
+    );
+  }
+
+  // Em produção, Spreadsheet possui getId() e o vínculo passa a ser determinístico.
+  // Ambientes de teste/mocks antigos podem não expor getId(); nesse caso preservamos
+  // o vínculo ativo sem alterar o comportamento das demais rotinas.
+  const idAtivo = typeof ativa.getId === "function"
+    ? String(ativa.getId() || "").trim()
+    : "";
+  if (idAtivo && idPersistido !== idAtivo) {
+    props.setProperty(CHAVE_SPREADSHEET_APLICACAO_, idAtivo);
+  }
+  return ativa;
+}
+
 function obterOuCriarAbaConfigOperacional_(nomeAba, cabecalho) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(nomeAba);
   if (!aba) aba = ss.insertSheet(nomeAba);
   if (aba.getLastRow() === 0) {
@@ -54,7 +88,7 @@ function horarioConfiguracaoSheets_(valor) {
 }
 
 function lerConfiguracaoOperacionalSheets_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const horariosAba = ss.getSheetByName(ABA_CONFIG_HORARIOS_);
   const rotasAba = ss.getSheetByName(ABA_CONFIG_ROTAS_);
   const monteAba = ss.getSheetByName(ABA_CONFIG_MONTE_SUA_);
