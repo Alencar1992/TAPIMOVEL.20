@@ -93,6 +93,18 @@
         .btn-online-alerta.tem-pedidos { animation: piscarPedidosOnline 1s infinite; box-shadow:0 0 0 3px rgba(255,193,7,.28); }
         @keyframes piscarPedidosOnline { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.48;transform:scale(1.04)} }
         .pedido-online-card { background:var(--stat-bg); border:1px solid var(--border); border-left:5px solid #7c3aed; border-radius:10px; padding:15px; margin-bottom:12px; }
+        .pedido-online-itens { display:grid; gap:10px; margin:12px 0; }
+        .pedido-online-item { background:#182126; border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+        .pedido-online-item-titulo { font-size:1.05rem; font-weight:800; line-height:1.35; }
+        .pedido-online-obs { margin-top:7px; padding-top:7px; border-top:1px dashed #5b4a16; color:#ffd43b; font-weight:800; line-height:1.35; }
+        .pedido-online-cliente,.pedido-producao-cliente { margin:12px 0; padding:12px; border-radius:8px; background:#171b1e; border:1px solid #3a4045; display:grid; gap:6px; }
+        .pedido-online-dado { display:grid; grid-template-columns:110px minmax(0,1fr); gap:8px; align-items:start; line-height:1.35; }
+        .pedido-online-dado strong { color:#aab2b8; }
+        .pedido-producao-cliente { margin-top:12px; border-left:4px solid #339af0; }
+        .alerta-online-fixo { position:fixed; left:12px; right:12px; top:12px; z-index:5000; max-width:560px; margin:0 auto; background:#5f21b6; color:white; border:2px solid #c4a7ff; border-radius:12px; padding:14px; box-shadow:0 10px 30px rgba(0,0,0,.5); animation:piscarPedidosOnline 1s infinite; }
+        .alerta-online-fixo-acoes { display:flex; gap:8px; margin-top:10px; }
+        .alerta-online-fixo button { flex:1; padding:10px; border:0; border-radius:7px; font-weight:800; cursor:pointer; }
+        @media (max-width:520px) { .pedido-online-dado { grid-template-columns:1fr; gap:2px; } }
         .pedido-online-topo,.pedido-online-acoes { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
         .pedido-online-acoes button { flex:1; min-width:130px; border:0; border-radius:8px; padding:12px; font-weight:800; cursor:pointer; }
         .info-prod { flex: 1; }
@@ -400,7 +412,7 @@
         <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div><h2 style="color:#a78bfa;margin-bottom:4px;">📲 Pedidos Online</h2><small style="color:var(--text-muted);">Ordem de chegada: mais antigo primeiro</small></div>
-            <button id="btnAtivarCampainha" class="btn-acao" style="width:auto;background:#7c3aed;" onclick="ativarCampainhaOnline()">🔔 Ativar campainha</button>
+            <button id="btnAtivarCampainha" class="btn-acao" style="width:auto;background:#7c3aed;" onclick="ativarCampainhaOnline()">🔔 Ativar alertas de venda</button>
         </div>
         <div id="listaPedidosOnline" style="margin-top:18px;"></div>
     </div>
@@ -1069,7 +1081,7 @@
 
     <script>
         let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
-        let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = false;
+        let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = true; let codigosOnlineAlertados = new Set(); let contextoAudioOnline = null; let wakeLockOnline = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
         let itensIndisponiveis = []; let termoPesquisa = ""; let pausarSync = false;
         let ignorarProximoClickProduto = null;
@@ -1596,16 +1608,144 @@
         function fecharModais() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); pedidoAguardandoPagamento = null; }
         function fecharMenuLateral() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').style.display = 'none'; }
 
-        function ativarCampainhaOnline() {
+        function limparObsLegadaOnlineTela(valor) {
+            const texto = String(valor || '').trim();
+            if (!texto || texto.indexOf('🟢 CLI:') === -1) return texto;
+            const marcador = texto.lastIndexOf('| OBS:');
+            return marcador >= 0 ? texto.slice(marcador + 6).trim() : '';
+        }
+
+        function separarEnderecoOnlineTela(valor) {
+            const partes = String(valor || '').split('|').map(function(parte) { return parte.trim(); }).filter(Boolean);
+            if (partes.length >= 2) return { bairro: partes.shift(), endereco: partes.join(' | ') };
+            return { bairro: 'Não informado', endereco: partes[0] || 'Não informado' };
+        }
+
+        function renderizarBlocoClienteOnline(pedido, classeExtra) {
+            const endereco = separarEnderecoOnlineTela(pedido && pedido.enderecoCliente);
+            return `<div class="pedido-online-cliente ${classeExtra || ''}">
+                <div class="pedido-online-dado"><strong>👤 Cliente</strong><span>${escaparHtml(pedido && pedido.nomeCliente || 'Não informado')}</span></div>
+                <div class="pedido-online-dado"><strong>📍 Bairro</strong><span>${escaparHtml(endereco.bairro)}</span></div>
+                <div class="pedido-online-dado"><strong>🏠 Endereço</strong><span>${escaparHtml(endereco.endereco)}</span></div>
+                <div class="pedido-online-dado"><strong>💳 Pagamento</strong><span>${escaparHtml(pedido && pedido.pagamentoDesejado || 'Não informado')}</span></div>
+            </div>`;
+        }
+
+        function chavePedidoOnlineAlerta(pedido) {
+            return String(pedido && pedido.codigoOnline || '') + ':' + String(pedido && pedido.timestampCriacao || '');
+        }
+
+        function prepararAudioOnline() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return false;
+                if (!contextoAudioOnline) contextoAudioOnline = new AudioCtx();
+                if (contextoAudioOnline.state === 'suspended') contextoAudioOnline.resume().catch(function() {});
+                return true;
+            } catch (_) { return false; }
+        }
+
+        function tocarSinoOnline() {
             const audio = document.getElementById('somCampainha');
-            campainhaOnlineAtiva = true;
             if (audio) {
-                audio.volume = 0.8;
-                audio.play().then(function() { audio.pause(); audio.currentTime = 0; }).catch(function() {});
+                audio.volume = 1;
+                audio.currentTime = 0;
+                audio.play().catch(function() {});
             }
+            if (!prepararAudioOnline() || !contextoAudioOnline) return;
+            const agora = contextoAudioOnline.currentTime;
+            [0, .22, .48].forEach(function(atraso, indice) {
+                const osc = contextoAudioOnline.createOscillator();
+                const ganho = contextoAudioOnline.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = indice === 1 ? 1175 : 880;
+                ganho.gain.setValueAtTime(0.0001, agora + atraso);
+                ganho.gain.exponentialRampToValueAtTime(0.28, agora + atraso + .02);
+                ganho.gain.exponentialRampToValueAtTime(0.0001, agora + atraso + .18);
+                osc.connect(ganho); ganho.connect(contextoAudioOnline.destination);
+                osc.start(agora + atraso); osc.stop(agora + atraso + .2);
+            });
+        }
+
+        function ativarWakeLockOnline() {
+            if (!navigator.wakeLock || document.visibilityState !== 'visible') return;
+            navigator.wakeLock.request('screen').then(function(lock) { wakeLockOnline = lock; }).catch(function() {});
+        }
+
+        function removerAlertaOnlineFixo() {
+            const alerta = document.getElementById('alertaNovoPedidoOnline');
+            if (alerta) alerta.remove();
+        }
+
+        function mostrarAlertaOnlineFixo(pedidos) {
+            removerAlertaOnlineFixo();
+            const alerta = document.createElement('div');
+            alerta.id = 'alertaNovoPedidoOnline';
+            alerta.className = 'alerta-online-fixo';
+            const primeiro = pedidos[0] || {};
+            alerta.innerHTML = `<strong style="font-size:1.15rem;">🔔 NOVO PEDIDO ONLINE</strong>
+                <div style="margin-top:5px;">${pedidos.length > 1 ? pedidos.length + ' pedidos aguardando' : escaparHtml(primeiro.codigoOnline || 'Pedido novo') + ' aguardando aceite'}</div>
+                <div class="alerta-online-fixo-acoes">
+                    <button style="background:#fff;color:#51239a;" onclick="removerAlertaOnlineFixo();mudarTela('view-pedidos-online')">📲 Abrir pedidos</button>
+                    <button style="background:#2d164c;color:#fff;" onclick="removerAlertaOnlineFixo()">Fechar</button>
+                </div>`;
+            document.body.appendChild(alerta);
+        }
+
+        function notificarPedidoOnlineNativo(pedido) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            try {
+                const notificacao = new Notification('🔔 Novo pedido online', {
+                    body: String(pedido && pedido.codigoOnline || 'Pedido novo') + ' · ' + String(pedido && pedido.nomeCliente || 'Cliente'),
+                    icon: './assets/logo-expresso-tapiocaria.png',
+                    tag: chavePedidoOnlineAlerta(pedido),
+                    renotify: true,
+                    requireInteraction: true
+                });
+                notificacao.onclick = function() {
+                    window.focus(); removerAlertaOnlineFixo(); mudarTela('view-pedidos-online'); notificacao.close();
+                };
+            } catch (_) {}
+        }
+
+        function alertarNovosPedidosOnline(pedidos) {
+            if (!pedidos || !pedidos.length) return;
+            tocarSinoOnline();
+            setTimeout(tocarSinoOnline, 900);
+            if (navigator.vibrate) navigator.vibrate([350, 120, 350, 120, 650]);
+            pedidos.forEach(notificarPedidoOnlineNativo);
+            mostrarAlertaOnlineFixo(pedidos);
+            const btn = document.getElementById('btnTopoOnline');
+            if (btn) btn.classList.add('tem-pedidos');
+        }
+
+        document.addEventListener('pointerdown', function prepararAlertasNaPrimeiraInteracao() {
+            prepararAudioOnline();
+            ativarWakeLockOnline();
+            document.removeEventListener('pointerdown', prepararAlertasNaPrimeiraInteracao, true);
+        }, true);
+        document.addEventListener('visibilitychange', function() {
+            if (campainhaOnlineAtiva && document.visibilityState === 'visible') ativarWakeLockOnline();
+        });
+
+        function ativarCampainhaOnline() {
+            campainhaOnlineAtiva = true;
+            prepararAudioOnline();
+            tocarSinoOnline();
+            if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
+            ativarWakeLockOnline();
             const btn = document.getElementById('btnAtivarCampainha');
-            if (btn) btn.textContent = '🔔 Campainha ativa';
-            mostrarToast('🔔 Campainha de pedidos online ativada.');
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(function(permissao) {
+                    if (btn) btn.textContent = permissao === 'granted' ? '🔔 Alertas ativos' : '🔔 Sino e vibração ativos';
+                    mostrarToast(permissao === 'granted' ? '🔔 Som, vibração e notificações ativados.' : '🔔 Som e vibração ativos. A notificação do navegador está bloqueada.');
+                }).catch(function() {
+                    if (btn) btn.textContent = '🔔 Sino e vibração ativos';
+                });
+            } else {
+                if (btn) btn.textContent = Notification && Notification.permission === 'granted' ? '🔔 Alertas ativos' : '🔔 Sino e vibração ativos';
+                mostrarToast('🔔 Alertas de pedidos online ativados.');
+            }
         }
 
         function atualizarPedidosOnline() {
@@ -1613,10 +1753,12 @@
             google.script.run
                 .withSuccessHandler(function(lista) {
                     const novos = Array.isArray(lista) ? lista : [];
-                    if (campainhaOnlineAtiva && novos.length > totalOnlineAnterior) {
-                        const audio = document.getElementById('somCampainha');
-                        if (audio) { audio.currentTime = 0; audio.play().catch(function() {}); }
-                    }
+                    const pedidosNovos = novos.filter(function(pedido) {
+                        const chave = chavePedidoOnlineAlerta(pedido);
+                        return chave && !codigosOnlineAlertados.has(chave);
+                    });
+                    pedidosNovos.forEach(function(pedido) { codigosOnlineAlertados.add(chavePedidoOnlineAlerta(pedido)); });
+                    if (campainhaOnlineAtiva && pedidosNovos.length) alertarNovosPedidosOnline(pedidosNovos);
                     pedidosOnlinePendentes = novos;
                     totalOnlineAnterior = novos.length;
                     atualizarBotaoPedidosOnline();
@@ -1643,20 +1785,25 @@
             }
             lista.innerHTML = pedidosOnlinePendentes.map(function(pedido) {
                 const itens = (pedido.itens || []).map(function(item) {
-                    return `<div>${Number(item.quantidade) || 0}x <b>${escaparHtml(item.nome)}</b>${item.obs ? ' — ' + escaparHtml(item.obs) : ''}</div>`;
+                    const obs = limparObsLegadaOnlineTela(item.obs);
+                    return `<div class="pedido-online-item">
+                        <div class="pedido-online-item-titulo">${Number(item.quantidade) || 0}x ${escaparHtml(item.nome)}</div>
+                        ${obs ? '<div class="pedido-online-obs">📝 OBS: ' + escaparHtml(obs) + '</div>' : ''}
+                    </div>`;
                 }).join('');
                 return `<article class="pedido-online-card">
                     <div class="pedido-online-topo"><strong>${escaparHtml(pedido.codigoOnline)}</strong><span>🕐 ${escaparHtml(pedido.hora || '')}</span></div>
-                    <h3 style="margin:10px 0 6px;">${escaparHtml(pedido.nomeCliente)}</h3>
-                    <div style="color:var(--text-muted);line-height:1.5;">📱 ${escaparHtml(pedido.telefoneCliente)}<br>📍 ${escaparHtml(pedido.enderecoCliente)}<br>💳 ${escaparHtml(pedido.pagamentoDesejado)}</div>
-                    <div style="margin:12px 0;">${itens}</div>
-                    <div style="font-size:1.15rem;font-weight:800;margin-bottom:12px;">Total: ${formatarMoeda(Number(pedido.total) || 0)}</div>
+                    <div class="pedido-online-itens">${itens}</div>
+                    ${renderizarBlocoClienteOnline(pedido, '')}
+                    <div style="font-size:1.15rem;font-weight:800;margin:12px 0;">Total: ${formatarMoeda(Number(pedido.total) || 0)}</div>
                     <div class="pedido-online-acoes">
                         <button style="background:var(--success);color:#fff;" onclick="aceitarPedidoOnlineTela('${escaparHtml(pedido.codigoOnline)}')">✅ Aceitar e enviar à fila</button>
                         <button style="background:var(--danger);color:#fff;" onclick="recusarPedidoOnlineTela('${escaparHtml(pedido.codigoOnline)}')">❌ Recusar pedido</button>
                     </div>
                 </article>`;
             }).join('');
+            const tela = document.getElementById('view-pedidos-online');
+            if (tela && tela.classList.contains('active')) removerAlertaOnlineFixo();
         }
 
         function aceitarPedidoOnlineTela(codigo) {
@@ -1720,6 +1867,7 @@
                 btnCaixa.classList.add('active-nav');
             }
             if(idTela === 'view-pedidos-online') {
+                removerAlertaOnlineFixo();
                 renderizarPedidosOnline();
                 atualizarPedidosOnline();
                 btnOnline.classList.add('active-nav');
@@ -2099,7 +2247,8 @@
                     let adicionaisHtml = item.adicionais && item.adicionais.length
                         ? `<span class="ingredientes" style="color:#69db7c; font-weight:bold; font-size: 0.95rem;">↳ ADICIONAIS PAGOS: ${item.adicionais.map(escaparHtml).join(', ')}</span>`
                         : '';
-                    let obsHtml = item.obs ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${escaparHtml(item.obs)}</span>` : ''; let extrasHtml = '';
+                    const obsOperacional = pedido.origem === 'Online' ? limparObsLegadaOnlineTela(item.obs) : String(item.obs || '');
+                    let obsHtml = obsOperacional ? `<span class="ingredientes" style="color:#ffc107; font-weight:bold; font-size: 0.95rem;">↳ OBS: ${escaparHtml(obsOperacional)}</span>` : ''; let extrasHtml = '';
                     for (let i = idx + 1; i < pedido.itens.length; i++) { let proximoItem = pedido.itens[i]; if (proximoItem.tipo === 'extra') { if(!proximoItem.pronto) { let nomeDoExtra = (proximoItem.nome === '+ Adicional' && proximoItem.obs) ? proximoItem.obs : proximoItem.nome; let obsDoExtra = (proximoItem.nome !== '+ Adicional' && proximoItem.obs) ? ` - ${proximoItem.obs}` : ''; extrasHtml += `<div style="color: #ffc107; font-weight: bold; font-size: 0.95rem; margin-top: 6px; padding-left: 10px; border-left: 3px solid #ffc107;">➕ Adicional: ${escaparHtml(nomeDoExtra)}${escaparHtml(obsDoExtra)}</div>`; } indicesAgrupados.add(i); } else if (proximoItem.tipo !== 'bebida') { break; } }
                     let nomeExibicao = item.tipo === 'extra' ? `⚠️ Adicional Avulso: ${item.obs || item.nome}` : item.nome;
                     nomeExibicao = escaparHtml(nomeExibicao);
@@ -2107,7 +2256,8 @@
                 });
                 if(htmlItens !== '') {
                     let badgePagamento = pedido.timestamp ? `<span class="badge-status-cozinha badge-pago">PAGO</span>` : `<span class="badge-status-cozinha badge-pendente">PENDENTE</span>`; let badgeOrigem = pedido.origem === 'Online' ? `<span class="badge-status-cozinha" style="background: #339af0; margin-right: 5px; font-size: 0.85rem; padding: 3px 8px;">📲 APP</span> ` : '';
-                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
+                    const dadosClienteProducao = pedido.origem === 'Online' ? renderizarBlocoClienteOnline(pedido, 'pedido-producao-cliente') : '';
+                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}${dadosClienteProducao}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
                 } else {
                     pedido.produzido = true; checarBaixaCache(pedido);
                 }
