@@ -8,7 +8,14 @@ function lerConfiguracaoOperacionalConfiavel_() {
   let ultimoErro = null;
 
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const lock = LockService.getScriptLock();
+    let bloqueado = false;
     try {
+      // Usa o mesmo lock da gravação para impedir leitura entre a reescrita
+      // das abas Config_Horarios, Config_Rotas, Config_MonteSua e Config_Adicionais.
+      lock.waitLock(10000);
+      bloqueado = true;
+
       const configuracaoSheets = lerConfiguracaoOperacionalSheets_();
       if (!configuracaoSheets) {
         throw new Error(
@@ -26,7 +33,12 @@ function lerConfiguracaoOperacionalConfiavel_() {
         "Falha ao ler Configuração Operacional confiável (tentativa " + tentativa + "):",
         erro
       );
-      if (tentativa < 2) Utilities.sleep(120);
+    } finally {
+      if (bloqueado) lock.releaseLock();
+    }
+
+    if (tentativa < 2 && Utilities && typeof Utilities.sleep === "function") {
+      Utilities.sleep(120);
     }
   }
 
@@ -45,16 +57,20 @@ function obterStatusCardapioConfiavel_() {
   const config = lerConfiguracaoOperacionalConfiavel_();
   const regra = obterRegraOperacionalHoje_(config, new Date());
   const horario = regra.horario;
+  const horaMinuto = String(regra.agora || "00:00");
   const aberto = horario.ativo === true &&
-    regra.agora >= horario.inicio &&
-    regra.agora < horario.fim &&
+    horaMinuto >= horario.inicio &&
+    horaMinuto < horario.fim &&
     regra.rotas.length > 0;
 
   return JSON.stringify({
     aberto: aberto,
     ativo: horario.ativo === true,
     diaSemana: regra.diaIso,
-    hora: regra.agora,
+    // Mantém o contrato legado: `hora` continua sendo número inteiro.
+    hora: Number(horaMinuto.split(":")[0]),
+    // Novo campo com precisão de minuto para consumidores novos.
+    horaMinuto: horaMinuto,
     abreAs: horario.inicio,
     fechaAs: horario.fim,
     rotas: regra.rotas.slice()
