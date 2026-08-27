@@ -14,8 +14,8 @@ test('cliente carrega módulo de ajustes com versão explícita', () => {
 test('sugestão oferece categorias doces e bebidas sem adicionar produto específico', () => {
   assert.match(hotfix, /Tapiocas doces/);
   assert.match(hotfix, /Refrigerante ou Suco/);
-  assert.match(hotfix, /abrirCategoriaDaSugestao\('doces'\)/);
-  assert.match(hotfix, /abrirCategoriaDaSugestao\('bebidas'\)/);
+  assert.ok(hotfix.includes("abrirCategoriaDaSugestao(\\'doces\\')"));
+  assert.ok(hotfix.includes("abrirCategoriaDaSugestao(\\'bebidas\\')"));
   assert.ok(!hotfix.includes('adicionarSugestao('));
 });
 
