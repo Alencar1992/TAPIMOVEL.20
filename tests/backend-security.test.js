@@ -498,9 +498,17 @@ test("PDV rejeita adicional incompatível e preço adulterado", () => {
 });
 
 test("pedido online aguarda aceite e entra uma única vez na Produção e no Caixa", () => {
-  const { context, properties } = createContext();
+  const { context } = createContext();
   context.catalogoConfigurado_ = () => catalog();
   context.lancarPedidoPlanilha = () => "OK";
+
+  // O teste usa explicitamente um horário dinâmico diferente do padrão legado.
+  // Terça-feira, 19:30 deve estar dentro da janela configurada 19:00–20:00.
+  const configuracao = context.configuracaoOperacionalPadrao_();
+  configuracao.horarios["2"] = { ativo: true, inicio: "19:00", fim: "20:00" };
+  configuracao.rotas["2"] = ["JD SÃO FRANCISCO"];
+  context.lerConfiguracaoOperacionalSheets_ = () => configuracao;
+
   const resposta = context.registrarPedidoOnline(JSON.stringify(onlineOrder()));
 
   assert.match(resposta.numero, /^ON\d{3}$/);
