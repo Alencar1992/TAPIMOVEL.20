@@ -24,7 +24,7 @@ test('bebidas conhecidas usam imagens próprias e nunca fallback de tapioca', ()
 });
 
 test('cliente recebe nova versão da lógica operacional sem cache antigo', () => {
-  assert.match(config, /20260827\.3/);
+  assert.match(config, /20260827\.4/);
   assert.match(config, /cliente-hotfix\.js/);
   assert.match(config, /horario-operacional\.js/);
 });
@@ -38,7 +38,23 @@ test('horário do cliente usa configuração operacional dinâmica como fonte ú
   assert.match(horario, /visibilityState === "visible"/);
   assert.doesNotMatch(horario, /segunda a sexta-feira/i);
   assert.doesNotMatch(horario, /horaAtualInt\s*<\s*18/);
-  assert.doesNotMatch(horario, /22h/i);
+  assert.doesNotMatch(horario, /encerrou às <b>22h/i);
+});
+
+test('mensagens legadas de horário são substituídas pela configuração atual', () => {
+  assert.match(horario, /function ehMensagemHorarioLegado_\(mensagem\)/);
+  assert.match(horario, /segunda\\s\+a\\s\+sexta\|18h\|22h/);
+  assert.match(horario, /ehMensagemHorarioLegado_\(mensagem\) \? mensagem_\(estado_\(\)\) : mensagem/);
+  assert.match(horario, /var confirmarOriginal = typeof window\.confirmarRotaEEnviar/);
+  assert.match(horario, /window\.confirmarRotaEEnviar = function/);
+  assert.match(horario, /mensagemAtual: function \(\) \{ return mensagem_\(estado_\(\)\); \}/);
+});
+
+test('hotfix não usa horário padrão antigo enquanto a configuração carrega', () => {
+  assert.match(clienteHotfix, /TapimovelHorarioOperacional\.mensagemAtual/);
+  assert.match(clienteHotfix, /Aguarde enquanto consultamos a configuração de atendimento do PDV/);
+  assert.doesNotMatch(clienteHotfix, /textoHorarioHoje/);
+  assert.doesNotMatch(clienteHotfix, /18h|22h|segunda a sexta-feira/i);
 });
 
 test('modal de fechado aguarda configuração operacional antes de decidir status', () => {

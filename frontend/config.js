@@ -33,7 +33,7 @@ if (!paginaTapimovelEhCliente_()) {
 
 if (paginaTapimovelEhCliente_()) {
   (function carregarAjustesCliente() {
-    const versao = "20260827.3";
+    const versao = "20260827.4";
 
     const hotfix = document.createElement("script");
     hotfix.src = "./cliente-hotfix.js?v=" + versao;

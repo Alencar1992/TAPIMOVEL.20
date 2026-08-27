@@ -7,6 +7,8 @@
 
     var prepararOriginal = typeof window.prepararItem === "function" ? window.prepararItem : null;
     var validarOriginal = typeof window.validarPedido === "function" ? window.validarPedido : null;
+    var confirmarOriginal = typeof window.confirmarRotaEEnviar === "function" ? window.confirmarRotaEEnviar : null;
+    var mostrarAlertaOriginal = typeof window.mostrarAlerta === "function" ? window.mostrarAlerta : null;
     var carregarConfigOriginal = typeof window.carregarConfiguracaoOperacional === "function" ? window.carregarConfiguracaoOperacional : null;
     var avisoTimer = null;
     var ultimaLeitura = 0;
@@ -41,12 +43,17 @@
     }
 
     function mensagem_(e) {
-      if (!e.carregado) return "Carregando o horário configurado no PDV...";
+      if (!e.carregado) return "Aguarde enquanto consultamos a configuração de atendimento do PDV.";
       if (!e.ativo) return "O atendimento de hoje está desativado na Configuração Operacional.";
       if (e.agora < e.inicioMin) return "O atendimento de hoje está configurado das <b>" + e.inicio + " às " + e.fim + "</b> e ainda não começou.";
       if (e.agora >= e.fimMin) return "O atendimento de hoje estava configurado das <b>" + e.inicio + " às " + e.fim + "</b> e já foi encerrado.";
-      if (!e.rotas.length) return "O horário está aberto das <b>" + e.inicio + " às " + e.fim + "</b>, mas não há rota cadastrada para hoje.";
+      if (!e.rotas.length) return "O atendimento está configurado das <b>" + e.inicio + " às " + e.fim + "</b>, mas não há rota cadastrada para hoje.";
       return "O cardápio está indisponível conforme a Configuração Operacional.";
+    }
+
+    function ehMensagemHorarioLegado_(mensagem) {
+      var texto = String(mensagem || "");
+      return /segunda\s+a\s+sexta|18h|22h|fora\s+do\s+hor[aá]rio|hor[aá]rio\s+fixo/i.test(texto);
     }
 
     function atualizarLogo_(e) {
@@ -110,7 +117,7 @@
       if (!e.carregado) {
         rota.innerHTML = '<option value="">Carregando configuração...</option>';
         status.classList.add("fechado");
-        titulo.textContent = "Consultando horário";
+        titulo.textContent = "Consultando atendimento";
         texto.textContent = "Carregando a Configuração Operacional do PDV...";
         return;
       }
@@ -169,10 +176,17 @@
       modal.style.display = "flex";
     };
 
+    if (mostrarAlertaOriginal) {
+      window.mostrarAlerta = function (mensagem) {
+        var texto = ehMensagemHorarioLegado_(mensagem) ? mensagem_(estado_()) : mensagem;
+        return mostrarAlertaOriginal.call(this, texto);
+      };
+    }
+
     if (prepararOriginal) {
       window.prepararItem = function () {
         window.atualizarRelogioAtendimento(false);
-        if (!lojaAberta) return mostrarAlerta(mensagem_(estado_()));
+        if (!lojaAberta) return window.mostrarAlerta(mensagem_(estado_()));
         return prepararOriginal.apply(this, arguments);
       };
     }
@@ -180,8 +194,20 @@
     if (validarOriginal) {
       window.validarPedido = function () {
         window.atualizarRelogioAtendimento(false);
-        if (!lojaAberta) return mostrarAlerta(mensagem_(estado_()));
+        if (!lojaAberta) return window.mostrarAlerta(mensagem_(estado_()));
         return validarOriginal.apply(this, arguments);
+      };
+    }
+
+    if (confirmarOriginal) {
+      window.confirmarRotaEEnviar = function () {
+        window.atualizarRelogioAtendimento(false);
+        if (!lojaAberta) {
+          var modalRota = document.getElementById("modalRota");
+          if (modalRota) modalRota.style.display = "none";
+          return window.mostrarAlerta(mensagem_(estado_()));
+        }
+        return confirmarOriginal.apply(this, arguments);
       };
     }
 
@@ -211,6 +237,7 @@
 
     window.TapimovelHorarioOperacional = {
       statusAtual: estado_,
+      mensagemAtual: function () { return mensagem_(estado_()); },
       atualizarConfiguracao: reler_
     };
   }

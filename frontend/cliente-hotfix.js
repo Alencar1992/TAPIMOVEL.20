@@ -148,11 +148,14 @@
 
   function mensagemHorarioAtual_() {
     try {
-      const horario = typeof textoHorarioHoje === "function" ? textoHorarioHoje() : "o horário informado acima";
-      return "O cardápio digital está fechado neste momento. O atendimento de hoje funciona das <b>" + horario + "</b>.";
+      if (window.TapimovelHorarioOperacional &&
+          typeof window.TapimovelHorarioOperacional.mensagemAtual === "function") {
+        return window.TapimovelHorarioOperacional.mensagemAtual();
+      }
     } catch (_) {
-      return "O cardápio digital está fechado neste momento.";
+      // Usa mensagem neutra até a configuração operacional terminar de carregar.
     }
+    return "Aguarde enquanto consultamos a configuração de atendimento do PDV.";
   }
 
   function adicionarBebidaDireto_(prod) {
