@@ -161,6 +161,7 @@ function obterPersistenciaFechamento_(chave) {
   };
 }
 function montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON) {
+  invalidarCachesAnaliticos_();
   const relatorio = JSON.parse(obterRelatorioEliel(mes, ano, catalogoJSON) || "{}");
   if (!relatorio.chave) throw new Error("Mês de referência inválido.");
   obterAbaRelatorioEliel_();

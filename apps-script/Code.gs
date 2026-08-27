@@ -449,6 +449,7 @@ function moverParaHistorico(pedidoJSON) {
     });
     if (matrizItens.length > 0) {
       aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
+      invalidarCacheLeituraAnalitica_("Historico_Diario");
     }
   } catch(e) {
     console.error("Erro moverParaHistorico: ", e);
@@ -506,6 +507,7 @@ function reabrirPedidoBackend(pedidoJSON) {
         }
       }
     }
+    invalidarCacheLeituraAnalitica_("Historico_Diario");
   } catch(e) {
     console.error("Erro reabrirPedidoBackend: ", e);
     throw e;
@@ -537,7 +539,7 @@ function obterResumoMesPlanilha() {
   let totalCombustivel = 0;
 
   if (abaFechamentos) {
-    const dados = abaFechamentos.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
     for (let i = 1; i < dados.length; i++) {
       let dataPlan = dados[i][0];
       let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -555,7 +557,7 @@ function obterResumoMesPlanilha() {
   }
 
   if (abaTapiocas) {
-    const dadosTap = abaTapiocas.getDataRange().getDisplayValues();
+    const dadosTap = lerAbaAnalitica_("Tapiocas Diária");
     for (let i = 1; i < dadosTap.length; i++) {
       let dataPlan = dadosTap[i][0];
       let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -571,7 +573,7 @@ function obterResumoMesPlanilha() {
   }
 
   if (abaCombustivel) {
-    const dadosComb = abaCombustivel.getDataRange().getDisplayValues();
+    const dadosComb = lerAbaAnalitica_("Combustivel");
     for (let j = 1; j < dadosComb.length; j++) {
       let dataPlan = dadosComb[j][0];
       let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -646,7 +648,7 @@ function calcularEstimativaSalarioLucas() {
 
   const abaFech = ss.getSheetByName("Fechamentos_Diarios");
   if (abaFech) {
-    const dados = abaFech.getDataRange().getDisplayValues();
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
     for (let i = 1; i < dados.length; i++) {
       let match = dados[i][0].match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (match && match[2] === mesStr && match[3] === anoAtual.toString()) {
@@ -661,7 +663,7 @@ function calcularEstimativaSalarioLucas() {
   let gastoCombustivelAcumulado = 0;
   const abaComb = ss.getSheetByName("Combustivel");
   if (abaComb) {
-    const dadosC = abaComb.getDataRange().getDisplayValues();
+    const dadosC = lerAbaAnalitica_("Combustivel");
     for (let j = 1; j < dadosC.length; j++) {
       let matchC = dadosC[j][0].match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (matchC && matchC[2] === mesStr && matchC[3] === anoAtual.toString()) {
@@ -788,6 +790,7 @@ function salvarCombustivelPlanilha(dadosJSON) {
     }
 
     aba.appendRow([d.data, d.valor, d.litros]);
+    invalidarCacheLeituraAnalitica_("Combustivel");
     return "OK";
   } catch (erro) {
     return "ERRO: " + erro.message;
@@ -801,7 +804,7 @@ function buscarHistoricoCombustivel(mes, ano) {
   const sheet = ss.getSheetByName("Combustivel");
   if (!sheet) return JSON.stringify({ itens: [], totalGasto: 0, totalLitros: 0 });
 
-  const data = sheet.getDataRange().getValues();
+  const data = lerAbaAnalitica_("Combustivel");
   let resultados = [];
   let totalGasto = 0;
   let totalLitros = 0;
@@ -841,7 +844,7 @@ function buscarRankingRotasBackend(mes, ano) {
   const sheet = ss.getSheetByName("Fechamentos_Diarios");
   if (!sheet) return JSON.stringify([]);
 
-  const data = sheet.getDataRange().getDisplayValues();
+  const data = lerAbaAnalitica_("Fechamentos_Diarios");
   let rotas = {
     "Segunda-feira": 0, "Terça-feira": 0, "Quarta-feira": 0,
     "Quinta-feira": 0, "Sexta-feira": 0, "Sábado": 0, "Domingo": 0
@@ -894,7 +897,7 @@ function buscarTopProdutosBackend(mes, ano) {
   const sheet = ss.getSheetByName("Historico_Diario");
   if (!sheet) return JSON.stringify([]);
 
-  const data = sheet.getDataRange().getDisplayValues();
+  const data = lerAbaAnalitica_("Historico_Diario");
   let produtosMap = {};
 
   for (let i = 1; i < data.length; i++) {
@@ -1008,6 +1011,8 @@ function salvarFechamentoDiaPlanilha(resumoJSON) {
       ]);
     }
 
+    invalidarCacheLeituraAnalitica_("Fechamentos_Diarios");
+    invalidarCacheLeituraAnalitica_("Tapiocas Diária");
     return "OK";
   } catch (e) {
     return "Erro ao salvar no servidor: " + e.toString();
@@ -1033,6 +1038,7 @@ function excluirContadorTapiocasHoje(dataHoje) {
         aba.deleteRow(i + 1);
       }
     }
+    invalidarCacheLeituraAnalitica_("Tapiocas Diária");
   } catch(e) {
     console.error("Erro excluirContadorTapiocasHoje: ", e);
   } finally {
@@ -1071,6 +1077,7 @@ function salvarMultiplosFechamentos(resumosJSON) {
     if (linhas.length) {
       aba.getRange(aba.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
     }
+    invalidarCacheLeituraAnalitica_("Fechamentos_Diarios");
     return "OK";
   } finally {
     lock.releaseLock();

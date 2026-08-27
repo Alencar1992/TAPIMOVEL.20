@@ -16,6 +16,7 @@ const REQUIRED_MODULES = [
   'FechamentoService.gs',
   'PedidoService.gs',
   'PropertiesRepository.gs',
+  'ReadCacheService.gs',
   'RelatorioElielService.gs',
   'SecurityUtils.gs',
   'SheetsRepository.gs'
