@@ -52,5 +52,10 @@ if (paginaTapimovelEhCliente_()) {
     horario.src = "./horario-operacional.js?v=" + versao;
     horario.async = false;
     document.head.appendChild(horario);
+
+    const loaderTapiTudo = document.createElement("script");
+    loaderTapiTudo.src = "./loader-tapi-tudo.js?v=20260827.1";
+    loaderTapiTudo.async = false;
+    document.head.appendChild(loaderTapiTudo);
   })();
 }
