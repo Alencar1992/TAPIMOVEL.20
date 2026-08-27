@@ -292,15 +292,30 @@ function atualizarPedidoPdv(pedidoJSON) {
   }
 }
 
+function obterConfiguracaoOperacionalPedidoOnlineFresca_() {
+  try {
+    const configuracaoSheets = lerConfiguracaoOperacionalSheets_();
+    if (configuracaoSheets) {
+      const normalizada = normalizarConfiguracaoOperacional_(configuracaoSheets);
+      limparCacheConfiguracaoOperacional_();
+      salvarCacheConfiguracaoOperacional_(normalizada);
+      return normalizada;
+    }
+  } catch (erro) {
+    console.error("Falha ao reler configuração operacional no envio do pedido online:", erro);
+  }
+  return JSON.parse(obterConfiguracaoOperacional());
+}
+
 function registrarPedidoOnline(pedidoJSON) {
+  const configOperacional = obterConfiguracaoOperacionalPedidoOnlineFresca_();
+  const regraOperacional = obterRegraOperacionalHoje_(configOperacional, new Date());
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
     const props = obterScriptProperties_();
     const catalogo = catalogoConfigurado_("{}");
     const pedido = normalizarPedidoOnline_(JSON.parse(pedidoJSON || "{}"), catalogo);
-    const configOperacional = JSON.parse(obterConfiguracaoOperacional());
-    const regraOperacional = obterRegraOperacionalHoje_(configOperacional, new Date());
     const diaSemana = regraOperacional.diaIso;
     const horarioHoje = regraOperacional.horario;
     const horaAtual = regraOperacional.agora;
