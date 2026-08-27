@@ -4,11 +4,7 @@
 // =========================================================
 
 function obterDiaSessaoAdmin_() {
-  return Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM-dd"
-  );
+  return formatarDataAplicacao_(new Date(), "yyyy-MM-dd");
 }
 
 function hashSeguro_(valor) {

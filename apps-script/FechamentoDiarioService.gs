@@ -9,45 +9,15 @@ const HANDLER_FECHAMENTO_DIARIO_AUTOMATICO_ = "executarFechamentoDiarioAutomatic
 const HORA_MINIMA_FECHAMENTO_DIARIO_AUTOMATICO_ = 2;
 
 function formatarDataFechamentoDiario_(data) {
-  return Utilities.formatDate(data, Session.getScriptTimeZone(), "dd/MM/yyyy");
+  return formatarDataAplicacao_(data, "dd/MM/yyyy");
 }
 
 function normalizarDataFechamentoDiario_(valor) {
-  if (valor instanceof Date && !isNaN(valor.getTime())) {
-    return formatarDataFechamentoDiario_(valor);
-  }
-  const texto = String(valor == null ? "" : valor).trim();
-  const match = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!match) return "";
-  const dia = Number(match[1]);
-  const mes = Number(match[2]);
-  const ano = Number(match[3]);
-  const data = new Date(ano, mes - 1, dia, 12, 0, 0, 0);
-  if (
-    data.getFullYear() !== ano ||
-    data.getMonth() !== mes - 1 ||
-    data.getDate() !== dia
-  ) return "";
-  return String(dia).padStart(2, "0") + "/" + String(mes).padStart(2, "0") + "/" + ano;
+  return normalizarDataDiaAplicacao_(valor);
 }
 
 function dataPorMomentoFechamentoDiario_(valor) {
-  if (valor == null || valor === "") return "";
-  if (valor instanceof Date && !isNaN(valor.getTime())) return formatarDataFechamentoDiario_(valor);
-
-  const numero = Number(valor);
-  if (isFinite(numero) && numero > 0) {
-    const dataNumero = new Date(numero);
-    if (!isNaN(dataNumero.getTime())) return formatarDataFechamentoDiario_(dataNumero);
-  }
-
-  const texto = String(valor).trim();
-  const dataTexto = normalizarDataFechamentoDiario_(texto);
-  if (dataTexto) return dataTexto;
-
-  const data = new Date(texto);
-  if (!isNaN(data.getTime())) return formatarDataFechamentoDiario_(data);
-  return "";
+  return normalizarDataDiaAplicacao_(valor);
 }
 
 function dataReferenciaPedidoFechamentoDiario_(pedido) {
@@ -71,15 +41,7 @@ function pedidoFinalizadoFechamentoDiario_(pedido, dataReferencia) {
 }
 
 function numeroFechamentoDiario_(valor) {
-  if (typeof valor === "number") return isFinite(valor) ? valor : 0;
-  const texto = String(valor == null ? "" : valor)
-    .replace(/\s/g, "")
-    .replace(/R\$/gi, "")
-    .replace(/\./g, "")
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, "");
-  const numero = Number(texto);
-  return isFinite(numero) ? numero : 0;
+  return numeroAplicacao_(valor);
 }
 
 function valorTotalPedidoFechamentoDiario_(pedido) {
@@ -253,7 +215,7 @@ function gravarResumoFechamentoDiario_(resumo, origem, status) {
 }
 
 function quaseIgualFechamentoDiario_(a, b) {
-  return Math.abs(Number(a || 0) - Number(b || 0)) < 0.005;
+  return quaseIgualAplicacao_(a, b, 0.005);
 }
 
 function validarPersistenciaFechamentoDiario_(resumo) {
@@ -453,8 +415,8 @@ function executarFechamentoDiarioAutomatico() {
     try {
       return fecharDiaSeguro_(data, "AUTOMATICO");
     } catch (erro) {
-      console.error("Falha no fechamento diário automático de " + data + ":", erro);
-      return { ok: false, status: "ERRO", data: data, erro: erro && erro.message ? erro.message : String(erro) };
+      registrarErroAplicacao_("fechamento_diario_automatico", erro, { data: data });
+      return { ok: false, status: "ERRO", data: data, erro: mensagemErroAplicacao_(erro, "Falha no fechamento diário automático.") };
     }
   });
   return JSON.stringify({ ok: true, status: "PROCESSADO", resultados: resultados });

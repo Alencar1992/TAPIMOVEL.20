@@ -11,6 +11,7 @@ const REQUIRED_MODULES = [
   'Api.gs',
   'AuthService.gs',
   'Code.gs',
+  'CoreUtils.gs',
   'FechamentoDiarioService.gs',
   'FechamentoService.gs',
   'PedidoService.gs',
