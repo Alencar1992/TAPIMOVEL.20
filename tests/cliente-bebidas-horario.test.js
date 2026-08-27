@@ -47,6 +47,14 @@ test('modal de fechado aguarda configuração operacional antes de decidir statu
   assert.match(horario, /if \(e\.aberto\) \{\s*modal\.style\.display = "none"/);
 });
 
+test('modal é reconciliado quando o ADM altera o horário com o cliente aberto', () => {
+  assert.match(horario, /function reconciliarAviso_\(\)/);
+  assert.match(horario, /var carregarConfigOriginal = typeof window\.carregarConfiguracaoOperacional/);
+  assert.match(horario, /setTimeout\(reconciliarAviso_, 300\)/);
+  assert.match(horario, /setTimeout\(reconciliarAviso_, 1200\)/);
+  assert.match(horario, /if \(e\.aberto\) \{\s*modal\.style\.display = "none"/);
+});
+
 test('pedido online relê Config_Horarios do Sheets antes de adquirir o lock', () => {
   assert.match(pedidos, /function obterConfiguracaoOperacionalPedidoOnlineFresca_\(\)/);
   assert.match(pedidos, /lerConfiguracaoOperacionalSheets_\(\)/);
