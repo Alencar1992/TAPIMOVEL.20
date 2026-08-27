@@ -4,7 +4,8 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "quality": "node scripts/quality-check.js",
-    "ci": "npm run quality && npm test",
+    "audit:final": "node scripts/audit-final.js",
+    "ci": "npm run quality && npm run audit:final && npm test",
     "deploy:validate": "node scripts/validate-apps-script-deploy.js"
   }
 }
