@@ -154,7 +154,11 @@ function executarAcaoApi_(action, args, token) {
     }
   }
 
-  const fn = this[action];
+  const fn = action === "obterConfiguracaoOperacional"
+    ? this.obterConfiguracaoOperacionalConfiavel_
+    : action === "obterStatusCardapio"
+      ? this.obterStatusCardapioConfiavel_
+      : this[action];
   if (typeof fn !== "function") {
     throw erroApi_("ACTION_NOT_FOUND", "Função não encontrada no backend: " + action);
   }
