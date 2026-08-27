@@ -2,6 +2,8 @@
   "use strict";
 
   let sugestaoCategoriasDispensada = false;
+  let prepararItemOriginal_ = null;
+  let obterImagemProdutoOriginal_ = null;
 
   function assinaturaAtualCarrinho_() {
     try {
@@ -114,11 +116,84 @@
     }
   }
 
+  function normalizarNome_(valor) {
+    return String(valor || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }
+
+  function imagemBebidaPorNome_(produto) {
+    if (!produto || produto.tipo !== "bebida") return "";
+    const nome = normalizarNome_(produto.nome);
+    if (nome.includes("coca-cola zero")) return "./assets/menu/bebida-coca-zero.webp";
+    if (nome.includes("coca-cola original")) return "./assets/menu/bebida-coca-original.webp";
+    if (nome.includes("fanta laranja")) return "./assets/menu/bebida-fanta-laranja.webp";
+    if (nome.includes("sprite")) return "./assets/menu/bebida-sprite.webp";
+    if (nome.includes("guarana antarctica")) return "./assets/menu/bebida-guarana-antartica.webp";
+    if (nome.includes("del valle goiaba")) return "./assets/menu/bebida-del-valle-goiaba.webp";
+    if (nome.includes("del valle uva")) return "./assets/menu/bebida-del-valle-uva.webp";
+    if (nome.includes("del valle pessego")) return "./assets/menu/bebida-del-valle-pessego.webp";
+    return "";
+  }
+
+  function obterImagemProdutoSeguro_(produto) {
+    const bebida = imagemBebidaPorNome_(produto);
+    if (bebida) return bebida;
+    if (produto && produto.tipo === "bebida") return "";
+    return typeof obterImagemProdutoOriginal_ === "function"
+      ? obterImagemProdutoOriginal_(produto)
+      : "";
+  }
+
+  function mensagemHorarioAtual_() {
+    try {
+      const horario = typeof textoHorarioHoje === "function" ? textoHorarioHoje() : "o horário informado acima";
+      return "O cardápio digital está fechado neste momento. O atendimento de hoje funciona das <b>" + horario + "</b>.";
+    } catch (_) {
+      return "O cardápio digital está fechado neste momento.";
+    }
+  }
+
+  function adicionarBebidaDireto_(prod) {
+    try {
+      if (!lojaAberta) {
+        if (typeof mostrarAlerta === "function") mostrarAlerta(mensagemHorarioAtual_());
+        return;
+      }
+      if (Array.isArray(itensIndisponiveis) && itensIndisponiveis.includes(prod.nome)) {
+        if (typeof mostrarAlerta === "function") mostrarAlerta("Este item está <b>esgotado</b> no momento. Escolha outra opção.");
+        return;
+      }
+      carrinho.push({ ...prod, quantidade: 1, obs: "", pronto: false, id: Date.now() });
+      if (typeof atualizarBarra === "function") atualizarBarra();
+      const tab = document.querySelector('.tab[data-categoria="bebidas"]');
+      if (typeof mudarAba === "function") mudarAba("bebidas", tab || undefined);
+    } catch (erro) {
+      console.error("Não foi possível adicionar a bebida diretamente:", erro);
+      if (typeof prepararItemOriginal_ === "function") prepararItemOriginal_(prod);
+    }
+  }
+
+  function prepararItemSeguro_(prod) {
+    if (prod && prod.tipo === "bebida") {
+      adicionarBebidaDireto_(prod);
+      return;
+    }
+    if (typeof prepararItemOriginal_ === "function") prepararItemOriginal_(prod);
+  }
+
   function aplicarAjustesCliente_() {
     corrigirValorVr_();
+
+    prepararItemOriginal_ = typeof window.prepararItem === "function" ? window.prepararItem : null;
+    obterImagemProdutoOriginal_ = typeof window.obterImagemProduto === "function" ? window.obterImagemProduto : null;
+
     window.abrirCategoriaDaSugestao = abrirCategoriaDaSugestao;
     window.abrirSugestaoSeAplicavel = abrirSugestaoPorCategoria_;
     window.voltarAoCardapioDaSugestao = voltarAoCardapioDaSugestaoSeguro_;
+    window.prepararItem = prepararItemSeguro_;
+    window.obterImagemProduto = obterImagemProdutoSeguro_;
 
     document.addEventListener("change", function (evento) {
       if (evento.target && evento.target.id === "cliPag") corrigirValorVr_();
