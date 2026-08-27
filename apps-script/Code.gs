@@ -8,11 +8,6 @@ const CHAVE_TENTATIVAS_LOGIN_ = "pdv_admin_login_attempts";
 const DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ = 14400;
 const NOME_PERFIL_ELIEL_ = "CEO Eliel";
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
-
-
 // =========================================================
 // CONFIGURAÇÃO OPERACIONAL DINÂMICA
 // =========================================================
@@ -1041,44 +1036,6 @@ function excluirContadorTapiocasHoje(dataHoje) {
     invalidarCacheLeituraAnalitica_("Tapiocas Diária");
   } catch(e) {
     console.error("Erro excluirContadorTapiocasHoje: ", e);
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function salvarMultiplosFechamentos(resumosJSON) {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const resumos = JSON.parse(resumosJSON);
-    if (!Array.isArray(resumos) || resumos.length === 0) return "OK";
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const aba = ss.getSheetByName("Fechamentos_Diarios");
-    if (!aba) throw new Error("A aba 'Fechamentos_Diarios' não foi encontrada.");
-
-    const existentes = aba.getLastRow() > 1
-      ? aba.getRange(2, 1, aba.getLastRow() - 1, 1).getDisplayValues().flat()
-      : [];
-    const linhas = resumos
-      .filter(function(resumo) { return existentes.indexOf(String(resumo.data)) === -1; })
-      .map(function(resumo) {
-        return [
-          resumo.data,
-          Number(resumo.total) || 0,
-          Number(resumo.dinheiro) || 0,
-          Number(resumo.pix) || 0,
-          Number(resumo.credito) || 0,
-          Number(resumo.debito) || 0,
-          Number(resumo.vr) || 0
-        ];
-      });
-
-    if (linhas.length) {
-      aba.getRange(aba.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
-    }
-    invalidarCacheLeituraAnalitica_("Fechamentos_Diarios");
-    return "OK";
   } finally {
     lock.releaseLock();
   }
