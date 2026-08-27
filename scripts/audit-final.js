@@ -91,7 +91,7 @@ for (const forbidden of ['Pedidos_Ativos', 'Pedidos_Online_Pendentes', 'Controle
 for (const allowed of ['Historico_Diario', 'Fechamentos_Diarios', 'Tapiocas Diária', 'Combustivel']) {
   expect(cache.includes(`"${allowed}"`), `fonte analítica esperada ausente do cache controlado: ${allowed}`);
 }
-expect(/CACHE_ANALITICO_TTL_SEGUNDOS_\s*=\s*30/.test(cache), 'TTL analítico deixou de ser 30 segundos.');
+expect(/CACHE_LEITURA_ANALITICA_TTL_\s*=\s*30/.test(cache), 'TTL analítico deixou de ser 30 segundos.');
 expect(/invalidarCachesAnaliticos_\(\)/.test(fechamento), 'fechamento mensal não força leitura fresca antes da prévia.');
 
 expect(/action === "fecharMesRelatorioEliel" && sessao\.perfil !== "eliel"/.test(api), 'fechamento mensal perdeu a barreira exclusiva do CEO Eliel.');
