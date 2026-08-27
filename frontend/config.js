@@ -29,6 +29,14 @@ if (!paginaTapimovelEhCliente_()) {
     script.async = false;
     document.head.appendChild(script);
   })();
+
+  (function carregarFotosBebidasPdv() {
+    const versao = "20260827.1";
+    const script = document.createElement("script");
+    script.src = "./pdv-bebidas-imagens.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
 }
 
 if (paginaTapimovelEhCliente_()) {
