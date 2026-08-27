@@ -66,11 +66,27 @@ test("API pública de horário ignora função legada e usa serviço confiável"
   assert.match(api, /this\.obterStatusCardapioConfiavel_/);
   assert.match(horarioService, /lerConfiguracaoOperacionalSheets_\(\)/);
   assert.match(horarioService, /obterRegraOperacionalHoje_\(config, new Date\(\)\)/);
-  assert.match(horarioService, /regra\.agora >= horario\.inicio/);
-  assert.match(horarioService, /regra\.agora < horario\.fim/);
+  assert.match(horarioService, /horaMinuto >= horario\.inicio/);
+  assert.match(horarioService, /horaMinuto < horario\.fim/);
   assert.match(horarioService, /regra\.rotas\.length > 0/);
   assert.doesNotMatch(horarioService, /18:00/);
   assert.doesNotMatch(horarioService, /22:00/);
+});
+
+test("leitura pública usa o mesmo lock da gravação e não observa configuração parcial", () => {
+  assert.match(horarioService, /const lock = LockService\.getScriptLock\(\)/);
+  assert.match(horarioService, /lock\.waitLock\(10000\)/);
+  assert.match(horarioService, /bloqueado = true/);
+  assert.match(horarioService, /if \(bloqueado\) lock\.releaseLock\(\)/);
+  assert.match(horarioService, /limparCacheConfiguracaoOperacional_\(\)/);
+  assert.match(horarioService, /salvarCacheConfiguracaoOperacional_\(normalizada\)/);
+});
+
+test("status público preserva hora numérica e expõe precisão em horaMinuto", () => {
+  assert.match(horarioService, /hora: Number\(horaMinuto\.split\(":"\)\[0\]\)/);
+  assert.match(horarioService, /horaMinuto: horaMinuto/);
+  assert.match(horarioService, /abreAs: horario\.inicio/);
+  assert.match(horarioService, /fechaAs: horario\.fim/);
 });
 
 test("PropertiesService fica somente como fonte legada de migração", () => {
