@@ -7,7 +7,15 @@ function paginaTapimovelEhCliente_() {
   return /(?:^|\/)cliente\.html$/.test(caminho);
 }
 
-if (!paginaTapimovelEhCliente_()) {
+if (paginaTapimovelEhCliente_()) {
+  (function carregarAjustesCliente() {
+    const versao = "20260827.1";
+    const script = document.createElement("script");
+    script.src = "./cliente-hotfix.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+} else {
   (function carregarControleFechamentoEliel() {
     const versao = "20260826.3";
 
