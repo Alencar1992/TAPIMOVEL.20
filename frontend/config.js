@@ -8,7 +8,7 @@ function paginaTapimovelEhCliente_() {
 }
 
 (function carregarLoaderTapiTudoGlobal() {
-  const versao = "20260828.2";
+  const versao = "20260828.3";
   const script = document.createElement("script");
   script.src = "./loader-tapi-tudo.js?v=" + versao;
   script.async = false;
