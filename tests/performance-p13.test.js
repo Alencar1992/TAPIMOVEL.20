@@ -46,6 +46,20 @@ test('P13 não carrega módulos administrativos no cardápio do cliente', () => 
   assert.match(config, /fechamento-diario-seguro\.js/);
 });
 
+test('loader Tapi-Tudo é compartilhado entre cardápio do cliente e PDV', () => {
+  const config = read('frontend/config.js');
+  const loader = read('frontend/loader-tapi-tudo.js');
+  const inicioLoaderGlobal = config.indexOf('(function carregarLoaderTapiTudoGlobal()');
+  const inicioBlocoCliente = config.indexOf('if (paginaTapimovelEhCliente_())');
+
+  assert.ok(inicioLoaderGlobal >= 0, 'loader global precisa existir');
+  assert.ok(inicioBlocoCliente >= 0, 'bloco específico do cliente precisa existir');
+  assert.ok(inicioLoaderGlobal < inicioBlocoCliente, 'loader precisa ser carregado antes da separação cliente/PDV');
+  assert.match(config, /loader-tapi-tudo\.js\?v=" \+ versao/);
+  assert.match(config, /20260828\.2/);
+  assert.match(loader, /tapi_tudo_loader_animado\.webp\?v=20260828\.2/);
+});
+
 test('P13 preserva a URL oficial da API e não altera contratos de fechamento', () => {
   const config = read('frontend/config.js');
   const api = read('frontend/api-client.js');
