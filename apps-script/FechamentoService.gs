@@ -117,6 +117,49 @@ function obterDataReferenciaPedidoFechamento_(pedido) {
 function chaveMesDaDataFechamento_(data) {
   return Utilities.formatDate(data, Session.getScriptTimeZone(), "yyyy-MM");
 }
+function obterRegraPeriodoFechamentoMensal_(mes, ano, agora) {
+  const mesNumero = Number(mes);
+  const anoNumero = Number(ano);
+  if (!Number.isInteger(mesNumero) || mesNumero < 1 || mesNumero > 12 ||
+      !Number.isInteger(anoNumero) || anoNumero < 2000 || anoNumero > 2100) {
+    return {
+      chave: "",
+      chaveAtual: "",
+      periodoEncerrado: false,
+      disponivelEm: "",
+      mensagem: "Mês de referência inválido."
+    };
+  }
+
+  const chave = String(anoNumero) + "-" + String(mesNumero).padStart(2, "0");
+  const momento = agora instanceof Date && !isNaN(agora.getTime()) ? agora : new Date();
+  const chaveAtual = Utilities.formatDate(
+    momento,
+    Session.getScriptTimeZone(),
+    "yyyy-MM"
+  );
+  let proximoMes = mesNumero + 1;
+  let proximoAno = anoNumero;
+  if (proximoMes > 12) {
+    proximoMes = 1;
+    proximoAno += 1;
+  }
+  const disponivelEm = "01/" + String(proximoMes).padStart(2, "0") + "/" + String(proximoAno);
+  const periodoEncerrado = chave < chaveAtual;
+  let mensagem = "";
+  if (!periodoEncerrado) {
+    mensagem = chave === chaveAtual
+      ? "O mês " + chave + " ainda está em andamento e só poderá ser fechado a partir de " + disponivelEm + "."
+      : "O período " + chave + " ainda não terminou e não pode ser fechado. Disponível a partir de " + disponivelEm + ".";
+  }
+  return {
+    chave: chave,
+    chaveAtual: chaveAtual,
+    periodoEncerrado: periodoEncerrado,
+    disponivelEm: disponivelEm,
+    mensagem: mensagem
+  };
+}
 function obterPedidosPendentesFechamentoEliel_(mes, ano) {
   const lock = LockService.getScriptLock();
   try {
@@ -167,6 +210,7 @@ function montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON) {
   obterAbaRelatorioEliel_();
   const operacao = obterEstadoOperacaoFechamento_(relatorio.chave);
   const persistencia = obterPersistenciaFechamento_(relatorio.chave);
+  const regraPeriodo = obterRegraPeriodoFechamentoMensal_(mes, ano);
   const existente = persistencia.relatorio || persistencia.legado || persistencia.v2;
   const operacaoCompleta = Boolean(
     operacao &&
@@ -190,7 +234,10 @@ function montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON) {
     recuperavel: recuperavel,
     statusOperacao: operacao ? operacao.status : "",
     pedidosPendentes: pedidosPendentes,
-    podeFechar: !duplicado && pedidosPendentes === 0,
+    periodoEncerrado: regraPeriodo.periodoEncerrado,
+    bloqueioTemporal: regraPeriodo.mensagem,
+    disponivelEm: regraPeriodo.disponivelEm,
+    podeFechar: regraPeriodo.periodoEncerrado && !duplicado && pedidosPendentes === 0,
     relatorio: relatorio
   };
 }
@@ -273,6 +320,12 @@ function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
     const previa = montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON);
     if (previa.duplicado) {
       throw new Error("O mês " + previa.chave + " já foi fechado.");
+    }
+    if (!previa.periodoEncerrado) {
+      throw new Error(
+        previa.bloqueioTemporal ||
+        ("O mês " + previa.chave + " ainda está em andamento e não pode ser fechado.")
+      );
     }
     if (previa.pedidosPendentes > 0) {
       throw new Error(

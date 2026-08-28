@@ -30,6 +30,14 @@ if (!paginaTapimovelEhCliente_()) {
     document.head.appendChild(script);
   })();
 
+  (function carregarBloqueioPeriodoFechamento() {
+    const versao = "20260828.1";
+    const script = document.createElement("script");
+    script.src = "./fechamento-periodo-guard.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+
   (function carregarFechamentoDiarioSeguro() {
     const versao = "20260826.1";
     const script = document.createElement("script");
