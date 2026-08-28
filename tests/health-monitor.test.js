@@ -22,6 +22,14 @@ test("health-check é estritamente somente leitura", () => {
   assert.doesNotMatch(script, /registrarPedido|salvar|fecharMes|SpreadsheetApp|PropertiesService/);
 });
 
+test("monitor tolera cold start do Apps Script sem executar chamadas concorrentes", () => {
+  assert.match(script, /timeoutMs:\s*30000/);
+  assert.match(script, /timeoutMs:\s*35000/);
+  assert.match(script, /tentativas:\s*2/);
+  assert.match(script, /for \(const check of checks\)/);
+  assert.doesNotMatch(script, /Promise\.all\(checks\.map\(requisitar\)\)/);
+});
+
 test("workflow executa a cada hora e também após mudança relevante na main", () => {
   assert.match(workflow, /cron:\s*"17 \* \* \* \*"/);
   assert.match(workflow, /workflow_dispatch:/);

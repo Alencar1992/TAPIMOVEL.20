@@ -2,8 +2,8 @@ const PDV_URL = process.env.TAPIMOVEL_PDV_URL || "https://alencar1992.github.io/
 const CLIENTE_URL = process.env.TAPIMOVEL_CLIENTE_URL || "https://alencar1992.github.io/TAPIMOVEL.20/frontend/cliente.html";
 const API_URL = process.env.TAPIMOVEL_API_URL || "https://script.google.com/macros/s/AKfycbwupkSzv-H0qucPvVdvpQ85ytmNDu8_DOgPnakTY5lwIQ1jDCpuGqCvfvAMSIuMRL6f/exec";
 const REPORT_PATH = process.env.HEALTH_REPORT_PATH || ".health-report.md";
-const TIMEOUT_MS = 12000;
-const MAX_ATTEMPTS = 3;
+const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_ATTEMPTS = 3;
 
 function pausa(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,19 +39,23 @@ function parseDataJson(payload) {
 }
 
 async function requisitar(check) {
+  const timeoutMs = Number(check.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const maxAttempts = Number(check.tentativas || DEFAULT_ATTEMPTS);
   let ultimoErro = null;
-  for (let tentativa = 1; tentativa <= MAX_ATTEMPTS; tentativa++) {
+
+  for (let tentativa = 1; tentativa <= maxAttempts; tentativa++) {
     const inicio = Date.now();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const resposta = await fetch(check.url, {
         method: "GET",
         redirect: "follow",
         signal: controller.signal,
         headers: {
-          "user-agent": "TAPIMOVEL-HealthMonitor/1.0",
-          "cache-control": "no-cache"
+          "user-agent": "TAPIMOVEL-HealthMonitor/1.1",
+          "cache-control": "no-cache",
+          accept: "application/json,text/html;q=0.9,*/*;q=0.8"
         }
       });
       const texto = await resposta.text();
@@ -67,9 +71,10 @@ async function requisitar(check) {
     } catch (erro) {
       clearTimeout(timer);
       ultimoErro = erro;
-      if (tentativa < MAX_ATTEMPTS) await pausa(1200 * tentativa);
+      if (tentativa < maxAttempts) await pausa(1500 * tentativa);
     }
   }
+
   return {
     nome: check.nome,
     ok: false,
@@ -108,6 +113,8 @@ const checks = [
   {
     nome: "Apps Script — API",
     url: API_URL,
+    timeoutMs: 30000,
+    tentativas: 2,
     validar(texto) {
       const payload = parseApi(texto);
       if (!payload.data || payload.data.status !== "online" || payload.data.servico !== "Tapimóvel 2.0 API") {
@@ -119,6 +126,8 @@ const checks = [
   {
     nome: "Apps Script — Configuração operacional",
     url: API_URL + "?action=obterStatusCardapio",
+    timeoutMs: 35000,
+    tentativas: 2,
     validar(texto) {
       const status = parseDataJson(parseApi(texto));
       if (!status || typeof status.aberto !== "boolean" || typeof status.ativo !== "boolean") {
@@ -135,7 +144,13 @@ const checks = [
   }
 ];
 
-const resultados = await Promise.all(checks.map(requisitar));
+// Executa em série de propósito: a primeira chamada aquece o Apps Script e evita
+// duas inicializações concorrentes durante um cold start do web app.
+const resultados = [];
+for (const check of checks) {
+  resultados.push(await requisitar(check));
+}
+
 const falhas = resultados.filter((item) => !item.ok);
 const agora = new Date().toISOString();
 const runUrl = process.env.GITHUB_RUN_ID && process.env.GITHUB_REPOSITORY
