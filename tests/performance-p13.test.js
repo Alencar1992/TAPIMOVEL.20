@@ -38,7 +38,7 @@ test('P13 reduz persistência síncrona de atividade no localStorage', () => {
 test('P13 não carrega módulos administrativos no cardápio do cliente', () => {
   const config = read('frontend/config.js');
   const cliente = read('frontend/cliente.html');
-  assert.match(cliente, /<script src="\.\/config\.js"><\/script>/);
+  assert.match(cliente, /<script src="\.\/config\.js(?:\?v=[0-9.]+)?"><\/script>/);
   assert.match(config, /function paginaTapimovelEhCliente_\(\)/);
   assert.match(config, /cliente\\\.html/);
   assert.match(config, /if \(!paginaTapimovelEhCliente_\(\)\) \{/);
