@@ -1,0 +1,40 @@
+name: Temp loader cleanup
+
+on:
+  push:
+    branches:
+      - chore/fechamento-loader-tapi-tudo-2
+
+permissions:
+  contents: write
+
+jobs:
+  patch-index:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/fechamento-loader-tapi-tudo-2
+      - name: Versiona config do PDV
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('frontend/index.html')
+          text = path.read_text(encoding='utf-8')
+          old = '<script src="./config.js"></script>'
+          new = '<script src="./config.js?v=20260828.3"></script>'
+          if old not in text:
+              raise SystemExit('Tag config.js sem versão não encontrada no index.html')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit da alteração
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/index.html
+          git commit -m "chore: versiona config do PDV" || exit 0
+          git push origin HEAD:chore/fechamento-loader-tapi-tudo-2
