@@ -2,6 +2,16 @@
 
 Sistema web responsivo da Expresso Tapiocaria para operação do cardápio, pedidos, produção, disponibilidade de itens, configurações e relatórios.
 
+## Status do projeto
+
+- **Versão estável:** `v1.0.0`
+- **Status:** desenvolvimento concluído; sistema em produção e em modo de manutenção.
+- **Encerramento da versão:** 28/08/2026.
+- **Monitoramento:** Health Monitor automático para PDV/ADM, cardápio do cliente, API do Apps Script e configuração operacional.
+- **Política de evolução:** novas solicitações passam a ser tratadas como correções, manutenção ou novas versões, sempre por branch e Pull Request.
+
+A versão `v1.0.0` representa o encerramento do escopo funcional aprovado do Tapimóvel 2.0. O sistema permanece ativo e monitorado; eventos operacionais futuros, como fechamentos mensais, fazem parte da rotina de uso e não constituem pendência de desenvolvimento.
+
 ## Acessos
 
 - [Painel administrativo](https://alencar1992.github.io/TAPIMOVEL.20/frontend/index.html)
