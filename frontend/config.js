@@ -54,7 +54,7 @@ if (paginaTapimovelEhCliente_()) {
     document.head.appendChild(horario);
 
     const loaderTapiTudo = document.createElement("script");
-    loaderTapiTudo.src = "./loader-tapi-tudo.js?v=20260827.1";
+    loaderTapiTudo.src = "./loader-tapi-tudo.js?v=20260828.1";
     loaderTapiTudo.async = false;
     document.head.appendChild(loaderTapiTudo);
   })();
