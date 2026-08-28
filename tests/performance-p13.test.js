@@ -56,8 +56,8 @@ test('loader Tapi-Tudo é compartilhado entre cardápio do cliente e PDV', () =>
   assert.ok(inicioBlocoCliente >= 0, 'bloco específico do cliente precisa existir');
   assert.ok(inicioLoaderGlobal < inicioBlocoCliente, 'loader precisa ser carregado antes da separação cliente/PDV');
   assert.match(config, /loader-tapi-tudo\.js\?v=" \+ versao/);
-  assert.match(config, /20260828\.2/);
-  assert.match(loader, /tapi_tudo_loader_animado\.webp\?v=20260828\.2/);
+  assert.match(config, /20260828\.3/);
+  assert.match(loader, /tapi_tudo_loader_animado\.webp\?v=20260828\.3/);
 });
 
 test('P13 preserva a URL oficial da API e não altera contratos de fechamento', () => {
