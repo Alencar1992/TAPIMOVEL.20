@@ -1,0 +1,82 @@
+name: Health Monitor - TAPIMOVEL
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - "apps-script/**"
+      - "scripts/health-check.mjs"
+      - ".github/workflows/health-monitor.yml"
+
+concurrency:
+  group: health-monitor-tapimovel
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitorar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Executar health-check somente leitura
+        id: health
+        shell: bash
+        env:
+          HEALTH_REPORT_PATH: .health-report.md
+        run: |
+          set +e
+          node scripts/health-check.mjs
+          codigo=$?
+          cat .health-report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$codigo" -eq 0 ]; then
+            echo "status=healthy" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=unhealthy" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: Abrir, atualizar ou encerrar incidente
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          INCIDENT_TITLE: "[HEALTH] TAPIMOVEL indisponível"
+        run: |
+          numero="$(gh issue list --state open --limit 100 --json number,title --jq '.[] | select(.title == "[HEALTH] TAPIMOVEL indisponível") | .number' | head -n 1)"
+
+          if [ "$HEALTH_STATUS" = "unhealthy" ]; then
+            if [ -n "$numero" ]; then
+              gh issue edit "$numero" --body-file .health-report.md
+            else
+              gh issue create \
+                --title "$INCIDENT_TITLE" \
+                --body-file .health-report.md \
+                --assignee "$GITHUB_REPOSITORY_OWNER"
+            fi
+          elif [ -n "$numero" ]; then
+            printf '\n✅ Serviço recuperado automaticamente em %s.\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .health-recovery.md
+            cat .health-report.md >> .health-recovery.md
+            gh issue comment "$numero" --body-file .health-recovery.md
+            gh issue close "$numero" --reason completed
+          fi
+
+      - name: Sinalizar execução com falha
+        if: steps.health.outputs.status == 'unhealthy'
+        run: exit 1

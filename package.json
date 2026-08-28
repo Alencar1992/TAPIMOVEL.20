@@ -6,6 +6,7 @@
     "quality": "node scripts/quality-check.js",
     "audit:final": "node scripts/audit-final.js",
     "ci": "npm run quality && npm run audit:final && npm test",
-    "deploy:validate": "node scripts/validate-apps-script-deploy.js"
+    "deploy:validate": "node scripts/validate-apps-script-deploy.js",
+    "health:check": "node scripts/health-check.mjs"
   }
 }
