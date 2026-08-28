@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const IMAGEM_TAPI_TUDO = "./assets/loading/tapi-tudo-loader.webp?v=20260827.1";
+  const IMAGEM_TAPI_TUDO = "./assets/loading/tapi-tudo-loader.webp?v=20260828.1";
 
   function ativarLoaderTapiTudo_() {
     const media = document.querySelector("#loadingScreen .tapioca-loading-media");
