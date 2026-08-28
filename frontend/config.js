@@ -7,6 +7,14 @@ function paginaTapimovelEhCliente_() {
   return /(?:^|\/)cliente\.html$/.test(caminho);
 }
 
+(function carregarLoaderTapiTudoGlobal() {
+  const versao = "20260828.2";
+  const script = document.createElement("script");
+  script.src = "./loader-tapi-tudo.js?v=" + versao;
+  script.async = false;
+  document.head.appendChild(script);
+})();
+
 if (!paginaTapimovelEhCliente_()) {
   (function carregarControleFechamentoEliel() {
     const versao = "20260826.3";
@@ -52,10 +60,5 @@ if (paginaTapimovelEhCliente_()) {
     horario.src = "./horario-operacional.js?v=" + versao;
     horario.async = false;
     document.head.appendChild(horario);
-
-    const loaderTapiTudo = document.createElement("script");
-    loaderTapiTudo.src = "./loader-tapi-tudo.js?v=20260828.1";
-    loaderTapiTudo.async = false;
-    document.head.appendChild(loaderTapiTudo);
   })();
 }
