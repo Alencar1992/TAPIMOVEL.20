@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <script src="./config.js?v=20260828.3"></script>
-    <script src="./api-client.js?v=20260908.1"></script>
+    <script src="./api-client.js?v=20260908.1"></script>\n    <script src="./pedido-operation.js?v=20260929.1"></script>
     <script src="./vendor-loader.js"></script>
     <script src="./catalogo-base.js?v=20260816.3"></script>
     <script src="./catalogo-runtime.js?v=20260816.3"></script>
@@ -1080,7 +1080,7 @@
     </div>
 
     <script>
-        let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
+        let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;\n        let operacaoPedidoEmAndamento = null; let idRequisicaoPedidoAtual = null;
         let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = true; let codigosOnlineAlertados = new Set(); let contextoAudioOnline = null; let wakeLockOnline = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
         let itensIndisponiveis = []; let termoPesquisa = ""; let pausarSync = false;
@@ -2140,21 +2140,87 @@
         function removerItemCarrinho(index) { carrinho.splice(index, 1); atualizarCarrinho(); }
 
         function carregarParaEdicao(numero) {
-            const pedido = historicoNuvem.find(p => p.numero == numero);
-            if (!pedido) return;
+            if (operacaoPedidoEmAndamento) {
+                mostrarAlerta("Aguarde o lançamento atual terminar antes de editar outro pedido.");
+                return;
+            }
+
+            const numeroNormalizado = Number(numero);
+            const pedido = historicoNuvem.find(p => Number(p.numero) === numeroNormalizado);
+            if (!pedido) {
+                mostrarAlerta("O pedido não está mais disponível. Atualize o Caixa e tente novamente.");
+                return;
+            }
 
             carrinho = JSON.parse(JSON.stringify(pedido.itens));
-            pedidoEmEdicao = numero;
+            pedidoEmEdicao = numeroNormalizado;
+            idRequisicaoPedidoAtual = pedido.idRequisicao || null;
 
-            document.getElementById('tituloCarrinho').textContent = `✏️ Editando Pedido #${numero}`;
-            document.getElementById('btnLancar').textContent = 'Salvar Alteração';
+            const btnLancar = document.getElementById('btnLancar');
+            document.getElementById('tituloCarrinho').textContent = `✏️ Editando Pedido #${numeroNormalizado}`;
+            btnLancar.textContent = 'Salvar Alteração';
+            btnLancar.disabled = false;
+            btnLancar.dataset.numeroPedidoEdicao = String(numeroNormalizado);
 
             mudarTela('view-catalogo');
             atualizarCarrinho();
         }
 
+        function numeroPedidoEmEdicaoAtivo(btnLancar) {
+            const numeroEstado = Number(pedidoEmEdicao);
+            if (Number.isInteger(numeroEstado) && numeroEstado > 0) return numeroEstado;
+
+            const numeroBotao = Number(btnLancar && btnLancar.dataset.numeroPedidoEdicao);
+            return Number.isInteger(numeroBotao) && numeroBotao > 0 ? numeroBotao : null;
+        }
+
+        function finalizarContextoOperacaoPedido(idOperacao) {
+            const apiOperacao = window.TapimovelOperacaoPedido;
+            if (!apiOperacao.respostaPertenceAoContexto(
+                operacaoPedidoEmAndamento,
+                idOperacao
+            )) {
+                return false;
+            }
+            operacaoPedidoEmAndamento = null;
+            pausarSync = false;
+            return true;
+        }
+
         function lancarPedido() {
-            if (carrinho.length === 0) return alert("Carrinho vazio!");
+            if (carrinho.length === 0) return mostrarAlerta("Carrinho vazio!");
+            if (operacaoPedidoEmAndamento) {
+                mostrarToast("Aguarde: o pedido já está sendo enviado.");
+                return;
+            }
+
+            const apiOperacao = window.TapimovelOperacaoPedido;
+            if (!apiOperacao) {
+                mostrarAlerta("Não foi possível preparar o envio. Atualize o PDV e tente novamente.");
+                return;
+            }
+
+            const btnLancar = document.getElementById('btnLancar');
+            const numeroEdicao = numeroPedidoEmEdicaoAtivo(btnLancar);
+            const tituloIndicaEdicao = document.getElementById('tituloCarrinho')
+                .textContent.indexOf('Editando Pedido') !== -1;
+
+            if (tituloIndicaEdicao && !numeroEdicao) {
+                mostrarAlerta("Edição desatualizada. Volte ao Caixa e abra o pedido novamente.");
+                return;
+            }
+
+            if (!numeroEdicao && !idRequisicaoPedidoAtual) {
+                idRequisicaoPedidoAtual = apiOperacao.criarIdOperacao("pdv");
+            }
+
+            const contexto = apiOperacao.criarContextoOperacao({
+                numeroEdicao: numeroEdicao,
+                idOperacao: apiOperacao.criarIdOperacao("op"),
+                idRequisicao: idRequisicaoPedidoAtual
+            });
+            operacaoPedidoEmAndamento = contexto;
+            pausarSync = true;
 
             let audioCampainha = document.getElementById('somCampainha');
             if(audioCampainha) audioCampainha.play().catch(e => console.log(e));
@@ -2169,62 +2235,112 @@
             const totalCarrinho = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
             const isPronto = carrinho.every(item => item.pronto === true);
 
-            let btnLancar = document.getElementById('btnLancar');
-            if(btnLancar) {
-                btnLancar.disabled = true;
-                btnLancar.textContent = "Lançando...";
-            }
+            btnLancar.disabled = true;
+            btnLancar.textContent = contexto.tipo === "editar"
+                ? "Salvando alteração..."
+                : "Lançando...";
 
-            if (pedidoEmEdicao !== null) {
-                const index = historicoNuvem.findIndex(p => p.numero == pedidoEmEdicao);
-                if (index !== -1) {
-                    historicoNuvem[index].itens = JSON.parse(JSON.stringify(carrinho));
-                    historicoNuvem[index].total = totalCarrinho;
-                    historicoNuvem[index].produzido = isPronto;
-
-                    if(typeof google !== 'undefined') {
-                        google.script.run
-                        .withSuccessHandler(function(pedidoAtualizado) {
-                            historicoNuvem[index] = pedidoAtualizado;
-                            limparCarrinho();
-                            atualizarTudo();
-                        })
-                        .withFailureHandler(function(erro) {
-                            alert("Erro ao atualizar pedido na nuvem: " + erro.message);
-                            if(btnLancar) { btnLancar.disabled = false; btnLancar.textContent = "Salvar Alteração"; }
-                        })
-                        .atualizarPedidoPdv(JSON.stringify(historicoNuvem[index]));
-                    }
+            if (contexto.tipo === "editar") {
+                const index = historicoNuvem.findIndex(
+                    p => Number(p.numero) === contexto.numeroPedido
+                );
+                if (index === -1) {
+                    finalizarContextoOperacaoPedido(contexto.idOperacao);
+                    btnLancar.disabled = false;
+                    btnLancar.textContent = "Salvar Alteração";
+                    mostrarAlerta("Edição desatualizada. O pedido não foi encontrado; abra-o novamente pelo Caixa.");
+                    return;
                 }
-            } else {
-                let novoPedido = {
-                    origem: "PDV",
-                    itens: JSON.parse(JSON.stringify(carrinho)),
-                    total: totalCarrinho,
-                    hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    produzido: isPronto,
-                    timestampCriacao: new Date().getTime()
-                };
+
+                const pedidoAtualizadoLocal = Object.assign(
+                    {},
+                    historicoNuvem[index],
+                    {
+                        numero: contexto.numeroPedido,
+                        itens: JSON.parse(JSON.stringify(carrinho)),
+                        total: totalCarrinho,
+                        produzido: isPronto
+                    }
+                );
 
                 if(typeof google !== 'undefined') {
                     google.script.run
-                    .withSuccessHandler(function(pedidoRegistrado) {
-                        historicoNuvem.push(pedidoRegistrado);
-                        contadorPedidos = Math.max(contadorPedidos, Number(pedidoRegistrado.numero) + 1);
-                        limparCarrinho();
+                    .withSuccessHandler(function(pedidoAtualizado) {
+                        if (!finalizarContextoOperacaoPedido(contexto.idOperacao)) return;
+
+                        const indexAtual = historicoNuvem.findIndex(
+                            p => Number(p.numero) === contexto.numeroPedido
+                        );
+                        if (indexAtual === -1) {
+                            mostrarAlerta("O pedido foi atualizado, mas a tela estava desatualizada. O Caixa será sincronizado.");
+                            limparCarrinho(true);
+                            atualizarTudo();
+                            return;
+                        }
+
+                        historicoNuvem[indexAtual] = pedidoAtualizado;
+                        limparCarrinho(true);
                         atualizarTudo();
                     })
                     .withFailureHandler(function(erro) {
-                        alert("Erro ao sincronizar com a nuvem: " + erro.message);
-                        if(btnLancar) { btnLancar.disabled = false; btnLancar.textContent = "Lançar para Produção"; }
+                        if (!finalizarContextoOperacaoPedido(contexto.idOperacao)) return;
+                        mostrarAlerta("Erro ao atualizar pedido na nuvem: " + erro.message);
+                        btnLancar.disabled = false;
+                        btnLancar.textContent = "Salvar Alteração";
                     })
-                    .registrarPedidoPdv(JSON.stringify(novoPedido));
+                    .atualizarPedidoPdv(JSON.stringify(pedidoAtualizadoLocal));
                 } else {
-                    novoPedido.numero = contadorPedidos++;
-                    historicoNuvem.push(novoPedido);
-                    limparCarrinho();
+                    historicoNuvem[index] = pedidoAtualizadoLocal;
+                    finalizarContextoOperacaoPedido(contexto.idOperacao);
+                    limparCarrinho(true);
                     atualizarTudo();
                 }
+                return;
+            }
+
+            let novoPedido = {
+                origem: "PDV",
+                idRequisicao: contexto.idRequisicao,
+                itens: JSON.parse(JSON.stringify(carrinho)),
+                total: totalCarrinho,
+                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                produzido: isPronto,
+                timestampCriacao: new Date().getTime()
+            };
+
+            if(typeof google !== 'undefined') {
+                google.script.run
+                .withSuccessHandler(function(pedidoRegistrado) {
+                    if (!finalizarContextoOperacaoPedido(contexto.idOperacao)) return;
+
+                    const jaExiste = historicoNuvem.some(function(item) {
+                        return Number(item.numero) === Number(pedidoRegistrado.numero) ||
+                            (
+                                pedidoRegistrado.idRequisicao &&
+                                item.idRequisicao === pedidoRegistrado.idRequisicao
+                            );
+                    });
+                    if (!jaExiste) historicoNuvem.push(pedidoRegistrado);
+
+                    contadorPedidos = Math.max(contadorPedidos, Number(pedidoRegistrado.numero) + 1);
+                    idRequisicaoPedidoAtual = null;
+                    limparCarrinho(true);
+                    atualizarTudo();
+                })
+                .withFailureHandler(function(erro) {
+                    if (!finalizarContextoOperacaoPedido(contexto.idOperacao)) return;
+                    mostrarAlerta("Erro ao sincronizar com a nuvem: " + erro.message);
+                    btnLancar.disabled = false;
+                    btnLancar.textContent = "Lançar para Produção";
+                })
+                .registrarPedidoPdv(JSON.stringify(novoPedido));
+            } else {
+                novoPedido.numero = contadorPedidos++;
+                historicoNuvem.push(novoPedido);
+                finalizarContextoOperacaoPedido(contexto.idOperacao);
+                idRequisicaoPedidoAtual = null;
+                limparCarrinho(true);
+                atualizarTudo();
             }
         }
 
@@ -2740,13 +2856,24 @@
             }
         }
 
-        function limparCarrinho() {
+        function limparCarrinho(forcarDuranteOperacao) {
+            if (operacaoPedidoEmAndamento && !forcarDuranteOperacao) {
+                mostrarAlerta("Aguarde o envio atual terminar antes de limpar o pedido.");
+                return;
+            }
+
             carrinho = [];
             pedidoEmEdicao = null;
+            idRequisicaoPedidoAtual = null;
+            if (forcarDuranteOperacao) {
+                operacaoPedidoEmAndamento = null;
+                pausarSync = false;
+            }
             document.getElementById('tituloCarrinho').textContent = "Pedido em Andamento";
 
             let btnLancar = document.getElementById('btnLancar');
             if(btnLancar) {
+                delete btnLancar.dataset.numeroPedidoEdicao;
                 btnLancar.textContent = "Lançar para Produção";
                 btnLancar.disabled = false;
             }
