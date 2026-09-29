@@ -129,6 +129,18 @@ function normalizarPedidoOnline_(pedidoRecebido, catalogo) {
   };
 }
 
+function normalizarIdRequisicaoPedido_(valor, obrigatorio) {
+  const id = String(valor == null ? "" : valor).trim();
+  if (!id && !obrigatorio) return "";
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{15,119}$/.test(id)) {
+    throw erroApi_(
+      "INVALID_REQUEST_ID",
+      "O identificador de envio do pedido é inválido. Atualize o PDV e tente novamente."
+    );
+  }
+  return id;
+}
+
 function normalizarPedidoPdv_(pedidoRecebido) {
   if (!pedidoRecebido || typeof pedidoRecebido !== "object" || Array.isArray(pedidoRecebido)) {
     throw erroApi_("INVALID_ORDER", "Pedido do PDV inválido.");
@@ -216,17 +228,33 @@ function normalizarPedidoPdv_(pedidoRecebido) {
       return item.tipo !== "bebida";
     }).every(function(item) {
       return item.pronto;
-    })
+    }),
+    idRequisicao: normalizarIdRequisicaoPedido_(
+      pedidoRecebido.idRequisicao,
+      false
+    )
   };
 }
 
 function registrarPedidoPdv(pedidoJSON) {
+  const recebido = JSON.parse(pedidoJSON || "{}");
+  const pedido = normalizarPedidoPdv_(recebido);
+  pedido.idRequisicao = normalizarIdRequisicaoPedido_(
+    recebido.idRequisicao,
+    true
+  );
+
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
-    const pedido = normalizarPedidoPdv_(JSON.parse(pedidoJSON || "{}"));
-    const props = obterScriptProperties_();
     const ativos = carregarFilaPdvAtivos_();
+    const pedidoExistente = ativos.find(function(item) {
+      return String(item.idRequisicao || "") === pedido.idRequisicao;
+    });
+    if (pedidoExistente) {
+      return pedidoExistente;
+    }
+
     const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
     const numerosHoje = ativos.filter(function(item) {
       const ts = item.timestampCriacao || item.timestamp;
@@ -238,6 +266,7 @@ function registrarPedidoPdv(pedidoJSON) {
     }).map(function(item) {
       return Number(item.numero) || 0;
     });
+
     pedido.numero = (numerosHoje.length ? Math.max.apply(null, numerosHoje) : 0) + 1;
     pedido.timestampCriacao = Date.now();
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
@@ -256,10 +285,11 @@ function atualizarPedidoPdv(pedidoJSON) {
   if (!Number.isInteger(numero) || numero < 1) {
     throw erroApi_("INVALID_ORDER", "Número do pedido inválido.");
   }
+
+  const pedidoNormalizado = normalizarPedidoPdv_(recebido);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
-    const props = obterScriptProperties_();
     const ativos = carregarFilaPdvAtivos_();
     const indice = ativos.findIndex(function(item) {
       return Number(item.numero) === numero;
@@ -267,11 +297,16 @@ function atualizarPedidoPdv(pedidoJSON) {
     if (indice === -1) {
       throw erroApi_("ORDER_NOT_FOUND", "O pedido não foi encontrado.");
     }
+
     const pedidoAnterior = ativos[indice];
-    const pedido = normalizarPedidoPdv_(recebido);
+    const pedido = pedidoNormalizado;
     pedido.numero = numero;
-    pedido.timestampCriacao = ativos[indice].timestampCriacao;
-    pedido.hora = ativos[indice].hora;
+    pedido.timestampCriacao = pedidoAnterior.timestampCriacao;
+    pedido.hora = pedidoAnterior.hora;
+    pedido.idRequisicao = pedidoAnterior.idRequisicao ||
+      pedido.idRequisicao ||
+      "";
+
     try {
       removerDaBaseDeVendasBackend(numero);
       lancarPedidoPlanilha(JSON.stringify(pedido));
@@ -284,6 +319,7 @@ function atualizarPedidoPdv(pedidoJSON) {
       }
       throw erro;
     }
+
     ativos[indice] = pedido;
     substituirFilaPdvAtivos_(ativos);
     return pedido;
