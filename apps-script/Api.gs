@@ -83,6 +83,9 @@ function executarAcaoApi_(action, args, token) {
   ];
 
   const acoesAdministrativas = [
+    "configurarPinAreasFinanceiras",
+    "obterStatusPinAreasFinanceiras",
+    "autorizarAreaFinanceira",
     "listarPedidosOnlinePendentes",
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
@@ -164,13 +167,30 @@ function executarAcaoApi_(action, args, token) {
     throw erroApi_("ACTION_NOT_FOUND", "Função não encontrada no backend: " + action);
   }
 
-  const argumentos = Array.isArray(args) ? args : [];
+  const argumentos = Array.isArray(args) ? args.slice() : [];
   if (
     action === "validarSessaoAcesso" ||
     action === "validarSessaoAdministrador" ||
     action === "encerrarSessaoAdministrador"
   ) {
     return { ok: true, data: fn.call(this, token) };
+  }
+
+  if (
+    action === "configurarPinAreasFinanceiras" ||
+    action === "obterStatusPinAreasFinanceiras" ||
+    action === "autorizarAreaFinanceira"
+  ) {
+    return { ok: true, data: fn.apply(this, argumentos.concat(token)) };
+  }
+
+  const areaFinanceira = obterAreaProtegidaDaAcao_(action, argumentos);
+  if (areaFinanceira) {
+    const quantidadeEsperada = obterQuantidadeArgumentosAcaoFinanceira_(action);
+    const ticketFinanceiro = argumentos.length > quantidadeEsperada
+      ? argumentos.pop()
+      : "";
+    exigirTicketAreaFinanceira_(token, areaFinanceira, ticketFinanceiro);
   }
   return { ok: true, data: fn.apply(this, argumentos) };
 }
