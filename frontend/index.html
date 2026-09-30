@@ -13,6 +13,7 @@
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <script src="./config.js?v=20260828.3"></script>
     <script src="./api-client.js?v=20260908.1"></script>
+    <script src="./finance-access.js?v=20260930.1"></script>
     <script src="./pedido-operation.js?v=20260929.1"></script>
     <script src="./vendor-loader.js"></script>
     <script src="./catalogo-base.js?v=20260816.3"></script>
@@ -266,6 +267,21 @@
         </div>
     </div>
 
+    <div id="modalPinFinanceiro" class="modal-overlay" style="z-index: 4200;">
+        <form id="formPinFinanceiro" class="modal-content pin-financeiro-modal" onsubmit="return confirmarPinFinanceiro(event)">
+            <div class="pin-financeiro-icone" aria-hidden="true">🔐</div>
+            <h3 id="tituloPinFinanceiro">Acessar área financeira</h3>
+            <p>Informe o PIN único para continuar. Ele não será salvo neste aparelho.</p>
+            <label for="pinFinanceiro">PIN de 4 números</label>
+            <input id="pinFinanceiro" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required aria-describedby="erroPinFinanceiro">
+            <p id="erroPinFinanceiro" class="pin-financeiro-erro" role="alert"></p>
+            <div class="pin-financeiro-acoes">
+                <button type="button" class="btn-acao btn-limpar" onclick="cancelarPinFinanceiro()">Cancelar</button>
+                <button id="btnConfirmarPinFinanceiro" type="submit" class="btn-acao">Liberar acesso</button>
+            </div>
+        </form>
+    </div>
+
     <div id="modalIdentificacaoConfig" class="modal-overlay" style="z-index: 4100;">
         <div class="modal-content config-identificacao">
             <div class="config-modal-icone" aria-hidden="true">⚙️</div>
@@ -358,7 +374,7 @@
         </div>
 
         <div class="menu-grupo">
-            <button class="btn-categoria" onclick="toggleSubmenu('sub-gestao')">🚀 Gestão O.P <span class="seta">▼</span></button>
+            <button class="btn-categoria" onclick="alternarGestaoProtegida()">🚀 Gestão O.P <span class="seta">▼</span></button>
             <div id="sub-gestao" class="submenu">
                 <button onclick="abrirRestrito('estimativa')">💵 Projeção Salário</button>
                 <button onclick="abrirRestrito('dias')">💤 Dias não Trabalho</button>
@@ -660,6 +676,22 @@
             <strong id="configTotalItens">0 itens</strong>
             <span>Alterações são aplicadas no PDV e no cardápio do cliente.</span>
         </div>
+        <section class="config-seguranca-financeira eliel-admin-only" aria-labelledby="configSegurancaTitulo">
+            <div>
+                <span class="config-seguranca-selo">🔐 Segurança</span>
+                <h3 id="configSegurancaTitulo">Áreas financeiras</h3>
+                <p>Este PIN único protege Liquidez Mensal, Gestão O.P. e Rankings de Vendas.</p>
+                <p id="statusPinFinanceiro" class="config-pin-status" role="status">Consultando configuração…</p>
+            </div>
+            <form onsubmit="return configurarPinFinanceiro(event)" autocomplete="off">
+                <label for="configPinFinanceiro">Novo PIN de 4 números</label>
+                <input id="configPinFinanceiro" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" required>
+                <label for="configPinFinanceiroConfirmacao">Confirmar novo PIN</label>
+                <input id="configPinFinanceiroConfirmacao" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" required>
+                <p id="erroConfigPinFinanceiro" class="pin-financeiro-erro" role="alert"></p>
+                <button id="btnSalvarPinFinanceiro" type="submit" class="config-btn-novo">Salvar PIN com segurança</button>
+            </form>
+        </section>
         <div id="configListaItens" class="config-lista"></div>
     </div>
 
@@ -1172,8 +1204,8 @@
             else if(acao === 'itens') abrirTelaItens();
             else if(acao === 'configuracao') solicitarAcessoConfiguracao();
             else if(acao === 'espelho') mudarTela('view-espelho');
-            else if(acao === 'rankings') mudarTela('view-rankings');
-            else if(acao === 'liquidez') abrirModalLiquidez();
+            else if(acao === 'rankings') solicitarAcessoFinanceiro('rankings', function() { mudarTela('view-rankings'); });
+            else if(acao === 'liquidez') solicitarAcessoFinanceiro('liquidez', abrirModalLiquidez);
             else if(acao === 'estimativa') abrirModalEstimativa();
             else if(acao === 'dias') abrirModalDiaSemTrabalho();
             else if(acao === 'combustivel') mudarTela('view-combustivel');
@@ -1299,7 +1331,7 @@
                     document.getElementById('estMedia').textContent = formatarMoeda(d.mediaDiaria);
                     document.getElementById('estLucasAtual').textContent = formatarMoeda(d.lucasAtual);
                     document.getElementById('estLucasProjetado').textContent = formatarMoeda(d.lucasProjetado);
-                }).calcularEstimativaSalarioLucas();
+                }).calcularEstimativaSalarioLucas(obterTicketFinanceiro('gestao'));
             }
         }
 
@@ -1349,7 +1381,7 @@
                     document.getElementById('loadingScreen').style.display = 'none';
                     if(resp === "OK") { fecharModais(); mostrarAlerta("✅ Dia sem trabalho registrado com sucesso na planilha!"); }
                     else { mostrarAlerta("⚠️ Erro: " + resp); }
-                }).withFailureHandler(function(erro) { document.getElementById('loadingScreen').style.display = 'none'; mostrarAlerta("❌ Erro de comunicação: " + erro.message); }).registrarDiaSemTrabalhoPlanilha(JSON.stringify(pacote));
+                }).withFailureHandler(function(erro) { document.getElementById('loadingScreen').style.display = 'none'; mostrarAlerta("❌ Erro de comunicação: " + erro.message); }).registrarDiaSemTrabalhoPlanilha(JSON.stringify(pacote), obterTicketFinanceiro('gestao'));
             } else { document.getElementById('loadingScreen').style.display = 'none'; fecharModais(); mostrarAlerta("Simulação concluída."); }
         }
 
@@ -1375,7 +1407,7 @@
                     dados.forEach(d => { html += `<tr><td style='font-weight:bold; white-space:nowrap; color: var(--primary);'>${d.data}</td><td>${d.motivo}</td></tr>`; });
                     html += "</tbody></table>";
                     divRes.innerHTML = html;
-                }).buscarFolgasBackend(mes, ano);
+                }).buscarFolgasBackend(mes, ano, obterTicketFinanceiro('gestao'));
             }
         }
 
@@ -1848,6 +1880,7 @@
             }
             document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
             document.getElementById(idTela).classList.add('active');
+            if(idTela === 'view-configuracao' && !acessoEhEliel() && typeof carregarStatusPinFinanceiro === 'function') carregarStatusPinFinanceiro();
 
             let btnProd = document.getElementById('btnTopoProd');
             let btnCaixa = document.getElementById('btnTopoCaixa');
@@ -2649,7 +2682,7 @@
                     recalcularLiquidez();
                     document.getElementById('loadingLiquidez').style.display = 'none';
                     document.getElementById('conteudoLiquidez').style.display = 'block';
-                }).obterResumoMesPlanilha();
+                }).obterResumoMesPlanilha(obterTicketFinanceiro('liquidez'));
             }
         }
 
@@ -2767,7 +2800,7 @@
                 }).withFailureHandler(function(erro) {
                     document.getElementById('loadingScreen').style.display = 'none';
                     mostrarAlerta("❌ Erro: " + erro.message);
-                }).salvarCombustivelPlanilha(JSON.stringify(pacote));
+                }).salvarCombustivelPlanilha(JSON.stringify(pacote), obterTicketFinanceiro('gestao'));
             }
         }
 
@@ -2801,7 +2834,7 @@
                         </div>`;
                     });
                     lista.innerHTML = htmlBuffer;
-                }).buscarHistoricoCombustivel(mes, ano);
+                }).buscarHistoricoCombustivel(mes, ano, obterTicketFinanceiro('gestao'));
             }
         }
 
@@ -2888,7 +2921,20 @@
         }
 
         function carregarEspelhoPlanilha() {
-            let abaNome = document.getElementById('selectAbaEspelho').value;
+            const abaNome = document.getElementById('selectAbaEspelho').value;
+            const area = areaFinanceiraEspelho(abaNome);
+            solicitarAcessoFinanceiro(area, function() {
+                carregarEspelhoPlanilhaAutorizado(abaNome, area);
+            });
+        }
+
+        function areaFinanceiraEspelho(abaNome) {
+            if (['Combustivel', 'Dias_Nao_Trabalhados'].indexOf(abaNome) !== -1) return 'gestao';
+            if (['Tapiocas Diária', 'Base de Vendas', 'Historico_Diario', 'Vendas_hoje', 'Resumo Semanal', 'Pedidos Cancelados'].indexOf(abaNome) !== -1) return 'rankings';
+            return 'liquidez';
+        }
+
+        function carregarEspelhoPlanilhaAutorizado(abaNome, area) {
             let loading = document.getElementById('loadingEspelho');
             let container = document.getElementById('containerTabelaEspelho');
 
@@ -2937,7 +2983,7 @@
                     loading.style.display = 'none';
                     mostrarAlerta("Erro do Servidor ao carregar espelho: " + erro.message);
                 })
-                .buscarDadosEspelhoBackend(abaNome);
+                .buscarDadosEspelhoBackend(abaNome, obterTicketFinanceiro(area));
             } else {
                 loading.style.display = 'none';
                 container.style.display = 'block';
@@ -3033,7 +3079,7 @@
                     loading.style.display = 'none';
                     divResult.innerHTML = `<p style="color:var(--danger); text-align:center; border: 1px solid var(--danger); padding: 10px; border-radius: 6px;"><b>Erro:</b><br>${escaparHtml(erro.message)}</p>`;
                 })
-                .buscarTopProdutosBackend(mes, ano);
+                .buscarTopProdutosBackend(mes, ano, obterTicketFinanceiro('rankings'));
             }
         }
 
@@ -3084,7 +3130,7 @@
                 }).withFailureHandler(function(erro) {
                     loading.style.display = 'none';
                     divResult.innerHTML = `<p style="color:var(--danger); text-align:center; border: 1px solid var(--danger); padding: 10px; border-radius: 6px;"><b>Erro:</b><br>${erro.message}</p>`;
-                }).buscarRankingRotasBackend(mes, ano);
+                }).buscarRankingRotasBackend(mes, ano, obterTicketFinanceiro('rankings'));
             }
         }
 
@@ -3101,6 +3147,17 @@
                 submenu.style.display = "flex";
                 btn.classList.add('aberto');
             }
+        }
+
+        function alternarGestaoProtegida() {
+            const submenu = document.getElementById('sub-gestao');
+            if (submenu.style.display === 'flex') {
+                toggleSubmenu('sub-gestao');
+                return;
+            }
+            solicitarAcessoFinanceiro('gestao', function() {
+                toggleSubmenu('sub-gestao');
+            });
         }
     </script>
     <script src="./eliel.js?v=20260816.4"></script>

@@ -220,6 +220,216 @@ test("login cria sessão temporária e PIN incorreto é recusado", () => {
   assert.equal(context.validarSessaoAdministrador(session.token), false);
 });
 
+test("PIN financeiro é derivado no backend e nunca armazenado em texto puro", () => {
+  const { context, properties } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAdministrador("123456");
+
+  const resposta = context.executarAcaoApi_(
+    "configurarPinAreasFinanceiras",
+    ["4815"],
+    session.token
+  );
+  const salvo = properties.get("pdv_finance_access_pin_v1");
+
+  assert.equal(resposta.data.configurado, true);
+  assert.ok(salvo);
+  assert.equal(salvo.includes("4815"), false);
+  const registro = JSON.parse(salvo);
+  assert.match(registro.salt, /^[a-f0-9]{32}$/);
+  assert.match(registro.hash, /^[a-f0-9]{64}$/);
+  assert.ok(registro.iterations >= 1000);
+});
+
+test("cada área financeira exige ticket válido da mesma sessão e do mesmo escopo", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAdministrador("123456");
+  const otherSession = context.loginAdministrador("123456");
+  context.executarAcaoApi_("configurarPinAreasFinanceiras", ["4815"], session.token);
+  context.obterResumoMesPlanilha = () => "RESUMO";
+  context.buscarTopProdutosBackend = () => "RANKING";
+
+  assert.throws(
+    () => context.executarAcaoApi_("obterResumoMesPlanilha", [], session.token),
+    error => error.code === "FINANCE_PIN_REQUIRED"
+  );
+
+  const autorizacao = context.executarAcaoApi_(
+    "autorizarAreaFinanceira",
+    ["4815", "liquidez"],
+    session.token
+  ).data;
+
+  assert.equal(
+    context.executarAcaoApi_(
+      "obterResumoMesPlanilha",
+      [autorizacao.ticket],
+      session.token
+    ).data,
+    "RESUMO"
+  );
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "buscarTopProdutosBackend",
+      [9, 2030, autorizacao.ticket],
+      session.token
+    ),
+    error => error.code === "FINANCE_TICKET_INVALID"
+  );
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "obterResumoMesPlanilha",
+      [autorizacao.ticket],
+      otherSession.token
+    ),
+    error => error.code === "FINANCE_TICKET_INVALID"
+  );
+});
+
+test("espelho financeiro não contorna o PIN e troca de PIN revoga tickets anteriores", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAdministrador("123456");
+  context.executarAcaoApi_("configurarPinAreasFinanceiras", ["4815"], session.token);
+  context.buscarDadosEspelhoBackend = aba => "ESPELHO:" + aba;
+
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Liquidez Mensal"],
+      session.token
+    ),
+    error => error.code === "FINANCE_PIN_REQUIRED"
+  );
+
+  const autorizacao = context.executarAcaoApi_(
+    "autorizarAreaFinanceira",
+    ["4815", "liquidez"],
+    session.token
+  ).data;
+  assert.equal(
+    context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Liquidez Mensal", autorizacao.ticket],
+      session.token
+    ).data,
+    "ESPELHO:Liquidez Mensal"
+  );
+
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Combustivel", autorizacao.ticket],
+      session.token
+    ),
+    error => error.code === "FINANCE_TICKET_INVALID"
+  );
+  const autorizacaoGestao = context.executarAcaoApi_(
+    "autorizarAreaFinanceira",
+    ["4815", "gestao"],
+    session.token
+  ).data;
+  assert.equal(
+    context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Combustivel", autorizacaoGestao.ticket],
+      session.token
+    ).data,
+    "ESPELHO:Combustivel"
+  );
+
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Historico_Diario", autorizacao.ticket],
+      session.token
+    ),
+    error => error.code === "FINANCE_TICKET_INVALID"
+  );
+  const autorizacaoRankings = context.executarAcaoApi_(
+    "autorizarAreaFinanceira",
+    ["4815", "rankings"],
+    session.token
+  ).data;
+  assert.equal(
+    context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Historico_Diario", autorizacaoRankings.ticket],
+      session.token
+    ).data,
+    "ESPELHO:Historico_Diario"
+  );
+
+  context.executarAcaoApi_("configurarPinAreasFinanceiras", ["7394"], session.token);
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "buscarDadosEspelhoBackend",
+      ["Liquidez Mensal", autorizacao.ticket],
+      session.token
+    ),
+    error => error.code === "FINANCE_TICKET_INVALID"
+  );
+});
+
+test("tentativas do PIN financeiro são atômicas e persistem entre novas sessões", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("123456");
+  const session = context.loginAdministrador("123456");
+  const otherSession = context.loginAdministrador("123456");
+  context.executarAcaoApi_("configurarPinAreasFinanceiras", ["4815"], session.token);
+
+  for (let tentativa = 0; tentativa < 5; tentativa += 1) {
+    assert.throws(
+      () => context.executarAcaoApi_(
+        "autorizarAreaFinanceira",
+        ["0000", "gestao"],
+        session.token
+      ),
+      error => error.code === "INVALID_FINANCE_PIN"
+    );
+  }
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "autorizarAreaFinanceira",
+      ["4815", "gestao"],
+      session.token
+    ),
+    error => error.code === "FINANCE_PIN_BLOCKED"
+  );
+
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "autorizarAreaFinanceira",
+      ["4815", "gestao"],
+      otherSession.token
+    ),
+    error => error.code === "FINANCE_PIN_BLOCKED"
+  );
+
+  const financeiro = fs.readFileSync(
+    path.join(__dirname, "../apps-script/FinancialAccessService.gs"),
+    "utf8"
+  );
+  assert.match(financeiro, /getScriptLock\(\)[\s\S]*waitLock/);
+});
+
+test("perfil CEO Eliel não configura nem autoriza áreas financeiras", () => {
+  const { context } = createContext();
+  context.configurarPinEliel("654321");
+  const session = context.loginAcesso("654321", "eliel");
+
+  [
+    ["configurarPinAreasFinanceiras", ["4815"]],
+    ["autorizarAreaFinanceira", ["4815", "liquidez"]]
+  ].forEach(([action, args]) => {
+    assert.throws(
+      () => context.executarAcaoApi_(action, args, session.token),
+      error => error.code === "PERMISSION_DENIED"
+    );
+  });
+});
+
 test("sessão administrativa é invalidada na mudança do dia", () => {
   const { context, setCurrentDay } = createContext();
   context.configurarPinAdministrador("123456");

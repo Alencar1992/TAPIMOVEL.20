@@ -6,3 +6,4 @@ dist/
 client_secret.json
 credentials.json
 oauth-client.json
+.worktrees/

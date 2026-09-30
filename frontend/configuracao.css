@@ -248,7 +248,75 @@
     text-align: center;
 }
 
+.config-seguranca-financeira {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 360px);
+    gap: 24px;
+    margin: 18px 0;
+    padding: 20px;
+    border: 1px solid rgba(51, 154, 240, .45);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(51, 154, 240, .09), rgba(30, 30, 30, .96));
+}
+
+.config-seguranca-financeira h3 {
+    margin: 8px 0;
+}
+
+.config-seguranca-financeira p {
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.config-seguranca-selo {
+    color: #74c0fc;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.config-seguranca-financeira form {
+    display: grid;
+    gap: 8px;
+}
+
+.config-seguranca-financeira input,
+.pin-financeiro-modal input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1.1rem;
+    letter-spacing: .2em;
+    text-align: center;
+}
+
+.config-pin-status[data-estado="ok"] { color: var(--success); }
+.config-pin-status[data-estado="erro"] { color: #ff8787; }
+
+.pin-financeiro-modal {
+    max-width: 380px;
+    text-align: center;
+    border-top: 5px solid var(--edit);
+}
+
+.pin-financeiro-modal h3 { margin: 8px 0; }
+.pin-financeiro-modal > p { color: var(--text-muted); }
+.pin-financeiro-modal label { display: block; margin: 18px 0 7px; font-weight: 700; }
+.pin-financeiro-icone { font-size: 2.8rem; }
+.pin-financeiro-erro { min-height: 20px; margin: 8px 0; color: #ff8787; font-size: .9rem; }
+.pin-financeiro-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pin-financeiro-acoes .btn-acao { margin: 0; }
+
 @media (max-width: 700px) {
+    .config-seguranca-financeira {
+        grid-template-columns: 1fr;
+    }
+
     .config-cabecalho {
         align-items: stretch;
         flex-direction: column;
