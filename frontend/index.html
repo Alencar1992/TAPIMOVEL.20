@@ -324,6 +324,7 @@
         <h1 class="header-title">TAPIMOVEL🌮🚗</h1>
         <strong id="identidadeAcesso" hidden style="margin-left:auto;color:var(--primary);font-size:.92rem"></strong>
         <div class="top-counters">
+            <button class="btn-top btn-tapioca" id="btnTopoCatalogo" hidden onclick="mudarTela('view-catalogo')">🌮 Cardápio</button>
             <button class="btn-top" id="btnTopoProd" onclick="mudarTela('view-producao')">👨‍🍳 Prod.</button>
             <button class="btn-top btn-online-alerta" id="btnTopoOnline" onclick="mudarTela('view-pedidos-online')">📲 Online</button>
             <button class="btn-top" id="btnTopoCaixa" onclick="mudarTela('view-painel')">📝 Caixa</button>
@@ -1124,6 +1125,7 @@
             document.body.classList.toggle('perfil-producao', producao);
             document.querySelector('.top-counters').hidden = eliel;
             document.getElementById('btnTopoTapiocas').hidden = producao;
+            document.getElementById('btnTopoCatalogo').hidden = !producao;
             document.querySelectorAll('#sidebar .menu-grupo').forEach(function(grupo) {
                 grupo.hidden = eliel
                     ? !grupo.classList.contains('menu-eliel')
@@ -1533,6 +1535,19 @@
                 .validarSessaoAcesso();
         }
 
+        function redirecionarPerfilRestritoNoLinkAdmin(sessao) {
+            if (modoAcessoEsperado !== 'admin' || !sessao) return false;
+            if (sessao.perfil === 'eliel') {
+                window.location.replace('./relatorio-eliel.html?origem=pdv');
+                return true;
+            }
+            if (sessao.perfil === 'producao') {
+                window.location.replace('./index.html?acesso=producao');
+                return true;
+            }
+            return false;
+        }
+
         document.getElementById('formLoginAdmin').addEventListener('submit', function(evento) {
             evento.preventDefault();
             const pin = document.getElementById('loginAdminPin').value.trim();
@@ -1550,14 +1565,7 @@
                     document.getElementById('loginAdminPin').value = '';
                     botao.disabled = false;
                     botao.textContent = 'Entrar com segurança';
-                    if (modoAcessoEsperado === 'admin' && sessao && sessao.perfil === 'eliel') {
-                        window.location.replace('./relatorio-eliel.html?origem=pdv');
-                        return;
-                    }
-                    if (modoAcessoEsperado === 'admin' && sessao && sessao.perfil === 'producao') {
-                        window.location.replace('./index.html?acesso=producao');
-                        return;
-                    }
+                    if (redirecionarPerfilRestritoNoLinkAdmin(sessao)) return;
                     liberarAplicacaoAcesso(sessao);
                 })
                 .withFailureHandler(function(falha) {
@@ -1903,7 +1911,7 @@
             }
             if (
                 acessoEhProducao() &&
-                ['view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'].indexOf(idTela) === -1
+                ['view-catalogo', 'view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'].indexOf(idTela) === -1
             ) {
                 mostrarAlerta('O perfil Produção não possui acesso a esta área.');
                 return;
@@ -1915,12 +1923,17 @@
             let btnCaixa = document.getElementById('btnTopoCaixa');
             let btnOnline = document.getElementById('btnTopoOnline');
 
+            const btnCatalogo = document.getElementById('btnTopoCatalogo');
             btnProd.classList.remove('active-nav');
             btnCaixa.classList.remove('active-nav');
             btnOnline.classList.remove('active-nav');
+            if (btnCatalogo) btnCatalogo.classList.remove('active-nav');
             document.getElementById('btnTopoTapiocas').classList.remove('active-nav');
 
-            if(idTela === 'view-catalogo') renderizarCatalogo(abaAtivaCatalogo);
+            if(idTela === 'view-catalogo') {
+                renderizarCatalogo(abaAtivaCatalogo);
+                if (btnCatalogo) btnCatalogo.classList.add('active-nav');
+            }
             if(idTela === 'view-producao') {
                 renderizarProducao();
                 btnProd.classList.add('active-nav');

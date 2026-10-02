@@ -365,6 +365,7 @@ test("administrador configura o PIN e Produção executa somente ações operaci
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
     "carregarDadosNuvem",
+    "registrarPedidoPdv",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
     "cancelarPedidoProducao",
@@ -389,14 +390,13 @@ test("administrador configura o PIN e Produção executa somente ações operaci
   );
 });
 
-test("Produção não acessa lançamento, relatórios, configuração ou troca do próprio PIN", () => {
+test("Produção pode lançar novo pedido, mas não editar pedido nem acessar áreas administrativas", () => {
   const { context } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
   const producao = context.loginAcesso("5931", "admin");
 
   [
-    "registrarPedidoPdv",
     "atualizarPedidoPdv",
     "obterResumoMesPlanilha",
     "inicializarCatalogoConfiguracao",
