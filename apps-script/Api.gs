@@ -87,6 +87,7 @@ function executarAcaoApi_(action, args, token) {
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
     "carregarDadosNuvem",
+    "registrarPedidoPdv",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
     "cancelarPedidoProducao",
