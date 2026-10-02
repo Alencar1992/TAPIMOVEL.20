@@ -21,15 +21,30 @@ function buscarIndicePedidoProducao_(pedidos, numero) {
   });
 }
 
-function idPedidoPlanilhaProducao_(numero) {
-  return "#" + numero;
+function idPedidoPlanilhaProducao_(pedido) {
+  const numero = numeroPedidoProducao_(pedido && pedido.numero);
+  const identificadorEstavel = pedido && (
+    pedido.idOperacional ||
+    pedido.codigoOnline ||
+    pedido.timestampCriacao
+  );
+  return "#" + numero + "@" + String(identificadorEstavel || "legacy");
 }
 
-function abaContemPedidoProducao_(aba, numero) {
+function abaContemPedidoProducao_(aba, pedido) {
   if (!aba || aba.getLastRow() < 2) return false;
-  const id = idPedidoPlanilhaProducao_(numero);
+  const id = idPedidoPlanilhaProducao_(pedido);
   return aba.getDataRange().getValues().slice(1).some(function(linha) {
-    return String(linha[0]) === id || Number(linha[0]) === numero;
+    return String(linha[0]) === id;
+  });
+}
+
+function abaContemNumeroPedidoProducao_(aba, numero) {
+  if (!aba || aba.getLastRow() < 2) return false;
+  const prefixo = "#" + numero;
+  return aba.getDataRange().getValues().slice(1).some(function(linha) {
+    const valor = String(linha[0] || "");
+    return valor === prefixo || valor.indexOf(prefixo + "@") === 0 || Number(linha[0]) === numero;
   });
 }
 
@@ -44,10 +59,10 @@ function registrarHistoricoPagamentoProducao_(pedido) {
       aba.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
       aba.getRange("A1:I1").setFontWeight("bold").setBackground("#d9ead3");
     }
-    if (abaContemPedidoProducao_(aba, pedido.numero)) return false;
+    if (abaContemPedidoProducao_(aba, pedido)) return false;
     const linhas = pedido.itens.map(function(item) {
       return [
-        idPedidoPlanilhaProducao_(pedido.numero),
+        idPedidoPlanilhaProducao_(pedido),
         valorSeguroPlanilha_(String(pedido.dataExibicao || "")),
         valorSeguroPlanilha_(String(item.nome || "")),
         valorSeguroPlanilha_(String(item.tipo || "").toUpperCase()),
@@ -82,7 +97,7 @@ function registrarCancelamentoProducao_(pedido) {
     if (abaContemPedidoProducao_(aba, pedido.numero)) return false;
     const linhas = pedido.itens.map(function(item) {
       return [
-        idPedidoPlanilhaProducao_(pedido.numero),
+        idPedidoPlanilhaProducao_(pedido),
         valorSeguroPlanilha_(String(pedido.dataExibicao || "")),
         valorSeguroPlanilha_(String(item.nome || "")),
         Number(item.quantidade) || 0,
@@ -187,6 +202,11 @@ function finalizarPagamentoProducao(pedidoJSON) {
         "dd/MM/yyyy HH:mm"
       );
     }
+
+    // O histórico é persistido antes de remover o pedido ativo.
+    // Se a planilha falhar, o pedido continua recuperável para uma nova tentativa.
+    registrarHistoricoPagamentoProducao_(pedido);
+
     removerAtivo = Boolean(pedido.produzido);
     if (removerAtivo) ativos.splice(indice, 1);
     else ativos[indice] = pedido;
@@ -195,7 +215,6 @@ function finalizarPagamentoProducao(pedidoJSON) {
   } finally {
     lock.releaseLock();
   }
-  registrarHistoricoPagamentoProducao_(pedidoAtualizado);
   if (removerAtivo) removerDaBaseDeVendasBackend(numero);
   return pedidoAtualizado;
 }
@@ -210,37 +229,33 @@ function cancelarPedidoProducao(numeroPedido) {
     const indice = buscarIndicePedidoProducao_(ativos, numero);
     if (indice === -1) {
       const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pedidos Cancelados");
-      if (abaContemPedidoProducao_(aba, numero)) {
+      if (abaContemNumeroPedidoProducao_(aba, numero)) {
         return { numero: numero, cancelado: true, repetido: true };
       }
       throw erroApi_("ORDER_NOT_FOUND", "O pedido não foi encontrado.");
     }
+
     pedido = clonarPedidoProducao_(ativos[indice]);
     if (pedido.timestamp) {
       throw erroApi_("INVALID_TRANSITION", "Um pedido pago não pode ser cancelado.");
     }
+
     pedido.status = "Cancelado";
     pedido.dataExibicao = Utilities.formatDate(
       new Date(),
       Session.getScriptTimeZone(),
       "dd/MM/yyyy HH:mm"
     );
+
+    // Validação, registro e remoção acontecem sob o mesmo lock.
+    // Isso impede que um pagamento concorrente seja sobrescrito por um cancelamento tardio.
+    registrarCancelamentoProducao_(pedido);
+    ativos.splice(indice, 1);
+    substituirFilaPdvAtivos_(ativos);
   } finally {
     lock.releaseLock();
   }
-  registrarCancelamentoProducao_(pedido);
-  const lockRemocao = LockService.getScriptLock();
-  try {
-    lockRemocao.waitLock(10000);
-    const ativosAtuais = carregarFilaPdvAtivos_();
-    const indiceAtual = buscarIndicePedidoProducao_(ativosAtuais, numero);
-    if (indiceAtual !== -1) {
-      ativosAtuais.splice(indiceAtual, 1);
-      substituirFilaPdvAtivos_(ativosAtuais);
-    }
-  } finally {
-    lockRemocao.releaseLock();
-  }
+
   removerDaBaseDeVendasBackend(numero);
   return pedido;
 }
