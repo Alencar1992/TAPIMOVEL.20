@@ -9,6 +9,7 @@ function createContext() {
   const properties = new Map();
   const cache = new Map();
   let currentDay = "2026-07-28";
+  let computeDigestHook = null;
   const lock = { waitLock() {}, tryLock() { return true; }, hasLock() { return true; }, releaseLock() {} };
   class MemoryRange {
     constructor(sheet, row, col, rows, cols) {
@@ -67,7 +68,22 @@ function createContext() {
       }
       return 0;
     }
+    getLastColumn() {
+      return this.cells.reduce((maior, row) => Math.max(maior, row.length), 0);
+    }
     getRange(row, col, rows, cols) { return new MemoryRange(this, row, col, rows, cols); }
+    getDataRange() {
+      return this.getRange(1, 1, Math.max(this.getLastRow(), 1), Math.max(this.getLastColumn(), 1));
+    }
+    appendRow(values) {
+      const row = this.getLastRow() + 1;
+      values.forEach((value, index) => this.set(row, index + 1, value));
+      return this;
+    }
+    deleteRow(row) {
+      this.cells.splice(row - 1, 1);
+      return this;
+    }
     setFrozenRows() { return this; }
   }
   const spreadsheet = {
@@ -98,6 +114,11 @@ function createContext() {
       DigestAlgorithm: { SHA_256: "SHA_256" },
       Charset: { UTF_8: "UTF_8" },
       computeDigest(_algorithm, value) {
+        if (computeDigestHook) {
+          const hook = computeDigestHook;
+          computeDigestHook = null;
+          hook();
+        }
         return Array.from(crypto.createHash("sha256").update(String(value)).digest());
       },
       getUuid() {
@@ -162,6 +183,8 @@ function createContext() {
   return {
     context,
     properties,
+    spreadsheet,
+    onNextComputeDigest(handler) { computeDigestHook = handler; },
     setCurrentDay(day) { currentDay = day; }
   };
 }
@@ -254,6 +277,218 @@ test("PIN do CEO Eliel informado no PDV cria somente sessão restrita", () => {
   assert.equal(session.nome, "CEO Eliel");
   assert.equal(context.validarSessaoAdministrador(session.token), false);
   assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
+});
+
+test("PIN de Produção exige quatro dígitos e fica armazenado em credencial derivada única", () => {
+  const { context, properties } = createContext();
+
+  assert.throws(
+    () => context.configurarPinProducao("482"),
+    /4 números/
+  );
+  assert.throws(
+    () => context.configurarPinProducao("48261"),
+    /4 números/
+  );
+
+  context.configurarPinProducao("4826");
+  const primeiraCredencial = properties.get("pdv_producao_pin_credential_v1");
+  const primeiraEstrutura = JSON.parse(primeiraCredencial);
+
+  assert.ok(primeiraEstrutura.salt);
+  assert.ok(primeiraEstrutura.hash);
+  assert.notEqual(primeiraEstrutura.hash, "4826");
+  assert.equal([...properties.values()].includes("4826"), false);
+
+  context.configurarPinProducao("4826");
+  assert.notEqual(properties.get("pdv_producao_pin_credential_v1"), primeiraCredencial);
+});
+
+test("configurações concorrentes nunca publicam salt e hash de PINs diferentes", () => {
+  const { context, onNextComputeDigest } = createContext();
+  onNextComputeDigest(() => context.configurarPinProducao("8642"));
+
+  context.configurarPinProducao("5931");
+
+  const session = context.loginAcesso("5931", "producao");
+  assert.equal(session.perfil, "producao");
+});
+
+test("PIN de Produção informado no PDV cria sessão operacional própria", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinEliel("864207");
+  context.configurarPinProducao("4826");
+
+  const session = context.loginAcesso("4826", "admin");
+
+  assert.equal(session.perfil, "producao");
+  assert.equal(session.nome, "Produção");
+  assert.equal(context.validarSessaoAdministrador(session.token), false);
+  assert.equal(context.validarSessaoAcesso(session.token).perfil, "producao");
+});
+
+test("administrador configura o PIN e Produção executa somente ações operacionais", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  const admin = context.loginAcesso("731905", "admin");
+
+  assert.equal(
+    context.executarAcaoApi_("configurarPinProducao", ["5931"], admin.token).data,
+    "PIN de Produção configurado com sucesso."
+  );
+
+  const producao = context.loginAcesso("5931", "admin");
+  const permitidas = [
+    "listarPedidosOnlinePendentes",
+    "aceitarPedidoOnline",
+    "recusarPedidoOnline",
+    "carregarDadosNuvem",
+    "atualizarEstadoProducao",
+    "finalizarPagamentoProducao",
+    "cancelarPedidoProducao",
+    "excluirPedidoTravadoProducao"
+  ];
+  permitidas.forEach(action => {
+    context[action] = () => action;
+    assert.equal(
+      context.executarAcaoApi_(action, [], producao.token).data,
+      action
+    );
+  });
+
+  context.salvarDisponibilidadeCardapio = (_itens, responsavel) => responsavel;
+  assert.equal(
+    context.executarAcaoApi_(
+      "salvarDisponibilidadeCardapio",
+      ["[]", "Nome adulterado"],
+      producao.token
+    ).data,
+    "Produção"
+  );
+});
+
+test("Produção não acessa lançamento, relatórios, configuração ou troca do próprio PIN", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+
+  [
+    "registrarPedidoPdv",
+    "atualizarPedidoPdv",
+    "obterResumoMesPlanilha",
+    "inicializarCatalogoConfiguracao",
+    "salvarItemCatalogo",
+    "salvarConfiguracaoOperacional",
+    "obterRelatorioEliel",
+    "configurarPinProducao",
+    "atualizarVendaRealTime",
+    "excluirVendaRealTime",
+    "removerDaBaseDeVendasBackend",
+    "moverParaHistorico",
+    "moverParaCancelados"
+  ].forEach(action => {
+    assert.throws(
+      () => context.executarAcaoApi_(action, [], producao.token),
+      error => error.code === "PERMISSION_DENIED"
+    );
+  });
+});
+
+test("Produção atualiza somente o estado operacional do pedido existente", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+  context.substituirFilaPdvAtivos_([{
+    numero: 7,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, pronto: false }],
+    total: 28,
+    produzido: false,
+    timestampCriacao: Date.now()
+  }]);
+
+  context.executarAcaoApi_("atualizarEstadoProducao", [JSON.stringify({
+    numero: 7,
+    itens: [{ nome: "Fraude", quantidade: 99, preco: 0.01, pronto: true }],
+    total: 0.99,
+    produzido: true
+  })], producao.token);
+
+  const salvo = JSON.parse(context.carregarDadosNuvem())[0];
+  assert.equal(salvo.itens[0].nome, "Bauru");
+  assert.equal(salvo.itens[0].quantidade, 2);
+  assert.equal(salvo.itens[0].preco, 14);
+  assert.equal(salvo.total, 28);
+  assert.equal(salvo.itens[0].pronto, true);
+  assert.equal(salvo.produzido, true);
+});
+
+test("Produção só registra pagamento de pedido real e histórico idempotente", () => {
+  const { context, spreadsheet } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+  context.substituirFilaPdvAtivos_([{
+    numero: 7,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, pronto: false, obs: "" }],
+    total: 28,
+    produzido: false,
+    timestampCriacao: Date.now()
+  }]);
+
+  const adulterado = JSON.stringify({
+    numero: 7,
+    itens: [{ nome: "Fraude", quantidade: 99, preco: 0.01 }],
+    total: 0.99,
+    formaPagamento: "PIX"
+  });
+  context.executarAcaoApi_("finalizarPagamentoProducao", [adulterado], producao.token);
+  context.executarAcaoApi_("finalizarPagamentoProducao", [adulterado], producao.token);
+
+  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
+  assert.equal(historico.length, 2);
+  assert.equal(historico[1][2], "Bauru");
+  assert.equal(historico[1][4], 2);
+  assert.equal(historico[1][5], 14);
+  assert.equal(historico[1][6], 28);
+  assert.throws(
+    () => context.executarAcaoApi_(
+      "finalizarPagamentoProducao",
+      [JSON.stringify({ numero: 999, formaPagamento: "PIX" })],
+      producao.token
+    ),
+    error => error.code === "ORDER_NOT_FOUND"
+  );
+});
+
+test("Produção cancela somente pedido existente com dados autoritativos", () => {
+  const { context, spreadsheet } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+  context.substituirFilaPdvAtivos_([{
+    numero: 8,
+    itens: [{ nome: "Refrigerante", tipo: "bebida", quantidade: 1, preco: 6 }],
+    total: 6,
+    produzido: true,
+    timestampCriacao: Date.now()
+  }]);
+
+  assert.throws(
+    () => context.executarAcaoApi_("cancelarPedidoProducao", [999], producao.token),
+    error => error.code === "ORDER_NOT_FOUND"
+  );
+  context.executarAcaoApi_("cancelarPedidoProducao", [8], producao.token);
+  context.executarAcaoApi_("cancelarPedidoProducao", [8], producao.token);
+
+  const cancelados = spreadsheet.getSheetByName("Pedidos Cancelados").getDataRange().getValues();
+  assert.equal(cancelados.length, 2);
+  assert.equal(cancelados[1][2], "Refrigerante");
+  assert.equal(cancelados[1][3], 1);
+  assert.equal(cancelados[1][4], 6);
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
 });
 
 test("CEO Eliel acessa somente relatório, itens e configuração", () => {
