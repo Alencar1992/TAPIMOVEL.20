@@ -263,11 +263,23 @@ test("perfil Produção mantém sessão própria e limita a interface às áreas
   assert.match(index, /pattern="\[0-9\]\{4,12\}" minlength="4"/);
   assert.match(index, /function acessoEhProducao\(\)/);
   assert.match(index, /class="menu-grupo menu-eliel menu-producao"/);
-  assert.match(index, /\['view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'\]/);
-  assert.match(index, /sessao\.perfil === 'producao'[\s\S]{0,260}index\.html\?acesso=producao/);
+  assert.match(index, /\['view-catalogo', 'view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'\]/);
+  assert.match(index, /id="btnTopoCatalogo" hidden onclick="mudarTela\('view-catalogo'\)"/);
+  assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)[\s\S]{0,500}sessao\.perfil === 'producao'[\s\S]{0,180}index\.html\?acesso=producao/);
   assert.match(index, /if \(acessoEhProducao\(\)\) mudarTela\('view-producao'\)/);
   assert.match(index, /const acaoEditar = acessoEhProducao\(\) \? ''/);
   assert.match(index, /function carregarParaEdicao\(numero\) \{[\s\S]{0,220}acessoEhProducao\(\)/);
+});
+
+test("PIN de Produção no link administrativo nunca libera o perfil Admin", () => {
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.match(index, /redirecionarPerfilRestritoNoLinkAdmin\(sessao\)/);
+  assert.match(index, /sessao\.perfil === 'producao'[\s\S]{0,180}window\.location\.replace\('\.\/index\.html\?acesso=producao'\)/);
+  assert.doesNotMatch(
+    index,
+    /sessao\.perfil === 'producao'[\s\S]{0,220}liberarAplicacaoAcesso\(\{\s*perfil:\s*'admin'/
+  );
 });
 
 test("perfil Produção usa transições seguras e assets sem cache legado", () => {
