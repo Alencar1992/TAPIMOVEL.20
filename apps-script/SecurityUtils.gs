@@ -19,6 +19,29 @@ function hashSeguro_(valor) {
   }).join("");
 }
 
+function derivarPinProducao_(pin, salt) {
+  let derivado = String(pin || "");
+  const saltNormalizado = String(salt || "");
+  for (let indice = 0; indice < ITERACOES_PIN_PRODUCAO_; indice++) {
+    derivado = hashSeguro_(saltNormalizado + ":" + derivado + ":" + indice);
+  }
+  return derivado;
+}
+
+function pinProducaoConfere_(pin, propriedades) {
+  const repositorio = propriedades || obterScriptProperties_();
+  const valorSalvo = repositorio.getProperty(CHAVE_CREDENCIAL_PIN_PRODUCAO_);
+  if (!valorSalvo) return false;
+  let credencial;
+  try {
+    credencial = JSON.parse(valorSalvo);
+  } catch (_) {
+    return false;
+  }
+  if (!credencial || !credencial.salt || !credencial.hash) return false;
+  return derivarPinProducao_(pin, credencial.salt) === credencial.hash;
+}
+
 function erroApi_(codigo, mensagem) {
   const erro = new Error(mensagem);
   erro.code = codigo;

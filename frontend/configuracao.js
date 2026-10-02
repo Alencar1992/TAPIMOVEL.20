@@ -119,6 +119,42 @@
     voltarInicioAcesso();
   };
 
+  window.salvarPinProducao = function (evento) {
+    evento.preventDefault();
+    var sessao = window.TapimovelAuth && window.TapimovelAuth.getSession
+      ? window.TapimovelAuth.getSession()
+      : null;
+    if (!sessao || sessao.perfil !== "admin") {
+      mostrarAlerta("Somente o administrador pode configurar o PIN de Produção.");
+      return;
+    }
+
+    var campo = document.getElementById("configPinProducao");
+    var botao = document.getElementById("configBtnSalvarPinProducao");
+    var pin = String(campo.value || "").trim();
+    if (!/^\d{4}$/.test(pin)) {
+      mostrarAlerta("Informe exatamente 4 números para o PIN de Produção.");
+      campo.focus();
+      return;
+    }
+
+    campo.value = "";
+    botao.disabled = true;
+    botao.textContent = "Salvando...";
+    google.script.run
+      .withSuccessHandler(function () {
+        botao.disabled = false;
+        botao.textContent = "Salvar PIN";
+        mostrarToast("PIN de Produção atualizado com segurança.");
+      })
+      .withFailureHandler(function (erro) {
+        botao.disabled = false;
+        botao.textContent = "Salvar PIN";
+        mostrarAlerta("Não foi possível atualizar o PIN de Produção.<br><small>" + escapar(erro.message) + "</small>");
+      })
+      .configurarPinProducao(pin);
+  };
+
   window.renderizarConfiguracao = function () {
     var lista = document.getElementById("configListaItens");
     if (!lista) return;

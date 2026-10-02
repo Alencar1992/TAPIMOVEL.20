@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <script src="./config.js?v=20260828.3"></script>
-    <script src="./api-client.js?v=20260908.1"></script>
+    <script src="./api-client.js?v=20261002.1"></script>
     <script src="./pedido-operation.js?v=20260929.1"></script>
     <script src="./vendor-loader.js"></script>
     <script src="./catalogo-base.js?v=20260816.3"></script>
@@ -33,6 +33,7 @@
         .header-title { font-size: 1.1rem; font-weight: bold; color: var(--primary); flex: 1; text-align: left; margin: 0; }
         .top-counters { display: flex; gap: 8px; }
         .btn-top { background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s;}
+        .btn-top[hidden] { display: none !important; }
 
         .btn-top.active-nav { background: var(--success); color: white; border-color: var(--success); }
         .btn-top.btn-tapioca { border-color: var(--primary); color: var(--primary); }
@@ -200,7 +201,7 @@
     </style>
     <link rel="stylesheet" href="./professional.css?v=20260816.3">
     <link rel="stylesheet" href="./eliel.css?v=20260806.2">
-    <link rel="stylesheet" href="./configuracao.css">
+    <link rel="stylesheet" href="./configuracao.css?v=20261002.1">
     <link rel="stylesheet" href="./loading.css">
 </head>
 <body class="app-admin">
@@ -211,7 +212,7 @@
             <p id="loginAdminDescricao" style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
             <div id="tapimovelConnectionStatus" class="connection-status" data-state="connecting" role="status" aria-live="polite" hidden><span class="connection-dot" aria-hidden="true"></span><span>Conectando ao sistema…</span></div>
             <label id="loginAdminLabel" for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
-            <input id="loginAdminPin" type="password" inputmode="numeric" pattern="[0-9]{6,12}" minlength="6" maxlength="12" required aria-describedby="loginAdminErro" style="width:100%;box-sizing:border-box;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.2rem;letter-spacing:.18em;text-align:center">
+            <input id="loginAdminPin" type="password" inputmode="numeric" pattern="[0-9]{4,12}" minlength="4" maxlength="12" required aria-describedby="loginAdminErro" style="width:100%;box-sizing:border-box;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1.2rem;letter-spacing:.18em;text-align:center">
             <p id="loginAdminErro" role="alert" style="min-height:20px;margin:9px 0;color:#ff8787;text-align:center;font-size:.9rem"></p>
             <button id="btnLoginAdmin" type="submit" class="btn-acao">Entrar com segurança</button>
             <p style="margin:12px 0 0;text-align:center;color:var(--text-muted);font-size:.82rem;line-height:1.4">O acesso permanece ativo neste aparelho durante o dia e expira após 4 horas sem uso.</p>
@@ -341,7 +342,7 @@
             <button class="btn-categoria" onclick="abrirRestrito('relatorio-eliel')">📊 Relatório Eliel</button>
         </div>
 
-        <div class="menu-grupo menu-eliel">
+        <div class="menu-grupo menu-eliel menu-producao">
             <button class="btn-categoria" onclick="abrirRestrito('itens')">📦 Itens</button>
         </div>
 
@@ -652,6 +653,19 @@
                 <strong id="configResponsavelAtual">—</strong>
             </div>
         </div>
+        <section class="config-seguranca eliel-admin-only" aria-labelledby="configPinProducaoTitulo">
+            <div>
+                <h3 id="configPinProducaoTitulo">🔐 Acesso de Produção</h3>
+                <p>Cadastre ou substitua o PIN usado pela equipe em Prod., Online, Caixa e Itens. O valor não fica salvo neste aparelho.</p>
+            </div>
+            <form id="configFormPinProducao" onsubmit="salvarPinProducao(event)" autocomplete="off">
+                <label for="configPinProducao">Novo PIN de 4 números</label>
+                <div class="config-pin-linha">
+                    <input id="configPinProducao" class="input-obs" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" required placeholder="••••">
+                    <button id="configBtnSalvarPinProducao" type="submit" class="config-btn-novo">Salvar PIN</button>
+                </div>
+            </form>
+        </section>
         <div class="config-barra">
             <input id="configBusca" class="barra-pesquisa" type="search" placeholder="Buscar no cardápio..." oninput="renderizarConfiguracao()">
             <button type="button" class="config-btn-novo" onclick="abrirEditorConfiguracao()">＋ Nova tapioca</button>
@@ -1089,28 +1103,44 @@
         let ignorarProximoClickProduto = null;
         let syncEmAndamento = false;
         let sessaoAcessoAtual = null;
-        const modoAcessoEsperado = new URLSearchParams(window.location.search).get('acesso') === 'eliel'
-            ? 'eliel'
+        const parametroAcesso = new URLSearchParams(window.location.search).get('acesso');
+        const modoAcessoEsperado = ['eliel', 'producao'].indexOf(parametroAcesso) !== -1
+            ? parametroAcesso
             : 'admin';
 
         function acessoEhEliel() {
             return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'eliel');
         }
 
+        function acessoEhProducao() {
+            return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'producao');
+        }
+
         function aplicarPerfilAcesso(sessao) {
             sessaoAcessoAtual = sessao || null;
             const eliel = acessoEhEliel();
+            const producao = acessoEhProducao();
             document.body.classList.toggle('perfil-eliel', eliel);
+            document.body.classList.toggle('perfil-producao', producao);
             document.querySelector('.top-counters').hidden = eliel;
-            document.querySelectorAll('#sidebar .menu-grupo:not(.menu-eliel)').forEach(function(grupo) {
-                grupo.hidden = eliel;
+            document.getElementById('btnTopoTapiocas').hidden = producao;
+            document.querySelectorAll('#sidebar .menu-grupo').forEach(function(grupo) {
+                grupo.hidden = eliel
+                    ? !grupo.classList.contains('menu-eliel')
+                    : producao
+                        ? !grupo.classList.contains('menu-producao')
+                        : false;
             });
             const identidade = document.getElementById('identidadeAcesso');
-            identidade.hidden = !eliel;
-            identidade.textContent = eliel ? 'CEO Eliel' : '';
-            document.querySelector('.header-title').textContent = eliel ? 'TAPIMÓVEL · CEO ELIEL' : 'TAPIMOVEL🌮🚗';
+            identidade.hidden = !eliel && !producao;
+            identidade.textContent = eliel ? 'CEO Eliel' : producao ? 'Produção' : '';
+            document.querySelector('.header-title').textContent = eliel
+                ? 'TAPIMÓVEL · CEO ELIEL'
+                : producao
+                    ? 'TAPIMÓVEL · PRODUÇÃO'
+                    : 'TAPIMOVEL🌮🚗';
             document.querySelectorAll('.eliel-admin-only').forEach(function(elemento) {
-                elemento.hidden = eliel;
+                elemento.hidden = eliel || producao;
             });
             document.querySelectorAll('.eliel-owner-only').forEach(function(elemento) {
                 elemento.hidden = !eliel;
@@ -1127,6 +1157,10 @@
         function voltarInicioAcesso() {
             if (acessoEhEliel()) {
                 abrirRelatorioEliel();
+                return;
+            }
+            if (acessoEhProducao()) {
+                mudarTela('view-producao');
                 return;
             }
             mudarTela('view-catalogo');
@@ -1166,6 +1200,10 @@
             fecharMenuLateral();
             if (acessoEhEliel() && ['relatorio-eliel', 'itens', 'configuracao'].indexOf(acao) === -1) {
                 mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
+                return;
+            }
+            if (acessoEhProducao() && acao !== 'itens') {
+                mostrarAlerta('O perfil Produção não possui acesso a esta área.');
                 return;
             }
             if(acao === 'relatorio-eliel') abrirRelatorioEliel();
@@ -1437,11 +1475,22 @@
             document.getElementById('loginAdmin').style.display = 'flex';
             document.getElementById('loginAdminErro').textContent = mensagem || '';
             const eliel = modoAcessoEsperado === 'eliel';
-            document.getElementById('loginAdminTitulo').textContent = eliel ? 'Acesso CEO Eliel' : 'Acesso ao PDV';
+            const producao = modoAcessoEsperado === 'producao';
+            document.getElementById('loginAdminTitulo').textContent = eliel
+                ? 'Acesso CEO Eliel'
+                : producao
+                    ? 'Acesso Produção'
+                    : 'Acesso ao PDV';
             document.getElementById('loginAdminDescricao').textContent = eliel
                 ? 'Acesse Relatório Eliel, Itens e Configuração com seu PIN exclusivo.'
-                : 'Informe o PIN administrativo para acessar pedidos, relatórios e configurações.';
-            document.getElementById('loginAdminLabel').textContent = eliel ? 'PIN do CEO Eliel' : 'PIN administrativo';
+                : producao
+                    ? 'Acesse Produção, Online, Caixa e Itens com seu PIN operacional.'
+                    : 'Informe seu PIN para acessar o sistema.';
+            document.getElementById('loginAdminLabel').textContent = eliel
+                ? 'PIN do CEO Eliel'
+                : producao
+                    ? 'PIN de Produção'
+                    : 'PIN de acesso';
             setTimeout(function() { document.getElementById('loginAdminPin').focus(); }, 80);
         }
 
@@ -1456,7 +1505,7 @@
             } else {
                 iniciarAplicacaoAdmin();
             }
-            if (!acessoEhEliel() && typeof window.verificarAvisoPdv === 'function') {
+            if (sessao && sessao.perfil === 'admin' && typeof window.verificarAvisoPdv === 'function') {
                 window.verificarAvisoPdv();
             }
         }
@@ -1489,8 +1538,8 @@
             const pin = document.getElementById('loginAdminPin').value.trim();
             const botao = document.getElementById('btnLoginAdmin');
             const erro = document.getElementById('loginAdminErro');
-            if (!/^\d{6,12}$/.test(pin)) {
-                erro.textContent = 'Digite um PIN de 6 a 12 números.';
+            if (!/^\d{4,12}$/.test(pin)) {
+                erro.textContent = 'Digite um PIN de 4 a 12 números.';
                 return;
             }
             botao.disabled = true;
@@ -1503,6 +1552,10 @@
                     botao.textContent = 'Entrar com segurança';
                     if (modoAcessoEsperado === 'admin' && sessao && sessao.perfil === 'eliel') {
                         window.location.replace('./relatorio-eliel.html?origem=pdv');
+                        return;
+                    }
+                    if (modoAcessoEsperado === 'admin' && sessao && sessao.perfil === 'producao') {
+                        window.location.replace('./index.html?acesso=producao');
                         return;
                     }
                     liberarAplicacaoAcesso(sessao);
@@ -1562,6 +1615,7 @@
                         }
                         document.getElementById('loadingScreen').style.display = 'none';
                         atualizarTudo(); atualizarPedidosOnline(); iniciarSyncEmTempoReal();
+                        if (acessoEhProducao()) mudarTela('view-producao');
 
                         const btnMenuCombustivel = document.getElementById('inputDataCombustivel');
                         if (btnMenuCombustivel) {
@@ -1574,6 +1628,7 @@
                 } else {
                     document.getElementById('loadingScreen').style.display = 'none';
                     atualizarTudo();
+                    if (acessoEhProducao()) mudarTela('view-producao');
                 }
             } catch (fatalError) {
                 document.getElementById('loadingText').innerHTML = "Erro Crítico de Tela. Recarregue.<br><small style='color:var(--danger);'>" + fatalError.message + "</small>";
@@ -1844,6 +1899,13 @@
                 ['view-relatorio-eliel', 'view-itens', 'view-configuracao'].indexOf(idTela) === -1
             ) {
                 mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
+                return;
+            }
+            if (
+                acessoEhProducao() &&
+                ['view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'].indexOf(idTela) === -1
+            ) {
+                mostrarAlerta('O perfil Produção não possui acesso a esta área.');
                 return;
             }
             document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
@@ -2142,6 +2204,10 @@
         function removerItemCarrinho(index) { carrinho.splice(index, 1); atualizarCarrinho(); }
 
         function carregarParaEdicao(numero) {
+            if (acessoEhProducao()) {
+                mostrarAlerta("O perfil Produção não possui acesso à edição de pedidos.");
+                return;
+            }
             if (operacaoPedidoEmAndamento) {
                 mostrarAlerta("Aguarde o lançamento atual terminar antes de editar outro pedido.");
                 return;
@@ -2346,7 +2412,25 @@
             }
         }
 
-        function excluirPedidoDeVez(numero) { mostrarConfirmacao("Deseja EXCLUIR DEFINITIVAMENTE o pedido #" + numero + " do sistema e da tela?", function() { travarSyncTemporariamente(); historicoNuvem = historicoNuvem.filter(p => p.numero != numero); atualizarTudo(); if(typeof google !== 'undefined') { google.script.run.excluirVendaRealTime(numero); google.script.run.removerDaBaseDeVendasBackend(numero); } }); }
+        function excluirPedidoDeVez(numero) {
+            mostrarConfirmacao("Deseja EXCLUIR DEFINITIVAMENTE o pedido #" + numero + " do sistema e da tela?", function() {
+                travarSyncTemporariamente();
+                historicoNuvem = historicoNuvem.filter(p => p.numero != numero);
+                atualizarTudo();
+                if(typeof google !== 'undefined') {
+                    if (acessoEhProducao()) {
+                        google.script.run
+                            .withFailureHandler(function(erro) {
+                                mostrarAlerta(erro.message || 'Não foi possível remover o pedido.');
+                            })
+                            .excluirPedidoTravadoProducao(numero);
+                    } else {
+                        google.script.run.excluirVendaRealTime(numero);
+                        google.script.run.removerDaBaseDeVendasBackend(numero);
+                    }
+                }
+            });
+        }
 
         function renderizarProducao() {
             const lista = document.getElementById('listaProducao');
@@ -2409,7 +2493,10 @@
             }
             p.produzido = p.itens.filter(i => i.tipo !== 'bebida').every(i => i.pronto === true);
 
-            if(typeof google !== 'undefined') google.script.run.atualizarVendaRealTime(JSON.stringify(p));
+            if(typeof google !== 'undefined') {
+                if (acessoEhProducao()) google.script.run.atualizarEstadoProducao(JSON.stringify(p));
+                else google.script.run.atualizarVendaRealTime(JSON.stringify(p));
+            }
             checarBaixaCache(p);
             atualizarTudo();
         }
@@ -2424,12 +2511,37 @@
             pendentesPainel.forEach(pedido => {
                 const statusHtml = pedido.produzido ? '<span class="status-badge status-pronto">✓ PRONTO</span>' : '<span class="status-badge status-preparo">⏳ COZINHA</span>';
                 const itensTxt = pedido.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
-                htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel"><button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar</button><button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')">💳 Pagar</button></div></div>`;
+                const acaoEditar = acessoEhProducao() ? '' : `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar</button>`;
+                htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel">${acaoEditar}<button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')">💳 Pagar</button></div></div>`;
             });
             lista.innerHTML = htmlBuffer;
         }
 
-        function cancelarPedido(numero) { mostrarConfirmacao("Deseja CANCELAR o pedido #" + numero + "?", function() { travarSyncTemporariamente(); const index = historicoNuvem.findIndex(p => p.numero == numero); if(index !== -1) { const pedido = historicoNuvem[index]; pedido.status = "Cancelado"; pedido.dataExibicao = new Date().toLocaleString('pt-BR'); historicoNuvem.splice(index, 1); atualizarTudo(); if(typeof google !== 'undefined') { google.script.run.moverParaCancelados(JSON.stringify(pedido)); google.script.run.excluirVendaRealTime(pedido.numero); google.script.run.removerDaBaseDeVendasBackend(pedido.numero); } } }); }
+        function cancelarPedido(numero) {
+            mostrarConfirmacao("Deseja CANCELAR o pedido #" + numero + "?", function() {
+                travarSyncTemporariamente();
+                const index = historicoNuvem.findIndex(p => p.numero == numero);
+                if(index === -1) return;
+                const pedido = historicoNuvem[index];
+                pedido.status = "Cancelado";
+                pedido.dataExibicao = new Date().toLocaleString('pt-BR');
+                historicoNuvem.splice(index, 1);
+                atualizarTudo();
+                if(typeof google !== 'undefined') {
+                    if (acessoEhProducao()) {
+                        google.script.run
+                            .withFailureHandler(function(erro) {
+                                mostrarAlerta(erro.message || 'Não foi possível cancelar o pedido.');
+                            })
+                            .cancelarPedidoProducao(pedido.numero);
+                    } else {
+                        google.script.run.moverParaCancelados(JSON.stringify(pedido));
+                        google.script.run.excluirVendaRealTime(pedido.numero);
+                        google.script.run.removerDaBaseDeVendasBackend(pedido.numero);
+                    }
+                }
+            });
+        }
 
         function abrirModalPagamento(numero) { pedidoAguardandoPagamento = numero; document.getElementById('numeroPedidoPagamento').textContent = numero; document.getElementById('modalPagamento').style.display = 'flex'; }
 
@@ -2459,10 +2571,18 @@
             atualizarTudo();
 
             if(typeof google !== 'undefined') {
-                google.script.run.moverParaHistorico(JSON.stringify(pedido));
-                google.script.run.atualizarVendaRealTime(JSON.stringify(pedido));
+                if (acessoEhProducao()) {
+                    google.script.run
+                        .withFailureHandler(function(erro) {
+                            mostrarAlerta(erro.message || 'Não foi possível finalizar o pagamento.');
+                        })
+                        .finalizarPagamentoProducao(JSON.stringify(pedido));
+                } else {
+                    google.script.run.moverParaHistorico(JSON.stringify(pedido));
+                    google.script.run.atualizarVendaRealTime(JSON.stringify(pedido));
+                }
             }
-            checarBaixaCache(pedido);
+            if (!acessoEhProducao()) checarBaixaCache(pedido);
 
             mostrarConfirmacaoPagamento(numeroSalvo);
         }
@@ -2480,7 +2600,12 @@
         function finalizarPagamentoMisto() { const index = historicoNuvem.findIndex(p => p.numero == pedidoAguardandoPagamento); if (index === -1) return; const pedido = historicoNuvem[index]; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); pedido.pagamentosMistos = []; if(vPix > 0) pedido.pagamentosMistos.push({forma: 'PIX', valor: vPix}); if(vDin > 0) pedido.pagamentosMistos.push({forma: 'Dinheiro', valor: vDin}); if(vDeb > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Débito', valor: vDeb}); if(vCred > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Crédito', valor: vCred}); if(vVR > 0) pedido.pagamentosMistos.push({forma: 'VR', valor: vVR}); finalizarVenda('Misto'); }
 
 
-        function checarBaixaCache(pedido) { if (pedido.produzido && pedido.timestamp) { if(typeof google !== 'undefined') { google.script.run.removerDaBaseDeVendasBackend(pedido.numero); } } }
+        function checarBaixaCache(pedido) {
+            if (acessoEhProducao()) return;
+            if (pedido.produzido && pedido.timestamp && typeof google !== 'undefined') {
+                google.script.run.removerDaBaseDeVendasBackend(pedido.numero);
+            }
+        }
 
         function atualizarTudo() {
             let qtdHoje = 0;
@@ -3104,7 +3229,7 @@
         }
     </script>
     <script src="./eliel.js?v=20260816.4"></script>
-    <script src="./configuracao.js"></script>
+    <script src="./configuracao.js?v=20261002.1"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">
 
