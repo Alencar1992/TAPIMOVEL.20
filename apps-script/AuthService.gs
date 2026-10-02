@@ -23,6 +23,29 @@ function configurarPinEliel(pin) {
   return "PIN do CEO Eliel configurado com sucesso.";
 }
 
+function configurarPinProducao(pin) {
+  const valor = String(pin || "");
+  if (!/^\d{4}$/.test(valor)) {
+    throw new Error("O PIN de Produção deve conter exatamente 4 números.");
+  }
+  const propriedades = obterScriptProperties_();
+  const salt = Utilities.getUuid() + Utilities.getUuid();
+  const credencial = JSON.stringify({
+    versao: 1,
+    salt: salt,
+    hash: derivarPinProducao_(valor, salt)
+  });
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    propriedades.setProperty(CHAVE_CREDENCIAL_PIN_PRODUCAO_, credencial);
+    CacheService.getScriptCache().remove(CHAVE_TENTATIVAS_LOGIN_);
+  } finally {
+    lock.releaseLock();
+  }
+  return "PIN de Produção configurado com sucesso.";
+}
+
 function loginAcesso(pin, perfilSolicitado) {
   const cache = CacheService.getScriptCache();
   const tentativas = Number(cache.get(CHAVE_TENTATIVAS_LOGIN_) || 0);
@@ -33,19 +56,30 @@ function loginAcesso(pin, perfilSolicitado) {
     );
   }
 
-  let perfil = String(perfilSolicitado || "admin").toLowerCase() === "eliel"
-    ? "eliel"
+  const perfilPedido = String(perfilSolicitado || "admin").toLowerCase();
+  let perfil = perfilPedido === "eliel" || perfilPedido === "producao"
+    ? perfilPedido
     : "admin";
   const propriedades = obterScriptProperties_();
   const hashInformado = hashSeguro_(pin);
-  let chavePin = perfil === "eliel" ? CHAVE_PIN_ELIEL_ : CHAVE_PIN_ADMIN_;
+  let chavePin = perfil === "eliel"
+    ? CHAVE_PIN_ELIEL_
+    : perfil === "producao"
+      ? CHAVE_CREDENCIAL_PIN_PRODUCAO_
+      : CHAVE_PIN_ADMIN_;
   let hashConfigurado = propriedades.getProperty(chavePin);
   if (!hashConfigurado) {
     throw erroApi_(
-      perfil === "eliel" ? "ELIEL_NOT_CONFIGURED" : "ADMIN_NOT_CONFIGURED",
+      perfil === "eliel"
+        ? "ELIEL_NOT_CONFIGURED"
+        : perfil === "producao"
+          ? "PRODUCAO_NOT_CONFIGURED"
+          : "ADMIN_NOT_CONFIGURED",
       perfil === "eliel"
         ? "O PIN do CEO Eliel ainda não foi configurado no Apps Script."
-        : "O PIN administrativo ainda não foi configurado no Apps Script."
+        : perfil === "producao"
+          ? "O PIN de Produção ainda não foi configurado."
+          : "O PIN administrativo ainda não foi configurado no Apps Script."
     );
   }
 
@@ -59,7 +93,20 @@ function loginAcesso(pin, perfilSolicitado) {
     hashConfigurado = propriedades.getProperty(chavePin);
   }
 
-  if (hashInformado !== hashConfigurado) {
+  if (
+    perfil === "admin" &&
+    hashInformado !== hashConfigurado &&
+    pinProducaoConfere_(pin, propriedades)
+  ) {
+    perfil = "producao";
+    chavePin = CHAVE_CREDENCIAL_PIN_PRODUCAO_;
+    hashConfigurado = propriedades.getProperty(chavePin);
+  }
+
+  const credencialValida = perfil === "producao"
+    ? pinProducaoConfere_(pin, propriedades)
+    : hashInformado === hashConfigurado;
+  if (!credencialValida) {
     cache.put(CHAVE_TENTATIVAS_LOGIN_, String(tentativas + 1), 600);
     throw erroApi_("INVALID_CREDENTIALS", "PIN inválido.");
   }
@@ -76,7 +123,11 @@ function loginAcesso(pin, perfilSolicitado) {
 
   return criarSessaoAcesso_(
     perfil,
-    perfil === "eliel" ? NOME_PERFIL_ELIEL_ : "Administrador"
+    perfil === "eliel"
+      ? NOME_PERFIL_ELIEL_
+      : perfil === "producao"
+        ? NOME_PERFIL_PRODUCAO_
+        : "Administrador"
   );
 }
 
