@@ -3,10 +3,13 @@
 // =========================================================
 const CHAVE_PIN_ADMIN_ = "pdv_admin_pin_hash";
 const CHAVE_PIN_ELIEL_ = "pdv_eliel_pin_hash";
+const CHAVE_CREDENCIAL_PIN_PRODUCAO_ = "pdv_producao_pin_credential_v1";
 const CHAVE_SESSAO_ADMIN_ = "pdv_admin_session_";
 const CHAVE_TENTATIVAS_LOGIN_ = "pdv_admin_login_attempts";
 const DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_ = 14400;
 const NOME_PERFIL_ELIEL_ = "CEO Eliel";
+const NOME_PERFIL_PRODUCAO_ = "Produção";
+const ITERACOES_PIN_PRODUCAO_ = 4096;
 
 // =========================================================
 // CONFIGURAÇÃO OPERACIONAL DINÂMICA
