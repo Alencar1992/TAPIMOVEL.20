@@ -82,6 +82,18 @@ function executarAcaoApi_(action, args, token) {
     "fecharMesRelatorioEliel"
   ];
 
+  const acoesProducao = [
+    "listarPedidosOnlinePendentes",
+    "aceitarPedidoOnline",
+    "recusarPedidoOnline",
+    "carregarDadosNuvem",
+    "atualizarEstadoProducao",
+    "finalizarPagamentoProducao",
+    "cancelarPedidoProducao",
+    "excluirPedidoTravadoProducao",
+    "salvarDisponibilidadeCardapio"
+  ];
+
   const acoesAdministrativas = [
     "listarPedidosOnlinePendentes",
     "aceitarPedidoOnline",
@@ -123,7 +135,12 @@ function executarAcaoApi_(action, args, token) {
     "salvarConfiguracoesRelatorioEliel",
     "obterPreviaFechamentoRelatorioEliel",
     "fecharMesRelatorioEliel",
-    "obterAvisosPdv"
+    "obterAvisosPdv",
+    "configurarPinProducao",
+    "atualizarEstadoProducao",
+    "finalizarPagamentoProducao",
+    "cancelarPedidoProducao",
+    "excluirPedidoTravadoProducao"
   ];
 
   const permitidas = acoesPublicas.concat(acoesAdministrativas);
@@ -142,7 +159,9 @@ function executarAcaoApi_(action, args, token) {
         "O fechamento mensal é exclusivo do perfil CEO Eliel."
       );
     }
-    if (sessao.perfil !== "admin" && acoesEliel.indexOf(action) === -1) {
+    const permitidoParaEliel = sessao.perfil === "eliel" && acoesEliel.indexOf(action) !== -1;
+    const permitidoParaProducao = sessao.perfil === "producao" && acoesProducao.indexOf(action) !== -1;
+    if (sessao.perfil !== "admin" && !permitidoParaEliel && !permitidoParaProducao) {
       throw erroApi_("PERMISSION_DENIED", "O perfil " + sessao.nome + " não possui permissão para esta ação.");
     }
     if (sessao.perfil === "eliel") {
@@ -152,6 +171,9 @@ function executarAcaoApi_(action, args, token) {
       if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;
       if (action === "salvarConfiguracaoOperacional") args[1] = NOME_PERFIL_ELIEL_;
       if (action === "fecharMesRelatorioEliel") args[3] = NOME_PERFIL_ELIEL_;
+    }
+    if (sessao.perfil === "producao" && action === "salvarDisponibilidadeCardapio") {
+      args[1] = NOME_PERFIL_PRODUCAO_;
     }
   }
 
