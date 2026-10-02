@@ -244,11 +244,11 @@ test("PIN do CEO Eliel no PDV preserva a sessão restrita e redireciona", () => 
 
   assert.match(apiClient, /\["eliel", "producao"\]\.indexOf\(session\.perfil\) !== -1/);
   assert.match(apiClient, /sessionPrefix \+ "token"/);
+  assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)/);
   assert.match(
     index,
-    /modoAcessoEsperado === 'admin' && sessao && sessao\.perfil === 'eliel'/
+    /sessao\.perfil === 'eliel'[\s\S]{0,180}window\.location\.replace\('\.\/relatorio-eliel\.html\?origem=pdv'\)/
   );
-  assert.match(index, /window\.location\.replace\('\.\/relatorio-eliel\.html\?origem=pdv'\)/);
 });
 
 test("perfil Produção mantém sessão própria e limita a interface às áreas operacionais", () => {
