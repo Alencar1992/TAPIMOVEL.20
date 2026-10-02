@@ -193,7 +193,7 @@ test("avisos administrativos aguardam a autenticação", () => {
   );
   assert.match(
     index,
-    /function liberarAplicacaoAcesso\(sessao\)[\s\S]{0,900}!acessoEhEliel\(\)[\s\S]{0,200}window\.verificarAvisoPdv\(\)/
+    /function liberarAplicacaoAcesso\(sessao\)[\s\S]{0,1100}sessao && sessao\.perfil === 'admin'[\s\S]{0,200}window\.verificarAvisoPdv\(\)/
   );
 });
 
@@ -242,13 +242,47 @@ test("PIN do CEO Eliel no PDV preserva a sessão restrita e redireciona", () => 
   );
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
 
-  assert.match(apiClient, /session\.perfil === "eliel" \? "eliel" : accessMode/);
+  assert.match(apiClient, /\["eliel", "producao"\]\.indexOf\(session\.perfil\) !== -1/);
   assert.match(apiClient, /sessionPrefix \+ "token"/);
   assert.match(
     index,
     /modoAcessoEsperado === 'admin' && sessao && sessao\.perfil === 'eliel'/
   );
   assert.match(index, /window\.location\.replace\('\.\/relatorio-eliel\.html\?origem=pdv'\)/);
+});
+
+test("perfil Produção mantém sessão própria e limita a interface às áreas operacionais", () => {
+  const apiClient = fs.readFileSync(
+    path.join(root, "frontend/api-client.js"),
+    "utf8"
+  );
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.match(apiClient, /parametroAcesso === "eliel" \|\| parametroAcesso === "producao"/);
+  assert.match(apiClient, /\["eliel", "producao"\]\.indexOf\(session\.perfil\) !== -1/);
+  assert.match(index, /pattern="\[0-9\]\{4,12\}" minlength="4"/);
+  assert.match(index, /function acessoEhProducao\(\)/);
+  assert.match(index, /class="menu-grupo menu-eliel menu-producao"/);
+  assert.match(index, /\['view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'\]/);
+  assert.match(index, /sessao\.perfil === 'producao'[\s\S]{0,260}index\.html\?acesso=producao/);
+  assert.match(index, /if \(acessoEhProducao\(\)\) mudarTela\('view-producao'\)/);
+  assert.match(index, /const acaoEditar = acessoEhProducao\(\) \? ''/);
+  assert.match(index, /function carregarParaEdicao\(numero\) \{[\s\S]{0,220}acessoEhProducao\(\)/);
+});
+
+test("perfil Produção usa transições seguras e assets sem cache legado", () => {
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const css = fs.readFileSync(path.join(root, "frontend/configuracao.css"), "utf8");
+
+  assert.match(index, /api-client\.js\?v=20261002\.1/);
+  assert.match(index, /configuracao\.css\?v=20261002\.1/);
+  assert.match(index, /configuracao\.js\?v=20261002\.1/);
+  assert.match(css, /\.config-seguranca\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
+  assert.match(index, /\.btn-top\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
+  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,220}atualizarEstadoProducao/);
+  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}finalizarPagamentoProducao/);
+  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}cancelarPedidoProducao/);
+  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}excluirPedidoTravadoProducao/);
 });
 
 test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => {
@@ -258,6 +292,52 @@ test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => 
   );
   assert.match(configuracao, /sessao\.perfil === "eliel"/);
   assert.match(configuracao, /responsavelAtual = "CEO Eliel"/);
+});
+
+test("administrador configura o PIN de Produção sem persistir o valor no formulário", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const configuracao = fs.readFileSync(
+    path.join(root, "frontend/configuracao.js"),
+    "utf8"
+  );
+  const campo = { value: "5931" };
+  const botao = { disabled: false, textContent: "Salvar PIN" };
+  const chamadas = [];
+  const avisos = [];
+  const runner = {
+    withSuccessHandler(handler) { this.successHandler = handler; return this; },
+    withFailureHandler(handler) { this.failureHandler = handler; return this; },
+    configurarPinProducao(pin) { chamadas.push(pin); }
+  };
+  const sandbox = {
+    window: {
+      addEventListener() {},
+      TapimovelAuth: {
+        getSession() { return { perfil: "admin" }; }
+      }
+    },
+    document: {
+      getElementById(id) {
+        if (id === "configPinProducao") return campo;
+        if (id === "configBtnSalvarPinProducao") return botao;
+        return null;
+      }
+    },
+    google: { script: { run: runner } },
+    mostrarAlerta(message) { avisos.push(message); },
+    mostrarToast() {}
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(configuracao, sandbox);
+
+  sandbox.window.salvarPinProducao({ preventDefault() {} });
+
+  assert.match(html, /id="configFormPinProducao"[^>]*onsubmit="salvarPinProducao\(event\)"/);
+  assert.match(html, /id="configPinProducao"[^>]*type="password"[^>]*pattern="\[0-9\]\{4\}"/);
+  assert.deepEqual(chamadas, ["5931"]);
+  assert.equal(campo.value, "");
+  assert.equal(botao.disabled, true);
+  assert.deepEqual(avisos, []);
 });
 
 test("Relatório Eliel premium mantém indicadores interativos e gráficos responsivos", () => {
