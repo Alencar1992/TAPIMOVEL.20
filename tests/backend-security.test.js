@@ -328,6 +328,27 @@ test("PIN de Produção informado no PDV cria sessão operacional própria", () 
   assert.equal(context.validarSessaoAcesso(session.token).perfil, "producao");
 });
 
+test("tentativas de Admin permanecem bloqueadas mesmo após login válido de Produção", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    assert.throws(
+      () => context.loginAcesso("000000", "admin"),
+      error => error.code === "INVALID_CREDENTIALS"
+    );
+  }
+
+  const producao = context.loginAcesso("5931", "admin");
+  assert.equal(producao.perfil, "producao");
+
+  assert.throws(
+    () => context.loginAcesso("731905", "admin"),
+    error => error.code === "LOGIN_BLOCKED"
+  );
+});
+
 test("administrador configura o PIN e Produção executa somente ações operacionais", () => {
   const { context } = createContext();
   context.configurarPinAdministrador("731905");
@@ -461,6 +482,61 @@ test("Produção só registra pagamento de pedido real e histórico idempotente"
     ),
     error => error.code === "ORDER_NOT_FOUND"
   );
+});
+
+test("histórico diferencia pedidos reutilizando o mesmo número por identificador estável", () => {
+  const { context, spreadsheet } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+
+  const criarPedido = timestampCriacao => ({
+    numero: 7,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: false, obs: "" }],
+    total: 14,
+    produzido: false,
+    timestampCriacao
+  });
+
+  context.substituirFilaPdvAtivos_([criarPedido(1001)]);
+  context.executarAcaoApi_("finalizarPagamentoProducao", [
+    JSON.stringify({ numero: 7, formaPagamento: "PIX" })
+  ], producao.token);
+
+  context.substituirFilaPdvAtivos_([criarPedido(2002)]);
+  context.executarAcaoApi_("finalizarPagamentoProducao", [
+    JSON.stringify({ numero: 7, formaPagamento: "PIX" })
+  ], producao.token);
+
+  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
+  assert.equal(historico.length, 3);
+  assert.notEqual(historico[1][0], historico[2][0]);
+  assert.match(historico[1][0], /^#7@/);
+  assert.match(historico[2][0], /^#7@/);
+});
+
+test("pagamento produzido registra histórico antes de remover o pedido ativo", () => {
+  const { context, spreadsheet } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+
+  context.substituirFilaPdvAtivos_([{
+    numero: 9,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: true, obs: "" }],
+    total: 14,
+    produzido: true,
+    timestampCriacao: 3003
+  }]);
+
+  context.executarAcaoApi_("finalizarPagamentoProducao", [
+    JSON.stringify({ numero: 9, formaPagamento: "PIX" })
+  ], producao.token);
+
+  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
+  assert.equal(historico.length, 2);
+  assert.equal(historico[1][2], "Bauru");
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
 });
 
 test("Produção cancela somente pedido existente com dados autoritativos", () => {
