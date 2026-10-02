@@ -109,4 +109,4 @@
 - [x] Procurar o PIN real no diff e confirmar zero ocorrências introduzidas.
 - [x] Executar `npm run ci` e `npm run deploy:validate`.
 - [x] Revisar o diff e marcar este plano conforme o resultado real.
-- [ ] Enviar a branch e abrir PR com `Closes #100`.
+- [x] Enviar a branch e abrir PR com `Closes #100`.
