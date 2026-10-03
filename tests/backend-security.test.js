@@ -365,6 +365,7 @@ test("administrador configura o PIN e Produção executa somente ações operaci
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
     "carregarDadosNuvem",
+    "carregarVendasHojePersistidas",
     "registrarPedidoPdv",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
@@ -482,6 +483,40 @@ test("Produção só registra pagamento de pedido real e histórico idempotente"
     ),
     error => error.code === "ORDER_NOT_FOUND"
   );
+});
+
+test("Produção recupera vendas finalizadas do histórico mesmo após saída da fila ativa", () => {
+  const { context } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+
+  context.substituirFilaPdvAtivos_([{
+    numero: 12,
+    itens: [
+      { nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, pronto: true, obs: "" },
+      { nome: "Refrigerante", tipo: "bebida", quantidade: 1, preco: 6, pronto: true, obs: "" }
+    ],
+    total: 34,
+    produzido: true,
+    timestampCriacao: 445566
+  }]);
+
+  context.executarAcaoApi_("finalizarPagamentoProducao", [
+    JSON.stringify({ numero: 12, formaPagamento: "PIX" })
+  ], producao.token);
+
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+
+  const vendas = JSON.parse(
+    context.executarAcaoApi_("carregarVendasHojePersistidas", [], producao.token).data
+  );
+  assert.equal(vendas.length, 1);
+  assert.equal(vendas[0].numero, 12);
+  assert.equal(vendas[0].total, 34);
+  assert.equal(vendas[0].itens.length, 2);
+  assert.equal(vendas[0].itens[0].quantidade, 2);
+  assert.equal(vendas[0].persistidaHistorico, true);
 });
 
 test("histórico diferencia pedidos reutilizando o mesmo número por identificador estável", () => {
