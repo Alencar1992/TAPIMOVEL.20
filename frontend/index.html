@@ -1096,7 +1096,7 @@
     </div>
 
     <script>
-        let historicoNuvem = []; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
+        let historicoNuvem = []; let vendasHojePersistidas = []; let vendasHojeOcultas = new Set(); let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
         let operacaoPedidoEmAndamento = null; let idRequisicaoPedidoAtual = null;
         let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = true; let codigosOnlineAlertados = new Set(); let contextoAudioOnline = null; let wakeLockOnline = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
@@ -1438,7 +1438,8 @@
                         if (!pausarSync) {
                             let novaNuvem = JSON.parse(resposta) || [];
                             if(JSON.stringify(historicoNuvem) !== JSON.stringify(novaNuvem)) {
-                                if (novaNuvem.length > historicoNuvem.length) {
+                                const quantidadeAnterior = historicoNuvem.length;
+                                if (novaNuvem.length > quantidadeAnterior) {
                                     let audio = document.getElementById('somCampainha');
                                     if(audio) audio.play().catch(e => console.log("Áudio bloqueado", e));
 
@@ -1452,6 +1453,7 @@
                                 historicoNuvem = novaNuvem;
                                 sincronizarContadorGlobal();
                                 atualizarTudo();
+                                if (novaNuvem.length < quantidadeAnterior) atualizarVendasHojePersistidas();
                             }
                         }
                         atualizarPedidosOnline();
@@ -1616,6 +1618,7 @@
                         }
 
                         sincronizarContadorGlobal();
+                        atualizarVendasHojePersistidas();
 
                         let antigas = historicoNuvem.filter(v => (v.timestamp && !ehHoje(v.timestamp)) || (v.timestampCriacao && !ehHoje(v.timestampCriacao)));
                         if (antigas.length > 0) {
@@ -2586,12 +2589,19 @@
             if(typeof google !== 'undefined') {
                 if (acessoEhProducao()) {
                     google.script.run
+                        .withSuccessHandler(function() {
+                            atualizarVendasHojePersistidas();
+                        })
                         .withFailureHandler(function(erro) {
                             mostrarAlerta(erro.message || 'Não foi possível finalizar o pagamento.');
                         })
                         .finalizarPagamentoProducao(JSON.stringify(pedido));
                 } else {
-                    google.script.run.moverParaHistorico(JSON.stringify(pedido));
+                    google.script.run
+                        .withSuccessHandler(function() {
+                            atualizarVendasHojePersistidas();
+                        })
+                        .moverParaHistorico(JSON.stringify(pedido));
                     google.script.run.atualizarVendaRealTime(JSON.stringify(pedido));
                 }
             }
@@ -2620,14 +2630,63 @@
             }
         }
 
+        function chaveVendaHoje(venda) {
+            if (!venda) return '';
+            if (venda.idHistorico) return String(venda.idHistorico).replace(/^#/, '');
+            const identificador = venda.idOperacional || venda.codigoOnline || venda.timestampCriacao || venda.timestamp || 'legacy';
+            return String(Number(venda.numero) || 0) + '@' + String(identificador);
+        }
+
+        function vendasHojeCompletas() {
+            const mapa = {};
+            vendasHojePersistidas.forEach(function(venda) {
+                if (!venda || !venda.timestamp || !ehHoje(venda.timestamp)) return;
+                const chave = chaveVendaHoje(venda);
+                if (!chave || vendasHojeOcultas.has(chave)) return;
+                mapa[chave] = venda;
+            });
+            historicoNuvem.forEach(function(venda) {
+                if (!venda || !venda.timestamp || !ehHoje(venda.timestamp)) return;
+                const chave = chaveVendaHoje(venda);
+                if (!chave || vendasHojeOcultas.has(chave) || venda.ocultoVisualmente) return;
+                mapa[chave] = venda;
+            });
+            return Object.keys(mapa).map(function(chave) { return mapa[chave]; }).sort(function(a, b) {
+                return Number(a.timestamp || 0) - Number(b.timestamp || 0);
+            });
+        }
+
+        function atualizarVendasHojePersistidas(callback) {
+            if (typeof google === 'undefined') {
+                if (callback) callback();
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(function(resposta) {
+                    try {
+                        vendasHojePersistidas = JSON.parse(resposta || '[]') || [];
+                    } catch (erro) {
+                        vendasHojePersistidas = [];
+                        console.error('Erro ao reconstruir vendas de hoje:', erro);
+                    }
+                    atualizarTudo();
+                    if (callback) callback();
+                })
+                .withFailureHandler(function(erro) {
+                    console.error('Não foi possível recuperar as vendas de hoje:', erro);
+                    if (callback) callback();
+                })
+                .carregarVendasHojePersistidas();
+        }
+
         function atualizarTudo() {
             let qtdHoje = 0;
 
-            historicoNuvem.forEach(v => {
-                if(v.timestamp && ehHoje(v.timestamp)) {
-                    v.itens.forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdHoje += i.quantidade; });
-                }
+            vendasHojeCompletas().forEach(v => {
+                (v.itens || []).forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdHoje += Number(i.quantidade) || 0; });
+            });
 
+            historicoNuvem.forEach(v => {
                 let itensCozinha = v.itens.filter(i => i.tipo !== 'bebida');
                 if (itensCozinha.length === 0 || itensCozinha.every(i => i.pronto === true)) {
                     v.produzido = true;
@@ -2661,24 +2720,28 @@
 
         function renderizarHistorico() {
             const lista = document.getElementById('listaHistoricoHoje');
-            const vendasHoje = historicoNuvem.filter(v => v.timestamp && ehHoje(v.timestamp) && !v.ocultoVisualmente).reverse();
+            const vendasHoje = vendasHojeCompletas().slice().reverse();
             if(vendasHoje.length === 0) { lista.innerHTML = '<p style="color:var(--text-muted);">Nenhuma venda na lista.</p>'; return; }
 
             let htmlBuffer = '';
             vendasHoje.forEach(v => {
                 const itensTxt = v.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
-                htmlBuffer += `<div class="card-historico"><div style="display:flex;justify-content:space-between;font-weight:bold;margin-bottom:4px"><span>Pedido #${Number(v.numero) || 0} - ✅</span><span>${formatarMoeda(Number(v.total) || 0)}</span></div><div style="font-size:.85rem;color:#e0e0e0;margin-bottom:6px;line-height:1.3">${itensTxt}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.8rem;color:var(--text-muted)">Pago no ${escaparHtml(v.formaPagamento)} às ${new Date(v.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span><button onclick="reabrirPedido('${Number(v.numero) || 0}')" style="background:var(--edit);color:white;border:none;padding:6px 12px;border-radius:4px;font-weight:bold;cursor:pointer;font-size:.8rem">🔄 Reabrir / Editar</button></div></div>`;
+                const ativoPago = historicoNuvem.some(function(item) { return chaveVendaHoje(item) === chaveVendaHoje(v) && item.timestamp; });
+                const acao = ativoPago
+                    ? `<button onclick="reabrirPedido('${Number(v.numero) || 0}')" style="background:var(--edit);color:white;border:none;padding:6px 12px;border-radius:4px;font-weight:bold;cursor:pointer;font-size:.8rem">🔄 Reabrir / Editar</button>`
+                    : '<span style="font-size:.78rem;color:var(--success);font-weight:bold">✓ Registrado</span>';
+                htmlBuffer += `<div class="card-historico"><div style="display:flex;justify-content:space-between;font-weight:bold;margin-bottom:4px"><span>Pedido #${Number(v.numero) || 0} - ✅</span><span>${formatarMoeda(Number(v.total) || 0)}</span></div><div style="font-size:.85rem;color:#e0e0e0;margin-bottom:6px;line-height:1.3">${itensTxt}</div><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.8rem;color:var(--text-muted)">Pago no ${escaparHtml(v.formaPagamento)} às ${new Date(v.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>${acao}</div></div>`;
             });
             lista.innerHTML = htmlBuffer;
         }
 
         function zerarContadorPlanilha() { mostrarConfirmacao("Deseja excluir do histórico a linha de hoje da aba 'Tapiocas Diária'?", function() { let dataHojeStr = new Date().toLocaleDateString('pt-BR'); if(typeof google !== 'undefined') google.script.run.excluirContadorTapiocasHoje(dataHojeStr); ultimoQtdHojeEnviado = -1; mostrarAlerta("Linha de contagem excluída da planilha!"); }); }
-        function limparHistoricoVendasHoje() { mostrarConfirmacao("Limpar tela de Vendas Hoje?", function() { historicoNuvem.forEach(v => { if(v.timestamp && ehHoje(v.timestamp) && !v.ocultoVisualmente) { v.ocultoVisualmente = true; } }); renderizarHistorico(); if(typeof google !== 'undefined') google.script.run.salvarNuvemCompleta(JSON.stringify(historicoNuvem)); }); }
+        function limparHistoricoVendasHoje() { mostrarConfirmacao("Limpar tela de Vendas Hoje?", function() { vendasHojeCompletas().forEach(function(v) { vendasHojeOcultas.add(chaveVendaHoje(v)); }); historicoNuvem.forEach(v => { if(v.timestamp && ehHoje(v.timestamp) && !v.ocultoVisualmente) { v.ocultoVisualmente = true; } }); renderizarHistorico(); if(typeof google !== 'undefined') google.script.run.salvarNuvemCompleta(JSON.stringify(historicoNuvem)); }); }
 
         function abrirModalRelatorio() {
             let totDin = 0, totPix = 0, totCred = 0, totDeb = 0, totVR = 0, totTotal = 0, qtdTapiocasHoje = 0;
 
-            historicoNuvem.filter(v => v.timestamp && ehHoje(v.timestamp)).forEach(v => {
+            vendasHojeCompletas().forEach(v => {
                 totTotal += v.total;
                 v.itens.forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdTapiocasHoje += i.quantidade; });
                 let arrPagamentos = v.pagamentosMistos || [{forma: v.formaPagamento, valor: v.total}];
