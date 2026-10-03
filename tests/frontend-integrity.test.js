@@ -294,6 +294,19 @@ test("vendas concluídas permanecem visíveis a partir do Historico_Diario", () 
   assert.match(index, /withSuccessHandler\(function\(\) \{[\s\S]{0,160}atualizarVendasHojePersistidas\(\)/);
 });
 
+test("Vendas Hoje usa somente a fonte oficial e reconcilia periodicamente", () => {
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = index.indexOf("function vendasHojeCompletas()");
+  const fim = index.indexOf("function atualizarVendasHojePersistidas", inicio);
+  const bloco = index.slice(inicio, fim);
+
+  assert.match(bloco, /vendasHojePersistidas\.forEach/);
+  assert.doesNotMatch(bloco, /historicoNuvem\.forEach/);
+  assert.match(index, /ultimaSincronizacaoVendasHoje = Date\.now\(\)/);
+  assert.match(index, /Date\.now\(\) - ultimaSincronizacaoVendasHoje >= 30000/);
+  assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
+});
+
 test("perfil Produção usa transições seguras e assets sem cache legado", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "frontend/configuracao.css"), "utf8");
