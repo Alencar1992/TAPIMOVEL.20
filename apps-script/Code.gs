@@ -422,14 +422,14 @@ function lancarPedidoPlanilha(pedidoJSON) {
 
 function timestampHistoricoHoje_(valor) {
   const texto = String(valor || "").trim();
-  const match = texto.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,.\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const match = texto.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,.\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (!match) return 0;
   return new Date(
     Number(match[3]),
     Number(match[2]) - 1,
     Number(match[1]),
-    Number(match[4]),
-    Number(match[5]),
+    Number(match[4] || 12),
+    Number(match[5] || 0),
     Number(match[6] || 0)
   ).getTime();
 }
