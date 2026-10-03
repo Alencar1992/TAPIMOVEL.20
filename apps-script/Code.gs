@@ -441,7 +441,7 @@ function carregarVendasHojePersistidas() {
 
   const fuso = Session.getScriptTimeZone();
   const hoje = Utilities.formatDate(new Date(), fuso, "dd/MM/yyyy");
-  const dados = aba.getDataRange().getDisplayValues();
+  const dados = aba.getDataRange().getValues();
   const agrupados = {};
 
   for (let i = 1; i < dados.length; i++) {
