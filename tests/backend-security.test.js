@@ -519,6 +519,68 @@ test("Produção recupera vendas finalizadas do histórico mesmo após saída da
   assert.equal(vendas[0].persistidaHistorico, true);
 });
 
+test("Vendas_hoje é alimentada e reconciliada sem duplicar registros", () => {
+  const { context, spreadsheet } = createContext();
+  context.configurarPinAdministrador("731905");
+  context.configurarPinProducao("5931");
+  const producao = context.loginAcesso("5931", "admin");
+
+  context.substituirFilaPdvAtivos_([{
+    numero: 21,
+    itens: [
+      { nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, pronto: true, obs: "" },
+      { nome: "Refrigerante", tipo: "bebida", quantidade: 1, preco: 6, pronto: true, obs: "" }
+    ],
+    total: 34,
+    produzido: true,
+    timestampCriacao: 778899
+  }]);
+
+  context.executarAcaoApi_("finalizarPagamentoProducao", [
+    JSON.stringify({ numero: 21, formaPagamento: "PIX" })
+  ], producao.token);
+
+  const vendasHoje = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
+  assert.equal(vendasHoje.length, 3);
+  assert.equal(vendasHoje[0][6], "tipo");
+  assert.equal(vendasHoje[1][1].startsWith("#21@"), true);
+  assert.equal(vendasHoje[1][2], 2);
+  assert.equal(vendasHoje[1][3], "Bauru");
+  assert.equal(vendasHoje[1][5], 28);
+  assert.equal(vendasHoje[1][6], "TAPIOCA");
+  assert.equal(vendasHoje[2][6], "BEBIDA");
+
+  context.sincronizarVendasHojeComHistorico();
+  context.sincronizarVendasHojeComHistorico();
+  const aposReconciliar = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
+  assert.equal(aposReconciliar.length, 3);
+
+  const oficiais = JSON.parse(
+    context.executarAcaoApi_("carregarVendasHojePersistidas", [], producao.token).data
+  );
+  assert.equal(oficiais.length, 1);
+  assert.equal(oficiais[0].total, 34);
+  assert.equal(oficiais[0].fonteVendasHoje, true);
+  assert.equal(oficiais[0].itens[0].tipo, "tapioca");
+  assert.equal(oficiais[0].itens[1].tipo, "bebida");
+});
+
+test("reconciliação repõe venda ausente em Vendas_hoje a partir do histórico", () => {
+  const { context, spreadsheet } = createContext();
+  const historico = spreadsheet.insertSheet("Historico_Diario");
+  historico.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
+  historico.appendRow(["#5@abc", "28/07/2026, 19:30:00", "Beijinho", "TAPIOCA", 3, 10, 30, "Dinheiro", "-"]);
+
+  const vendas = spreadsheet.insertSheet("Vendas_hoje");
+  vendas.appendRow(["data e hora", "pedido", "qantidade", "item", "forma pagamento", "valor", "tipo"]);
+
+  const resumo = context.sincronizarVendasHojeComHistorico();
+  assert.equal(resumo.inseridas, 1);
+  const dados = vendas.getDataRange().getValues();
+  assert.equal(dados.length, 2);
+  assert.deepEqual(Array.from(dados[1]), ["28/07/2026, 19:30:00", "#5@abc", 3, "Beijinho", "Dinheiro", 30, "TAPIOCA"]);
+});
+
 test("histórico diferencia pedidos reutilizando o mesmo número por identificador estável", () => {
   const { context, spreadsheet } = createContext();
   context.configurarPinAdministrador("731905");

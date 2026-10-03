@@ -59,7 +59,11 @@ function registrarHistoricoPagamentoProducao_(pedido) {
       aba.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
       aba.getRange("A1:I1").setFontWeight("bold").setBackground("#d9ead3");
     }
-    if (abaContemPedidoProducao_(aba, pedido)) return false;
+    if (abaContemPedidoProducao_(aba, pedido)) {
+      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
+      return false;
+    }
     const linhas = pedido.itens.map(function(item) {
       return [
         idPedidoPlanilhaProducao_(pedido),
@@ -76,6 +80,8 @@ function registrarHistoricoPagamentoProducao_(pedido) {
     if (linhas.length) {
       aba.getRange(aba.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
       invalidarCacheLeituraAnalitica_("Historico_Diario");
+      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
     }
     return true;
   } finally {
