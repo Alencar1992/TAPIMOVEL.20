@@ -1096,7 +1096,7 @@
     </div>
 
     <script>
-        let historicoNuvem = []; let vendasHojePersistidas = []; let vendasHojeOcultas = new Set(); let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
+        let historicoNuvem = []; let vendasHojePersistidas = []; let vendasHojeOcultas = new Set(); let ultimaSincronizacaoVendasHoje = 0; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
         let operacaoPedidoEmAndamento = null; let idRequisicaoPedidoAtual = null;
         let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = true; let codigosOnlineAlertados = new Set(); let contextoAudioOnline = null; let wakeLockOnline = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
@@ -1457,6 +1457,9 @@
                             }
                         }
                         atualizarPedidosOnline();
+                        if (Date.now() - ultimaSincronizacaoVendasHoje >= 30000) {
+                            atualizarVendasHojePersistidas();
+                        }
                         syncAtivo = setTimeout(loopSync, 3000);
                     }).withFailureHandler(function() {
                         syncEmAndamento = false;
@@ -2645,12 +2648,6 @@
                 if (!chave || vendasHojeOcultas.has(chave)) return;
                 mapa[chave] = venda;
             });
-            historicoNuvem.forEach(function(venda) {
-                if (!venda || !venda.timestamp || !ehHoje(venda.timestamp)) return;
-                const chave = chaveVendaHoje(venda);
-                if (!chave || vendasHojeOcultas.has(chave) || venda.ocultoVisualmente) return;
-                mapa[chave] = venda;
-            });
             return Object.keys(mapa).map(function(chave) { return mapa[chave]; }).sort(function(a, b) {
                 return Number(a.timestamp || 0) - Number(b.timestamp || 0);
             });
@@ -2665,6 +2662,7 @@
                 .withSuccessHandler(function(resposta) {
                     try {
                         vendasHojePersistidas = JSON.parse(resposta || '[]') || [];
+                        ultimaSincronizacaoVendasHoje = Date.now();
                     } catch (erro) {
                         vendasHojePersistidas = [];
                         console.error('Erro ao reconstruir vendas de hoje:', erro);
