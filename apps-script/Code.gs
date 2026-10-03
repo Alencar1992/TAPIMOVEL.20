@@ -420,6 +420,81 @@ function lancarPedidoPlanilha(pedidoJSON) {
   }
 }
 
+function timestampHistoricoHoje_(valor) {
+  const texto = String(valor || "").trim();
+  const match = texto.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,.\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return 0;
+  return new Date(
+    Number(match[3]),
+    Number(match[2]) - 1,
+    Number(match[1]),
+    Number(match[4]),
+    Number(match[5]),
+    Number(match[6] || 0)
+  ).getTime();
+}
+
+function carregarVendasHojePersistidas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = ss.getSheetByName("Historico_Diario");
+  if (!aba || aba.getLastRow() < 2) return JSON.stringify([]);
+
+  const fuso = Session.getScriptTimeZone();
+  const hoje = Utilities.formatDate(new Date(), fuso, "dd/MM/yyyy");
+  const dados = aba.getDataRange().getDisplayValues();
+  const agrupados = {};
+
+  for (let i = 1; i < dados.length; i++) {
+    const linha = dados[i];
+    const dataHora = String(linha[1] || "");
+    if (dataHora.indexOf(hoje) !== 0) continue;
+
+    const idBruto = String(linha[0] || "").trim();
+    const numeroMatch = idBruto.match(/^#?(\d+)/);
+    if (!numeroMatch) continue;
+
+    const possuiIdEstavel = idBruto.indexOf("@") !== -1;
+    const chave = possuiIdEstavel ? idBruto : idBruto + "|" + dataHora;
+    if (!agrupados[chave]) {
+      agrupados[chave] = {
+        numero: Number(numeroMatch[1]),
+        idHistorico: idBruto || chave,
+        timestamp: timestampHistoricoHoje_(dataHora),
+        dataExibicao: dataHora,
+        formaPagamento: String(linha[7] || ""),
+        total: 0,
+        produzido: true,
+        persistidaHistorico: true,
+        itens: []
+      };
+    }
+
+    const qtd = Number(String(linha[4] || "").replace(",", ".")) || 0;
+    const preco = Number(String(linha[5] || "").replace(",", ".")) || 0;
+    const totalLinha = Number(String(linha[6] || "").replace(",", ".")) || (qtd * preco);
+    agrupados[chave].total += totalLinha;
+    agrupados[chave].itens.push({
+      nome: String(linha[2] || ""),
+      tipo: String(linha[3] || "").toLowerCase(),
+      quantidade: qtd,
+      preco: preco,
+      pronto: true,
+      obs: String(linha[8] || "")
+    });
+  }
+
+  const vendas = Object.keys(agrupados).map(function(chave) {
+    const venda = agrupados[chave];
+    venda.total = Math.round(venda.total * 100) / 100;
+    return venda;
+  });
+
+  vendas.sort(function(a, b) {
+    return Number(a.timestamp || 0) - Number(b.timestamp || 0);
+  });
+  return JSON.stringify(vendas);
+}
+
 function moverParaHistorico(pedidoJSON) {
   const lock = LockService.getDocumentLock();
   try {
