@@ -282,6 +282,18 @@ test("PIN de Produção no link administrativo nunca libera o perfil Admin", () 
   );
 });
 
+test("vendas concluídas permanecem visíveis a partir do Historico_Diario", () => {
+  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  assert.match(index, /let vendasHojePersistidas = \[\]/);
+  assert.match(index, /function atualizarVendasHojePersistidas\(callback\)/);
+  assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
+  assert.match(index, /function vendasHojeCompletas\(\)/);
+  assert.match(index, /const vendasHoje = vendasHojeCompletas\(\)\.slice\(\)\.reverse\(\)/);
+  assert.match(index, /vendasHojeCompletas\(\)\.forEach\(v =>/);
+  assert.match(index, /withSuccessHandler\(function\(\) \{[\s\S]{0,160}atualizarVendasHojePersistidas\(\)/);
+});
+
 test("perfil Produção usa transições seguras e assets sem cache legado", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "frontend/configuracao.css"), "utf8");
