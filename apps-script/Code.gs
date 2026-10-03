@@ -434,52 +434,166 @@ function timestampHistoricoHoje_(valor) {
   ).getTime();
 }
 
-function carregarVendasHojePersistidas() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const aba = ss.getSheetByName("Historico_Diario");
-  if (!aba || aba.getLastRow() < 2) return JSON.stringify([]);
+function normalizarNumeroVendaHoje_(valor) {
+  if (typeof valor === "number") return valor;
+  const texto = String(valor == null ? "" : valor).trim();
+  if (!texto) return 0;
+  if (/^-?\d+(?:[.,]\d+)?$/.test(texto)) {
+    return Number(texto.replace(",", ".")) || 0;
+  }
+  return Number(texto.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+}
 
-  const fuso = Session.getScriptTimeZone();
-  const hoje = Utilities.formatDate(new Date(), fuso, "dd/MM/yyyy");
+function chaveLinhaVendaHoje_(linha) {
+  return [
+    String(linha[0] || "").trim(),
+    String(linha[1] || "").trim(),
+    normalizarNumeroVendaHoje_(linha[2]),
+    String(linha[3] || "").trim(),
+    String(linha[4] || "").trim(),
+    Math.round(normalizarNumeroVendaHoje_(linha[5]) * 100) / 100,
+    String(linha[6] || "").trim().toUpperCase()
+  ].join("||");
+}
+
+function garantirAbaVendasHoje_(ss) {
+  let aba = ss.getSheetByName("Vendas_hoje");
+  if (!aba) {
+    aba = ss.insertSheet("Vendas_hoje");
+  }
+  if (aba.getLastRow() < 1) {
+    aba.getRange(1, 1, 1, 7).setValues([[
+      "data e hora", "pedido", "qantidade", "item", "forma pagamento", "valor", "tipo"
+    ]]);
+  } else if (!String(aba.getRange(1, 7).getValue() || "").trim()) {
+    aba.getRange(1, 7).setValue("tipo");
+  }
+  return aba;
+}
+
+function sincronizarVendasHojeComHistoricoSemLock_(dataReferencia) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historico = ss.getSheetByName("Historico_Diario");
+  const vendasHoje = garantirAbaVendasHoje_(ss);
+  if (!historico || historico.getLastRow() < 2) {
+    return { data: dataReferencia, inseridas: 0, historico: 0, vendasHoje: Math.max(0, vendasHoje.getLastRow() - 1) };
+  }
+
+  const dadosHistorico = historico.getDataRange().getValues();
+  const dadosVendas = vendasHoje.getDataRange().getValues();
+  const existentes = {};
+
+  for (let i = 1; i < dadosVendas.length; i++) {
+    const dataLinha = String(dadosVendas[i][0] || "");
+    if (dataLinha.indexOf(dataReferencia) !== 0) continue;
+    const chave = chaveLinhaVendaHoje_(dadosVendas[i]);
+    existentes[chave] = (existentes[chave] || 0) + 1;
+  }
+
+  const necessarias = {};
+  const linhasHistorico = [];
+  for (let i = 1; i < dadosHistorico.length; i++) {
+    const linha = dadosHistorico[i];
+    const dataHora = String(linha[1] || "");
+    if (dataHora.indexOf(dataReferencia) !== 0) continue;
+
+    const qtd = normalizarNumeroVendaHoje_(linha[4]);
+    const total = Math.round(normalizarNumeroVendaHoje_(linha[6]) * 100) / 100;
+    const convertida = [
+      dataHora,
+      String(linha[0] || ""),
+      qtd,
+      String(linha[2] || ""),
+      String(linha[7] || ""),
+      total,
+      String(linha[3] || "").toUpperCase()
+    ];
+    const chave = chaveLinhaVendaHoje_(convertida);
+    necessarias[chave] = (necessarias[chave] || 0) + 1;
+    linhasHistorico.push({ chave: chave, linha: convertida });
+  }
+
+  const usadas = {};
+  const faltantes = [];
+  linhasHistorico.forEach(function(item) {
+    usadas[item.chave] = (usadas[item.chave] || 0) + 1;
+    if ((existentes[item.chave] || 0) >= usadas[item.chave]) return;
+    faltantes.push(item.linha);
+  });
+
+  if (faltantes.length) {
+    vendasHoje
+      .getRange(vendasHoje.getLastRow() + 1, 1, faltantes.length, 7)
+      .setValues(faltantes);
+  }
+
+  return {
+    data: dataReferencia,
+    inseridas: faltantes.length,
+    historico: linhasHistorico.length,
+    vendasHoje: Object.keys(necessarias).reduce(function(total, chave) {
+      return total + necessarias[chave];
+    }, 0)
+  };
+}
+
+function sincronizarVendasHojeComHistorico() {
+  const lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(10000);
+    const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    return sincronizarVendasHojeComHistoricoSemLock_(hoje);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function carregarVendasHojePersistidas() {
+  sincronizarVendasHojeComHistorico();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = garantirAbaVendasHoje_(ss);
+  if (aba.getLastRow() < 2) return JSON.stringify([]);
+
+  const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
   const dados = aba.getDataRange().getValues();
   const agrupados = {};
 
   for (let i = 1; i < dados.length; i++) {
     const linha = dados[i];
-    const dataHora = String(linha[1] || "");
+    const dataHora = String(linha[0] || "");
     if (dataHora.indexOf(hoje) !== 0) continue;
 
-    const idBruto = String(linha[0] || "").trim();
+    const idBruto = String(linha[1] || "").trim();
     const numeroMatch = idBruto.match(/^#?(\d+)/);
     if (!numeroMatch) continue;
 
-    const possuiIdEstavel = idBruto.indexOf("@") !== -1;
-    const chave = possuiIdEstavel ? idBruto : idBruto + "|" + dataHora;
+    const chave = idBruto + "|" + dataHora;
     if (!agrupados[chave]) {
       agrupados[chave] = {
         numero: Number(numeroMatch[1]),
         idHistorico: idBruto || chave,
         timestamp: timestampHistoricoHoje_(dataHora),
         dataExibicao: dataHora,
-        formaPagamento: String(linha[7] || ""),
+        formaPagamento: String(linha[4] || ""),
         total: 0,
         produzido: true,
         persistidaHistorico: true,
+        fonteVendasHoje: true,
         itens: []
       };
     }
 
-    const qtd = Number(String(linha[4] || "").replace(",", ".")) || 0;
-    const preco = Number(String(linha[5] || "").replace(",", ".")) || 0;
-    const totalLinha = Number(String(linha[6] || "").replace(",", ".")) || (qtd * preco);
+    const qtd = normalizarNumeroVendaHoje_(linha[2]);
+    const totalLinha = normalizarNumeroVendaHoje_(linha[5]);
     agrupados[chave].total += totalLinha;
     agrupados[chave].itens.push({
-      nome: String(linha[2] || ""),
-      tipo: String(linha[3] || "").toLowerCase(),
+      nome: String(linha[3] || ""),
+      tipo: String(linha[6] || "TAPIOCA").toLowerCase(),
       quantidade: qtd,
-      preco: preco,
+      preco: qtd > 0 ? totalLinha / qtd : totalLinha,
       pronto: true,
-      obs: String(linha[8] || "")
+      obs: ""
     });
   }
 
@@ -523,6 +637,8 @@ function moverParaHistorico(pedidoJSON) {
     if (matrizItens.length > 0) {
       aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
       invalidarCacheLeituraAnalitica_("Historico_Diario");
+      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
     }
   } catch(e) {
     console.error("Erro moverParaHistorico: ", e);
