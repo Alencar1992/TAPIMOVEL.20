@@ -465,8 +465,12 @@ function garantirAbaVendasHoje_(ss) {
     aba.getRange(1, 1, 1, 7).setValues([[
       "data e hora", "pedido", "qantidade", "item", "forma pagamento", "valor", "tipo"
     ]]);
-  } else if (!String(aba.getRange(1, 7).getValue() || "").trim()) {
-    aba.getRange(1, 7).setValue("tipo");
+  } else {
+    const cabecalho = aba.getRange(1, 1, 1, 7).getValues()[0] || [];
+    if (!String(cabecalho[6] || "").trim()) {
+      cabecalho[6] = "tipo";
+      aba.getRange(1, 1, 1, 7).setValues([cabecalho]);
+    }
   }
   return aba;
 }
