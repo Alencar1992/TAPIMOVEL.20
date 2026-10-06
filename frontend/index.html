@@ -2590,9 +2590,29 @@
             fecharModais();
             atualizarTudo();
 
-            function confirmarPersistencia() {
+            function confirmarPersistencia(pedidoPersistido) {
                 let audioCaixa = document.getElementById('somCaixa');
                 if(audioCaixa) audioCaixa.play().catch(e => console.log(e));
+
+                // O backend já confirmou a venda. Atualiza imediatamente a tela e o contador
+                // antes da leitura de reconciliação, evitando ficar em 0 em conexões móveis.
+                const vendaConfirmada = pedidoPersistido && typeof pedidoPersistido === 'object'
+                    ? JSON.parse(JSON.stringify(pedidoPersistido))
+                    : JSON.parse(JSON.stringify(pedido));
+                vendaConfirmada.timestamp = Number(vendaConfirmada.timestamp) || Date.now();
+                vendaConfirmada.dataExibicao = vendaConfirmada.dataExibicao || new Date().toLocaleString('pt-BR');
+                vendaConfirmada.produzido = true;
+
+                const chaveConfirmada = chaveVendaHoje(vendaConfirmada);
+                vendasHojePersistidas = vendasHojePersistidas.filter(function(vendaAtual) {
+                    return chaveVendaHoje(vendaAtual) !== chaveConfirmada;
+                });
+                vendasHojePersistidas.push(vendaConfirmada);
+                vendasHojeOcultas.delete(chaveConfirmada);
+                ultimaSincronizacaoVendasHoje = Date.now();
+                atualizarTudo();
+
+                // Em seguida reconcilia com Vendas_hoje, que continua sendo a fonte oficial.
                 atualizarVendasHojePersistidas();
                 mostrarConfirmacaoPagamento(numeroSalvo);
             }
@@ -2605,8 +2625,8 @@
 
             if(typeof google !== 'undefined') {
                 google.script.run
-                    .withSuccessHandler(function() {
-                        confirmarPersistencia();
+                    .withSuccessHandler(function(pedidoPersistido) {
+                        confirmarPersistencia(pedidoPersistido);
                     })
                     .withFailureHandler(restaurarAposFalha)
                     .finalizarPagamentoProducao(JSON.stringify(pedido));
@@ -2638,7 +2658,7 @@
         function chaveVendaHoje(venda) {
             if (!venda) return '';
             if (venda.idHistorico) return String(venda.idHistorico).replace(/^#/, '');
-            const identificador = venda.idOperacional || venda.codigoOnline || venda.timestampCriacao || venda.timestamp || 'legacy';
+            const identificador = venda.idOperacional || venda.codigoOnline || venda.idRequisicao || venda.timestampCriacao || venda.timestamp || 'legacy';
             return String(Number(venda.numero) || 0) + '@' + String(identificador);
         }
 
