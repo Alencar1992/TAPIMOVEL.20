@@ -651,3 +651,28 @@ test("P1-A unifica pagamento e conclusão de produção entre Admin e Produção
   assert.doesNotMatch(producao, /atualizarVendaRealTime/);
   assert.doesNotMatch(producao, /checarBaixaCache\(p\)/);
 });
+
+
+test("contador de tapiocas atualiza imediatamente após pagamento confirmado pelo servidor", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function finalizarVenda");
+  const fim = html.indexOf("function maskCurrency", inicio);
+  assert.ok(inicio >= 0 && fim > inicio);
+  const fluxo = html.slice(inicio, fim);
+
+  assert.match(fluxo, /function confirmarPersistencia\(pedidoPersistido\)/);
+  assert.match(fluxo, /vendasHojePersistidas = vendasHojePersistidas\.filter/);
+  assert.match(fluxo, /vendasHojePersistidas\.push\(vendaConfirmada\)/);
+  assert.match(fluxo, /vendasHojeOcultas\.delete\(chaveConfirmada\)/);
+  assert.match(fluxo, /atualizarTudo\(\)/);
+  assert.match(fluxo, /atualizarVendasHojePersistidas\(\)/);
+  assert.match(fluxo, /withSuccessHandler\(function\(pedidoPersistido\)/);
+});
+
+test("chave local de Vendas Hoje usa idRequisicao para coincidir com a chave oficial", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function chaveVendaHoje");
+  const fim = html.indexOf("function vendasHojeCompletas", inicio);
+  const bloco = html.slice(inicio, fim);
+  assert.match(bloco, /venda\.idRequisicao/);
+});
