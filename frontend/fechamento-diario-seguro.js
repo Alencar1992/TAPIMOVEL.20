@@ -124,6 +124,83 @@
     ].join("\n");
   }
 
+  function atualizarModalComPreviaOficial(previa) {
+    const resumo = previa && previa.resumo || {};
+    const setTexto = function (id, valor) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = valor;
+    };
+
+    setTexto("relFaturamento", moeda(resumo.total));
+    setTexto("relDin", moeda(resumo.dinheiro));
+    setTexto("relPix", moeda(resumo.pix));
+    setTexto("relCred", moeda(resumo.credito));
+    setTexto("relDeb", moeda(resumo.debito));
+    setTexto("relVR", moeda(resumo.vr));
+    setTexto("relQtdTapiocas", Number(resumo.qtdTapiocas || 0) + " un");
+    setTexto("dataFechamentoPrint", String(previa && previa.data || dataHojePtBr()).slice(0, 5));
+
+    const status = document.getElementById("statusPreviaFechamento");
+    const botao = document.querySelector("#modalRelatorio .btn-fechamento-seguro");
+    if (status) {
+      const textos = {
+        PRONTO: "✅ Valores oficiais carregados de Vendas_hoje.",
+        BLOQUEADO_PENDENCIAS: "⚠️ Existem pedidos pendentes. Finalize-os antes de fechar.",
+        DIVERGENCIA_PAGAMENTOS: "❌ Há divergência entre vendas e formas de pagamento.",
+        JA_FECHADO: "✅ Este dia já consta como fechado.",
+        SEM_MOVIMENTO: "ℹ️ Não existem vendas deste dia para fechar."
+      };
+      status.textContent = textos[String(previa && previa.status || "")] || "⚠️ Pré-validação indisponível.";
+    }
+    if (botao) {
+      botao.disabled = !previa || previa.status !== "PRONTO";
+      botao.style.opacity = botao.disabled ? "0.55" : "1";
+      botao.style.cursor = botao.disabled ? "not-allowed" : "";
+    }
+  }
+
+  function carregarPreviaFechamentoDiarioNoModal() {
+    const modal = document.getElementById("modalRelatorio");
+    const status = document.getElementById("statusPreviaFechamento");
+    const botao = document.querySelector("#modalRelatorio .btn-fechamento-seguro");
+    if (modal) modal.style.display = "flex";
+    if (status) status.textContent = "⏳ Consultando valores oficiais de Vendas_hoje...";
+    if (botao) {
+      botao.disabled = true;
+      botao.style.opacity = "0.55";
+      botao.style.cursor = "not-allowed";
+    }
+
+    ["relFaturamento", "relDin", "relPix", "relCred", "relDeb", "relVR"].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "Carregando...";
+    });
+    const qtd = document.getElementById("relQtdTapiocas");
+    if (qtd) qtd.textContent = "...";
+
+    google.script.run
+      .withSuccessHandler(function (resposta) {
+        let previa;
+        try {
+          previa = JSON.parse(resposta || "{}");
+        } catch (_) {
+          if (status) status.textContent = "❌ Resposta inválida ao consultar o fechamento.";
+          return;
+        }
+        atualizarModalComPreviaOficial(previa);
+      })
+      .withFailureHandler(function (erro) {
+        if (status) {
+          status.textContent = "❌ Não foi possível consultar Vendas_hoje. Fechamento bloqueado.";
+        }
+        mostrarAlerta(
+          "❌ Não foi possível carregar os valores oficiais do fechamento.<br><small>" +
+          String(erro && erro.message || erro) + "</small>"
+        );
+      })
+      .obterPreviaFechamentoDiario(dataHojePtBr());
+  }
+
   function confirmarFechamentoDiarioSeguro() {
     mostrarCarregando("Pré-validando fechamento diário...");
 
@@ -190,6 +267,7 @@
     // Substitui o fluxo legado sem alterar o grande index.html.
     window.registrarFechamentoDia = registrarFechamentoDiarioSeguro;
     window.confirmarRegistroFechamentoDiario = confirmarFechamentoDiarioSeguro;
+    window.carregarPreviaFechamentoDiarioNoModal = carregarPreviaFechamentoDiarioNoModal;
   }
 
   if (document.readyState === "loading") {

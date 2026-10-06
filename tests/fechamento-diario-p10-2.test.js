@@ -90,3 +90,19 @@ test('pré-validação mostra totais e bloqueia divergência sem gravar ou limpa
   assert.match(ui, /Voltar e revisar/);
   assert.match(ui, /\.obterPreviaFechamentoDiario\(dataHojePtBr\(\)\)/);
 });
+
+
+test('modal de fechamento usa somente a prévia oficial de Vendas_hoje', () => {
+  const ui = read('frontend/fechamento-diario-seguro.js');
+  const index = read('frontend/index.html');
+  assert.match(ui, /function carregarPreviaFechamentoDiarioNoModal\(/);
+  assert.match(ui, /Valores oficiais carregados de Vendas_hoje/);
+  assert.match(ui, /botao\.disabled = !previa \|\| previa\.status !== "PRONTO"/);
+  assert.match(ui, /window\.carregarPreviaFechamentoDiarioNoModal = carregarPreviaFechamentoDiarioNoModal/);
+  assert.match(index, /function abrirModalRelatorio\(\)[\s\S]{0,500}carregarPreviaFechamentoDiarioNoModal/);
+  assert.doesNotMatch(
+    index.match(/function abrirModalRelatorio\(\)[\s\S]*?function registrarFechamentoDia\(\)/)[0],
+    /vendasHojeCompletas\(\)/
+  );
+  assert.match(index, /id="statusPreviaFechamento"/);
+});
