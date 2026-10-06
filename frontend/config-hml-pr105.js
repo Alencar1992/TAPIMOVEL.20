@@ -1,0 +1,74 @@
+// Ambiente HML PR105. Nunca apontar este arquivo para produção.
+window.TAPIMOVEL_HML = true;
+window.TAPIMOVEL_CONFIG = {
+  apiUrl: "https://script.google.com/macros/s/AKfycbz0ZS-Pomz9nqpUwMLMUsdcsDbSY5X_-SjNlyZjnQKxW3VFUq_utHmkUif6GMfdwut7Xw/exec"
+};
+
+function paginaTapimovelEhCliente_() {
+  const caminho = String(window.location && window.location.pathname || "").toLowerCase();
+  return /(?:^|\/)cliente\.html$/.test(caminho);
+}
+
+(function carregarLoaderTapiTudoGlobal() {
+  const versao = "20260828.3";
+  const script = document.createElement("script");
+  script.src = "./loader-tapi-tudo.js?v=" + versao;
+  script.async = false;
+  document.head.appendChild(script);
+})();
+
+if (!paginaTapimovelEhCliente_()) {
+  (function carregarControleFechamentoEliel() {
+    const versao = "20260826.3";
+
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "./fechamento-eliel-ui.css?v=" + versao;
+    document.head.appendChild(css);
+
+    const script = document.createElement("script");
+    script.src = "./fechamento-eliel-ui.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+
+  (function carregarBloqueioPeriodoFechamento() {
+    const versao = "20260828.1";
+    const script = document.createElement("script");
+    script.src = "./fechamento-periodo-guard.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+
+  (function carregarFechamentoDiarioSeguro() {
+    const versao = "20260826.1";
+    const script = document.createElement("script");
+    script.src = "./fechamento-diario-seguro.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+
+  (function carregarFotosBebidasPdv() {
+    const versao = "20260827.1";
+    const script = document.createElement("script");
+    script.src = "./pdv-bebidas-imagens.js?v=" + versao;
+    script.async = false;
+    document.head.appendChild(script);
+  })();
+}
+
+if (paginaTapimovelEhCliente_()) {
+  (function carregarAjustesCliente() {
+    const versao = "20260827.4";
+
+    const hotfix = document.createElement("script");
+    hotfix.src = "./cliente-hotfix.js?v=" + versao;
+    hotfix.async = false;
+    document.head.appendChild(hotfix);
+
+    const horario = document.createElement("script");
+    horario.src = "./horario-operacional.js?v=" + versao;
+    horario.async = false;
+    document.head.appendChild(horario);
+  })();
+}
