@@ -8,29 +8,36 @@ const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
 
 test('P10.2 centraliza o fechamento diário em serviço próprio', () => {
   const service = read('apps-script/FechamentoDiarioService.gs');
+  const vendas = read('apps-script/DailySalesService.gs');
   assert.match(service, /function fecharDiaSeguro\(/);
   assert.match(service, /function obterStatusFechamentoDiario\(/);
   assert.match(service, /function executarFechamentoDiarioAutomatico\(/);
-  assert.match(service, /LockService\.getDocumentLock\(\)/);
-  assert.match(service, /carregarFilaPdvAtivos_\(\)/);
+  assert.match(service, /fecharDiaPorVendasHojeSeguro_/);
+  assert.match(vendas, /LockService\.getDocumentLock\(\)/);
+  assert.match(vendas, /Vendas_hoje/);
+  assert.match(vendas, /Livro_Transacoes/);
 });
 
 test('grava e valida as duas fontes antes de zerar a fila', () => {
   const service = read('apps-script/FechamentoDiarioService.gs');
-  assert.match(service, /Fechamentos_Diarios/);
-  assert.match(service, /Tapiocas Diária/);
-  assert.match(service, /SpreadsheetApp\.flush\(\)/);
-  assert.match(service, /gravarResumoFechamentoDiario_\(resumo, tipoOrigem, "GRAVADO"\);\s*validarPersistenciaFechamentoDiario_\(resumo\);\s*const restantes = removerSomentePedidosDoDiaFechado_\(fila, data\);\s*atualizarStatusFechamentoDiario_\(data, tipoOrigem, "CONCLUIDO"\)/s);
-  assert.match(service, /substituirFilaPdvAtivos_\(restantes\)/);
+  const vendas = read('apps-script/DailySalesService.gs');
+  assert.match(vendas, /Fechamentos_Diarios/);
+  assert.match(vendas, /Historico_Diario/);
+  assert.match(vendas, /Tapiocas Diária/);
+  assert.match(vendas, /registrarEventoLivroSemLock_\([\s\S]*"FECHAMENTO"/);
+  assert.match(vendas, /abaVendas\.deleteRow/);
+  assert.match(vendas, /while \(abaHistorico\.getLastRow\(\) > historicoAntes\)/);
+  assert.match(service, /fecharDiaPorVendasHojeSeguro_/);
 });
 
 test('bloqueia pendências e impede duplicidade silenciosa', () => {
   const service = read('apps-script/FechamentoDiarioService.gs');
-  assert.match(service, /BLOQUEADO_PENDENCIAS/);
-  assert.match(service, /pedidosPendentes > 0/);
+  const vendas = read('apps-script/DailySalesService.gs');
+  assert.match(vendas, /BLOQUEADO_PENDENCIAS/);
+  assert.match(vendas, /DAY_CLOSED/);
+  assert.match(vendas, /JA_FECHADO/);
   assert.match(service, /múltiplos fechamentos/);
   assert.match(service, /múltiplas contagens de tapiocas/);
-  assert.doesNotMatch(service, /appendRow\(/);
 });
 
 test('fechamento automático é idempotente, horário e nunca fecha o dia corrente', () => {

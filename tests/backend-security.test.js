@@ -447,7 +447,7 @@ test("Produção atualiza somente o estado operacional do pedido existente", () 
   assert.equal(salvo.produzido, true);
 });
 
-test("Produção só registra pagamento de pedido real e histórico idempotente", () => {
+test("Produção registra pagamento somente em Vendas_hoje e Livro_Transacoes", () => {
   const { context, spreadsheet } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
@@ -457,7 +457,7 @@ test("Produção só registra pagamento de pedido real e histórico idempotente"
     itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, pronto: false, obs: "" }],
     total: 28,
     produzido: false,
-    timestampCriacao: Date.now()
+    timestampCriacao: 7001
   }]);
 
   const adulterado = JSON.stringify({
@@ -466,15 +466,21 @@ test("Produção só registra pagamento de pedido real e histórico idempotente"
     total: 0.99,
     formaPagamento: "PIX"
   });
+
   context.executarAcaoApi_("finalizarPagamentoProducao", [adulterado], producao.token);
   context.executarAcaoApi_("finalizarPagamentoProducao", [adulterado], producao.token);
 
-  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
-  assert.equal(historico.length, 2);
-  assert.equal(historico[1][2], "Bauru");
-  assert.equal(historico[1][4], 2);
-  assert.equal(historico[1][5], 14);
-  assert.equal(historico[1][6], 28);
+  const vendas = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
+  assert.equal(vendas.length, 2);
+  assert.equal(vendas[1][3], "Bauru");
+  assert.equal(vendas[1][2], 2);
+  assert.equal(vendas[1][5], 28);
+  assert.equal(spreadsheet.getSheetByName("Historico_Diario"), null);
+
+  const livro = spreadsheet.getSheetByName("Livro_Transacoes").getDataRange().getValues();
+  const pagamentos = livro.slice(1).filter(linha => linha[3] === "PAGAMENTO");
+  assert.equal(pagamentos.length, 1);
+
   assert.throws(
     () => context.executarAcaoApi_(
       "finalizarPagamentoProducao",
@@ -485,8 +491,8 @@ test("Produção só registra pagamento de pedido real e histórico idempotente"
   );
 });
 
-test("Produção recupera vendas finalizadas do histórico mesmo após saída da fila ativa", () => {
-  const { context } = createContext();
+test("Produção recupera vendas finalizadas do Livro_Transacoes mesmo após saída da fila ativa", () => {
+  const { context, spreadsheet } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
   const producao = context.loginAcesso("5931", "admin");
@@ -507,6 +513,8 @@ test("Produção recupera vendas finalizadas do histórico mesmo após saída da
   ], producao.token);
 
   assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+  const vendasAba = spreadsheet.getSheetByName("Vendas_hoje");
+  while (vendasAba.getLastRow() > 1) vendasAba.deleteRow(vendasAba.getLastRow());
 
   const vendas = JSON.parse(
     context.executarAcaoApi_("carregarVendasHojePersistidas", [], producao.token).data
@@ -515,8 +523,7 @@ test("Produção recupera vendas finalizadas do histórico mesmo após saída da
   assert.equal(vendas[0].numero, 12);
   assert.equal(vendas[0].total, 34);
   assert.equal(vendas[0].itens.length, 2);
-  assert.equal(vendas[0].itens[0].quantidade, 2);
-  assert.equal(vendas[0].persistidaHistorico, true);
+  assert.equal(spreadsheet.getSheetByName("Historico_Diario"), null);
 });
 
 test("Vendas_hoje é alimentada e reconciliada sem duplicar registros", () => {
@@ -565,23 +572,40 @@ test("Vendas_hoje é alimentada e reconciliada sem duplicar registros", () => {
   assert.equal(oficiais[0].itens[1].tipo, "bebida");
 });
 
-test("reconciliação repõe venda ausente em Vendas_hoje a partir do histórico", () => {
+test("reconciliação repõe venda ausente em Vendas_hoje a partir do Livro_Transacoes", () => {
   const { context, spreadsheet } = createContext();
-  const historico = spreadsheet.insertSheet("Historico_Diario");
-  historico.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
-  historico.appendRow(["#5@abc", "28/07/2026, 19:30:00", "Beijinho", "TAPIOCA", 3, 10, 30, "Dinheiro", "-"]);
+  const livro = spreadsheet.insertSheet("Livro_Transacoes");
+  livro.appendRow(["ID Evento","Data/Hora","Data Operação","Tipo","Chave Pedido","Payload JSON","Fechamento ID"]);
+  livro.appendRow([
+    "evt-1",
+    "28/07/2026, 19:30:00",
+    "28/07/2026",
+    "PAGAMENTO",
+    "#5@abc",
+    JSON.stringify({
+      numero: 5,
+      chavePedido: "#5@abc",
+      timestamp: Date.now(),
+      dataExibicao: "28/07/2026, 19:30:00",
+      formaPagamento: "Dinheiro",
+      pagamentosMistos: [],
+      total: 30,
+      itens: [{ nome: "Beijinho", tipo: "tapioca", quantidade: 3, preco: 10, obs: "-" }]
+    }),
+    ""
+  ]);
 
-  const vendas = spreadsheet.insertSheet("Vendas_hoje");
-  vendas.appendRow(["data e hora", "pedido", "qantidade", "item", "forma pagamento", "valor", "tipo"]);
-
-  const resumo = context.sincronizarVendasHojeComHistorico();
+  const resumo = context.reconciliarVendasHojeComLivro();
   assert.equal(resumo.inseridas, 1);
-  const dados = vendas.getDataRange().getValues();
+  const dados = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
   assert.equal(dados.length, 2);
-  assert.deepEqual(Array.from(dados[1]), ["28/07/2026, 19:30:00", "#5@abc", 3, "Beijinho", "Dinheiro", 30, "TAPIOCA"]);
+  assert.equal(dados[1][1], "#5@abc");
+  assert.equal(dados[1][2], 3);
+  assert.equal(dados[1][3], "Beijinho");
+  assert.equal(dados[1][5], 30);
 });
 
-test("histórico diferencia pedidos reutilizando o mesmo número por identificador estável", () => {
+test("Livro_Transacoes diferencia pedidos reutilizando o mesmo número por identificador estável", () => {
   const { context, spreadsheet } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
@@ -605,14 +629,16 @@ test("histórico diferencia pedidos reutilizando o mesmo número por identificad
     JSON.stringify({ numero: 7, formaPagamento: "PIX" })
   ], producao.token);
 
-  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
-  assert.equal(historico.length, 3);
-  assert.notEqual(historico[1][0], historico[2][0]);
-  assert.match(historico[1][0], /^#7@/);
-  assert.match(historico[2][0], /^#7@/);
+  const livro = spreadsheet.getSheetByName("Livro_Transacoes").getDataRange().getValues();
+  const chaves = livro.slice(1).filter(l => l[3] === "PAGAMENTO").map(l => l[4]);
+  assert.equal(chaves.length, 2);
+  assert.notEqual(chaves[0], chaves[1]);
+  assert.match(chaves[0], /^#7@/);
+  assert.match(chaves[1], /^#7@/);
+  assert.equal(spreadsheet.getSheetByName("Historico_Diario"), null);
 });
 
-test("pagamento produzido registra histórico antes de remover o pedido ativo", () => {
+test("pagamento produzido registra Vendas_hoje antes de remover o pedido ativo", () => {
   const { context, spreadsheet } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
@@ -630,10 +656,11 @@ test("pagamento produzido registra histórico antes de remover o pedido ativo", 
     JSON.stringify({ numero: 9, formaPagamento: "PIX" })
   ], producao.token);
 
-  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
-  assert.equal(historico.length, 2);
-  assert.equal(historico[1][2], "Bauru");
+  const vendas = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
+  assert.equal(vendas.length, 2);
+  assert.equal(vendas[1][3], "Bauru");
   assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+  assert.equal(spreadsheet.getSheetByName("Historico_Diario"), null);
 });
 
 test("Produção cancela somente pedido existente com dados autoritativos", () => {
@@ -662,6 +689,57 @@ test("Produção cancela somente pedido existente com dados autoritativos", () =
   assert.equal(cancelados[1][3], 1);
   assert.equal(cancelados[1][4], 6);
   assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+});
+
+
+test("fechamento move Vendas_hoje para histórico, consolida e limpa somente no sucesso", () => {
+  const { context, spreadsheet } = createContext();
+
+  context.registrarVendaHojeAdmin(JSON.stringify({
+    numero: 31,
+    timestampCriacao: 31001,
+    dataExibicao: "28/07/2026, 20:00:00",
+    formaPagamento: "PIX",
+    total: 28,
+    itens: [
+      { nome: "Bauru", tipo: "tapioca", quantidade: 2, preco: 14, obs: "-" }
+    ]
+  }));
+  context.registrarVendaHojeAdmin(JSON.stringify({
+    numero: 32,
+    timestampCriacao: 32001,
+    dataExibicao: "28/07/2026, 20:10:00",
+    formaPagamento: "Dinheiro",
+    total: 6,
+    itens: [
+      { nome: "Refrigerante", tipo: "bebida", quantidade: 1, preco: 6, obs: "-" }
+    ]
+  }));
+
+  const resultado = JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL"));
+  assert.equal(resultado.ok, true);
+  assert.equal(resultado.resumo.total, 34);
+  assert.equal(resultado.resumo.pix, 28);
+  assert.equal(resultado.resumo.dinheiro, 6);
+  assert.equal(resultado.resumo.qtdTapiocas, 2);
+
+  const vendas = spreadsheet.getSheetByName("Vendas_hoje").getDataRange().getValues();
+  assert.equal(vendas.length, 1);
+
+  const historico = spreadsheet.getSheetByName("Historico_Diario").getDataRange().getValues();
+  assert.equal(historico.length, 3);
+  assert.equal(historico[1][2], "Bauru");
+  assert.equal(historico[2][2], "Refrigerante");
+
+  const fech = spreadsheet.getSheetByName("Fechamentos_Diarios").getDataRange().getValues();
+  assert.equal(fech.length, 2);
+  assert.equal(fech[1][0], "28/07/2026");
+  assert.equal(fech[1][1], 34);
+  assert.equal(fech[1][8], "CONCLUIDO");
+
+  const repetido = JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL"));
+  assert.equal(repetido.ok, true);
+  assert.equal(repetido.status, "JA_FECHADO");
 });
 
 test("CEO Eliel acessa somente relatório, itens e configuração", () => {

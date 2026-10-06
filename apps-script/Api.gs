@@ -102,6 +102,7 @@ function executarAcaoApi_(action, args, token) {
     "recusarPedidoOnline",
     "carregarDadosNuvem",
     "carregarVendasHojePersistidas",
+    "registrarVendaHojeAdmin",
     "salvarNuvemCompleta",
     "salvarVendaRealTime",
     "atualizarVendaRealTime",

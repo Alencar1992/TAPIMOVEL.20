@@ -93,11 +93,12 @@ test('P12 fechamento mensal invalida cache antes do cálculo oficial', () => {
 test('P12 invalida snapshots depois de escritas que alteram dados analíticos', () => {
   const code = read('apps-script/Code.gs');
   const diario = read('apps-script/FechamentoDiarioService.gs');
-  assert.match(code, /function moverParaHistorico[\s\S]*invalidarCacheLeituraAnalitica_\("Historico_Diario"\)/);
+  const vendas = read('apps-script/DailySalesService.gs');
+  assert.match(vendas, /function fecharDiaPorVendasHojeSeguro_[\s\S]*invalidarCacheLeituraAnalitica_\("Historico_Diario"\)/);
   assert.match(code, /function salvarCombustivelPlanilha[\s\S]*invalidarCacheLeituraAnalitica_\("Combustivel"\)/);
-  assert.match(code, /function salvarFechamentoDiaPlanilha[\s\S]*invalidarCacheLeituraAnalitica_\("Fechamentos_Diarios"\)/);
-  assert.match(diario, /function gravarResumoFechamentoDiario_[\s\S]*invalidarCacheLeituraAnalitica_\("Fechamentos_Diarios"\)/);
-  assert.match(diario, /invalidarCacheLeituraAnalitica_\("Tapiocas Diária"\)/);
+  assert.match(vendas, /invalidarCacheLeituraAnalitica_\("Fechamentos_Diarios"\)/);
+  assert.match(vendas, /invalidarCacheLeituraAnalitica_\("Tapiocas Diária"\)/);
+  assert.match(diario, /function fecharDiaSeguro_[\s\S]*fecharDiaPorVendasHojeSeguro_/);
 });
 
 test('P12 otimiza consultas legadas mais frequentes sem alterar os contratos', () => {

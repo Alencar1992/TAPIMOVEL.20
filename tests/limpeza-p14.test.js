@@ -27,7 +27,8 @@ test('P14 preserva compatibilidade do fechamento diário único', () => {
   assert.match(api, /"fecharDiaSeguro"/);
   assert.match(ui, /\.fecharDiaSeguro\(dataHojePtBr\(\), "MANUAL"\)/);
   assert.match(index, /function registrarFechamentoDia\s*\(/);
-  assert.match(index, /\.salvarFechamentoDiaPlanilha\(JSON\.stringify\(resumo\)\)/);
+  assert.match(index, /\.fecharDiaSeguro\(\)/);
+  assert.match(ui, /\.fecharDiaSeguro\(dataHojePtBr\(\), "MANUAL"\)/);
 });
 
 test('P14 preserva recursos ainda usados pelo painel administrativo', () => {

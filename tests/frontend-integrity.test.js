@@ -282,7 +282,7 @@ test("PIN de Produção no link administrativo nunca libera o perfil Admin", () 
   );
 });
 
-test("vendas concluídas permanecem visíveis a partir do Historico_Diario", () => {
+test("vendas concluídas permanecem visíveis a partir de Vendas_hoje", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
 
   assert.match(index, /let vendasHojePersistidas = \[\]/);
@@ -291,10 +291,10 @@ test("vendas concluídas permanecem visíveis a partir do Historico_Diario", () 
   assert.match(index, /function vendasHojeCompletas\(\)/);
   assert.match(index, /const vendasHoje = vendasHojeCompletas\(\)\.slice\(\)\.reverse\(\)/);
   assert.match(index, /vendasHojeCompletas\(\)\.forEach\(v =>/);
-  assert.match(index, /withSuccessHandler\(function\(\) \{[\s\S]{0,160}atualizarVendasHojePersistidas\(\)/);
+  assert.match(index, /function confirmarPersistencia\(\)[\s\S]{0,220}atualizarVendasHojePersistidas\(\)/);
 });
 
-test("Vendas Hoje usa somente a fonte oficial e reconcilia periodicamente", () => {
+test("Vendas Hoje usa somente a fonte oficial e fechamento seguro no servidor", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const inicio = index.indexOf("function vendasHojeCompletas()");
   const fim = index.indexOf("function atualizarVendasHojePersistidas", inicio);
@@ -305,8 +305,14 @@ test("Vendas Hoje usa somente a fonte oficial e reconcilia periodicamente", () =
   assert.match(index, /ultimaSincronizacaoVendasHoje = Date\.now\(\)/);
   assert.match(index, /Date\.now\(\) - ultimaSincronizacaoVendasHoje >= 30000/);
   assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
+  assert.match(index, /\.registrarVendaHojeAdmin\(JSON\.stringify\(pedido\)\)/);
+  assert.match(index, /\.fecharDiaSeguro\(\)/);
+  assert.doesNotMatch(
+    index.slice(index.indexOf("function registrarFechamentoDia()"), index.indexOf("let faturamentoMesGlobal")),
+    /salvarFechamentoDiaPlanilha/
+  );
+  assert.match(index, /Nenhuma venda foi apagada/);
 });
-
 test("perfil Produção usa transições seguras e assets sem cache legado", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "frontend/configuracao.css"), "utf8");

@@ -262,102 +262,11 @@ function removerSomentePedidosDoDiaFechado_(fila, dataReferencia) {
 }
 
 function obterStatusFechamentoDiario(dataReferencia) {
-  const data = normalizarDataFechamentoDiario_(dataReferencia) || formatarDataFechamentoDiario_(new Date());
-  const fila = carregarFilaPdvAtivos_();
-  const resumo = consolidarFechamentoDiario_(fila, data);
-  const existente = obterRegistroFechamentoDiario_(data);
-  return JSON.stringify({
-    data: data,
-    pedidosFinalizados: resumo.pedidosFinalizados,
-    pedidosPendentes: resumo.pedidosPendentes,
-    fechamentoExistente: Boolean(existente),
-    status: existente ? existente.status || "LEGADO" : "ABERTO",
-    origem: existente ? existente.origem || "LEGADO" : "",
-    triggerAutomaticoAtivo: verificarTriggerFechamentoDiarioAutomatico_()
-  });
+  return JSON.stringify(obterStatusFluxoVendasHoje_(dataReferencia));
 }
-
 function fecharDiaSeguro_(dataReferencia, origem) {
-  const data = normalizarDataFechamentoDiario_(dataReferencia);
-  if (!data) throw new Error("Data de fechamento diário inválida.");
-  const tipoOrigem = String(origem || "MANUAL").toUpperCase() === "AUTOMATICO" ? "AUTOMATICO" : "MANUAL";
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(15000);
-    const fila = carregarFilaPdvAtivos_();
-    const resumo = consolidarFechamentoDiario_(fila, data);
-    const existente = obterRegistroFechamentoDiario_(data);
-
-    if (resumo.pedidosPendentes > 0) {
-      return {
-        ok: false,
-        status: "BLOQUEADO_PENDENCIAS",
-        data: data,
-        pedidosPendentes: resumo.pedidosPendentes,
-        pedidosFinalizados: resumo.pedidosFinalizados
-      };
-    }
-
-    if (!resumo.pedidosFinalizados) {
-      if (existente) {
-        const tapiocas = obterRegistroTapiocasDiaria_(data);
-        if (!tapiocas) {
-          throw new Error("Existe fechamento diário, mas falta a contagem correspondente em 'Tapiocas Diária'.");
-        }
-        if (existente.status !== "CONCLUIDO") {
-          atualizarStatusFechamentoDiario_(data, existente.origem || tipoOrigem, "CONCLUIDO");
-        }
-        return {
-          ok: true,
-          status: "JA_FECHADO",
-          data: data,
-          origem: existente.origem || tipoOrigem,
-          pedidosRestantes: fila.length
-        };
-      }
-      return { ok: true, status: "SEM_MOVIMENTO", data: data, pedidosRestantes: fila.length };
-    }
-
-    if (existente && existente.status === "CONCLUIDO") {
-      const campos = ["total", "dinheiro", "pix", "credito", "debito", "vr"];
-      const divergente = campos.some(function(campo) {
-        return !quaseIgualFechamentoDiario_(existente[campo], resumo[campo]);
-      });
-      if (divergente) {
-        throw new Error(
-          "O dia " + data + " já está fechado, mas a fila atual possui valores diferentes. Nenhum dado foi zerado."
-        );
-      }
-      validarPersistenciaFechamentoDiario_(resumo);
-      const restantesRecuperacao = removerSomentePedidosDoDiaFechado_(fila, data);
-      return {
-        ok: true,
-        status: "RECUPERADO",
-        data: data,
-        origem: existente.origem || tipoOrigem,
-        resumo: resumo,
-        pedidosRestantes: restantesRecuperacao
-      };
-    }
-
-    gravarResumoFechamentoDiario_(resumo, tipoOrigem, "GRAVADO");
-    validarPersistenciaFechamentoDiario_(resumo);
-    const restantes = removerSomentePedidosDoDiaFechado_(fila, data);
-    atualizarStatusFechamentoDiario_(data, tipoOrigem, "CONCLUIDO");
-
-    return {
-      ok: true,
-      status: existente ? "RECUPERADO" : "CONCLUIDO",
-      data: data,
-      origem: tipoOrigem,
-      resumo: resumo,
-      pedidosRestantes: restantes
-    };
-  } finally {
-    lock.releaseLock();
-  }
+  return fecharDiaPorVendasHojeSeguro_(dataReferencia, origem || "MANUAL");
 }
-
 function fecharDiaSeguro(dataReferencia, origem) {
   return JSON.stringify(fecharDiaSeguro_(dataReferencia, origem || "MANUAL"));
 }
@@ -394,12 +303,16 @@ function executarFechamentoDiarioAutomatico() {
   }
 
   const hoje = formatarDataFechamentoDiario_(agora);
-  const fila = carregarFilaPdvAtivos_();
   const datas = {};
-  fila.forEach(function(pedido) {
-    const data = dataReferenciaPedidoFechamentoDiario_(pedido);
-    if (data && data !== hoje) datas[data] = true;
-  });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaVendas = ss.getSheetByName("Vendas_hoje");
+  if (abaVendas && abaVendas.getLastRow() > 1) {
+    const valores = abaVendas.getDataRange().getValues();
+    valores.slice(1).forEach(function(linha) {
+      const data = normalizarDataFechamentoDiario_(linha[0]);
+      if (data && data !== hoje) datas[data] = true;
+    });
+  }
 
   const referencias = Object.keys(datas).sort(function(a, b) {
     const pa = a.split("/");
