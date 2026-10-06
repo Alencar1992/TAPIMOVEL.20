@@ -698,3 +698,27 @@ test("API do PDV aceita respostas já desserializadas e JSON em texto", () => {
 
   assert.doesNotMatch(html, /JSON\.parse\(res\)/);
 });
+
+
+test("Vendas Hoje mantém o último estado válido quando a sincronização retorna vazio ou inválido", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function atualizarVendasHojePersistidas");
+  const fim = html.indexOf("function atualizarTudo", inicio);
+  const bloco = html.slice(inicio, fim);
+
+  assert.match(bloco, /const recebidas = normalizarRespostaApi\(resposta, null\)/);
+  assert.match(bloco, /recebidas\.length === 0 && vendasAtuaisDoDia\.length > 0/);
+  assert.match(bloco, /mantendo o último estado confirmado/);
+  assert.match(bloco, /Leitura vazia de Vendas Hoje ignorada/);
+  assert.doesNotMatch(bloco, /vendasHojePersistidas = \[\]/);
+});
+
+test("reabrir pedido remove a venda local antes da próxima sincronização", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function reabrirPedido");
+  const fim = html.indexOf("function registrarCombustivel", inicio);
+  const bloco = html.slice(inicio, fim);
+
+  assert.match(bloco, /vendasHojePersistidas = vendasHojePersistidas\.filter/);
+  assert.match(bloco, /Number\(venda && venda\.numero\) !== Number\(numero\)/);
+});
