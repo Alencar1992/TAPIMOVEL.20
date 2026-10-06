@@ -291,7 +291,7 @@ test("vendas concluídas permanecem visíveis a partir de Vendas_hoje", () => {
   assert.match(index, /function vendasHojeCompletas\(\)/);
   assert.match(index, /const vendasHoje = vendasHojeCompletas\(\)\.slice\(\)\.reverse\(\)/);
   assert.match(index, /vendasHojeCompletas\(\)\.forEach\(v =>/);
-  assert.match(index, /function confirmarPersistencia\(\)[\s\S]{0,220}atualizarVendasHojePersistidas\(\)/);
+  assert.match(index, /function confirmarPersistencia\(pedidoPersistido\)[\s\S]{0,4000}atualizarVendasHojePersistidas\(\)/);
 });
 
 test("Vendas Hoje usa somente a fonte oficial e fechamento seguro no servidor", () => {
@@ -650,4 +650,29 @@ test("P1-A unifica pagamento e conclusão de produção entre Admin e Produção
   assert.match(producao, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
   assert.doesNotMatch(producao, /atualizarVendaRealTime/);
   assert.doesNotMatch(producao, /checarBaixaCache\(p\)/);
+});
+
+
+test("contador de tapiocas atualiza imediatamente após pagamento confirmado pelo servidor", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function finalizarVenda");
+  const fim = html.indexOf("function maskCurrency", inicio);
+  assert.ok(inicio >= 0 && fim > inicio);
+  const fluxo = html.slice(inicio, fim);
+
+  assert.match(fluxo, /function confirmarPersistencia\(pedidoPersistido\)/);
+  assert.match(fluxo, /vendasHojePersistidas = vendasHojePersistidas\.filter/);
+  assert.match(fluxo, /vendasHojePersistidas\.push\(vendaConfirmada\)/);
+  assert.match(fluxo, /vendasHojeOcultas\.delete\(chaveConfirmada\)/);
+  assert.match(fluxo, /atualizarTudo\(\)/);
+  assert.match(fluxo, /atualizarVendasHojePersistidas\(\)/);
+  assert.match(fluxo, /withSuccessHandler\(function\(pedidoPersistido\)/);
+});
+
+test("chave local de Vendas Hoje usa idRequisicao para coincidir com a chave oficial", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function chaveVendaHoje");
+  const fim = html.indexOf("function vendasHojeCompletas", inicio);
+  const bloco = html.slice(inicio, fim);
+  assert.match(bloco, /venda\.idRequisicao/);
 });
