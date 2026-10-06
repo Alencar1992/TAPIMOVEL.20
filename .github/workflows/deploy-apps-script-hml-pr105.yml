@@ -21,7 +21,7 @@ jobs:
     environment: apps-script-production
     env:
       HML_SPREADSHEET_ID: 1-w_ANWw2Vlv2LS_DwAYQxzLHA0LUhWNaoNcKfY9bGMw
-      HML_REF: 27e21434e03e4dcdd777544d27c7aef5c2f93155
+      HML_REF: 07755db8850661baaf0f1f89a078566165784982
       PROD_SCRIPT_ID: 1HMoBIVEYDJ6tS6x_7byfiwkQo92caEAa1SJnU0AGYXU933-xm7sO2Bsn
       HML_SCRIPT_ID: 1k6FnACYqdaW2M8o_UxIjezDF9-KohZWRhtc61swI7sjkRNgTQl3BeOzj
 
