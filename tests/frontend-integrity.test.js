@@ -676,3 +676,26 @@ test("chave local de Vendas Hoje usa idRequisicao para coincidir com a chave ofi
   const bloco = html.slice(inicio, fim);
   assert.match(bloco, /venda\.idRequisicao/);
 });
+
+
+test("API do PDV aceita respostas já desserializadas e JSON em texto", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  assert.match(html, /function normalizarRespostaApi\(resposta, fallback\)/);
+  assert.match(html, /if \(typeof resposta !== 'string'\) return resposta/);
+  assert.match(html, /return JSON\.parse\(resposta\)/);
+
+  const inicio = html.indexOf("function iniciarSyncEmTempoReal");
+  const fim = html.indexOf("function mostrarLoginAdmin", inicio);
+  const sync = html.slice(inicio, fim);
+  assert.match(sync, /normalizarRespostaApi\(resposta\) \|\| \[\]/);
+  assert.doesNotMatch(sync, /JSON\.parse\(resposta\)/);
+
+  const inicioVendas = html.indexOf("function atualizarVendasHojePersistidas");
+  const fimVendas = html.indexOf("function atualizarTudo", inicioVendas);
+  const vendas = html.slice(inicioVendas, fimVendas);
+  assert.match(vendas, /normalizarRespostaApi\(resposta, \[\]\) \|\| \[\]/);
+  assert.doesNotMatch(vendas, /JSON\.parse\(resposta/);
+
+  assert.doesNotMatch(html, /JSON\.parse\(res\)/);
+  assert.doesNotMatch(html, /JSON\.parse\(resposta\)/);
+});
