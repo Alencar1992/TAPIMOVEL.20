@@ -98,17 +98,92 @@
       .fecharDiaSeguro(dataHojePtBr(), "MANUAL");
   }
 
+  function moeda(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    });
+  }
+
+  function textoPreviaFechamento(previa) {
+    const resumo = previa && previa.resumo || {};
+    return [
+      "Confira os valores antes de fechar " + String(previa.data || dataHojePtBr()) + ":",
+      "",
+      "Total faturado: " + moeda(resumo.total),
+      "PIX: " + moeda(resumo.pix),
+      "Dinheiro: " + moeda(resumo.dinheiro),
+      "Crédito: " + moeda(resumo.credito),
+      "Débito: " + moeda(resumo.debito),
+      "VR: " + moeda(resumo.vr),
+      "Tapiocas: " + Number(resumo.qtdTapiocas || 0),
+      "Pedidos finalizados: " + Number(resumo.pedidosFinalizados || 0),
+      "Linhas em Vendas_hoje: " + Number(resumo.linhasVendasHoje || 0),
+      "",
+      "Somente após confirmar o servidor gravará Histórico, Fechamentos e Tapiocas Diária e então limpará Vendas_hoje."
+    ].join("\n");
+  }
+
   function confirmarFechamentoDiarioSeguro() {
-    mostrarConfirmacao(
-      "O servidor vai conferir os pedidos, gravar Fechamentos_Diarios e Tapiocas Diária, validar as duas gravações e somente depois zerar os pedidos deste dia.",
-      registrarFechamentoDiarioSeguro,
-      {
-        titulo: "Registrar e zerar o dia com segurança?",
-        icone: "!",
-        textoCancelar: "Cancelar",
-        textoConfirmar: "Salvar, conferir e zerar"
-      }
-    );
+    mostrarCarregando("Pré-validando fechamento diário...");
+
+    google.script.run
+      .withSuccessHandler(function (resposta) {
+        esconderCarregando();
+        let previa;
+        try {
+          previa = JSON.parse(resposta || "{}");
+        } catch (_) {
+          mostrarAlerta("❌ Não foi possível interpretar a prévia do fechamento. Nada foi alterado.");
+          return;
+        }
+
+        if (previa.status === "BLOQUEADO_PENDENCIAS") {
+          mostrarAlerta(
+            "⚠️ Fechamento bloqueado: existem " + Number(previa.pedidosPendentes || 0) +
+            " pedido(s) pendente(s) na cozinha ou no caixa."
+          );
+          return;
+        }
+        if (previa.status === "DIVERGENCIA_PAGAMENTOS") {
+          mostrarAlerta(
+            "❌ Fechamento bloqueado por divergência entre o total vendido e a soma das formas de pagamento." +
+            "<br><small>Nenhum dado foi alterado. Revise os pagamentos antes de tentar novamente.</small>"
+          );
+          return;
+        }
+        if (previa.status === "JA_FECHADO") {
+          mostrarAlerta("✅ Este dia já consta como fechado. Nenhum dado foi alterado.");
+          return;
+        }
+        if (previa.status === "SEM_MOVIMENTO") {
+          mostrarAlerta("ℹ️ Não existem vendas deste dia em Vendas_hoje para fechar.");
+          return;
+        }
+        if (previa.ok !== true) {
+          mostrarAlerta("⚠️ A pré-validação não autorizou o fechamento. Nenhum dado foi alterado.");
+          return;
+        }
+
+        mostrarConfirmacao(
+          textoPreviaFechamento(previa),
+          registrarFechamentoDiarioSeguro,
+          {
+            titulo: "Conferir e fechar o dia?",
+            icone: "✓",
+            textoCancelar: "Voltar e revisar",
+            textoConfirmar: "Confirmar fechamento"
+          }
+        );
+      })
+      .withFailureHandler(function (erro) {
+        esconderCarregando();
+        mostrarAlerta(
+          "❌ Não foi possível pré-validar o fechamento. Nenhum dado foi alterado.<br><small>" +
+          String(erro && erro.message || erro) + "</small>"
+        );
+      })
+      .obterPreviaFechamentoDiario(dataHojePtBr());
   }
 
   function instalar() {
