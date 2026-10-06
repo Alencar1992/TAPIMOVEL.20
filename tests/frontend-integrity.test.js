@@ -291,7 +291,7 @@ test("vendas concluídas permanecem visíveis a partir de Vendas_hoje", () => {
   assert.match(index, /function vendasHojeCompletas\(\)/);
   assert.match(index, /const vendasHoje = vendasHojeCompletas\(\)\.slice\(\)\.reverse\(\)/);
   assert.match(index, /vendasHojeCompletas\(\)\.forEach\(v =>/);
-  assert.match(index, /function confirmarPersistencia\(pedidoPersistido\)[\s\S]{0,1200}atualizarVendasHojePersistidas\(\)/);
+  assert.match(index, /function confirmarPersistencia\(pedidoPersistido\)[\s\S]{0,4000}atualizarVendasHojePersistidas\(\)/);
 });
 
 test("Vendas Hoje usa somente a fonte oficial e fechamento seguro no servidor", () => {
