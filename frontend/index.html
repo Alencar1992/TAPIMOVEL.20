@@ -1115,7 +1115,7 @@
             if (resposta === null || resposta === undefined || resposta === '') return valorFallback;
             if (typeof resposta !== 'string') return resposta;
             try {
-                return normalizarRespostaApi(resposta);
+                return JSON.parse(resposta);
             } catch (erro) {
                 console.error('Resposta inválida recebida da API:', erro);
                 return valorFallback;
