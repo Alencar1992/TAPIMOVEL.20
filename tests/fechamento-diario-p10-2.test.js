@@ -11,6 +11,7 @@ test('P10.2 centraliza o fechamento diário em serviço próprio', () => {
   const vendas = read('apps-script/DailySalesService.gs');
   assert.match(service, /function fecharDiaSeguro\(/);
   assert.match(service, /function obterStatusFechamentoDiario\(/);
+  assert.match(service, /function obterPreviaFechamentoDiario\(/);
   assert.match(service, /function executarFechamentoDiarioAutomatico\(/);
   assert.match(service, /fecharDiaPorVendasHojeSeguro_/);
   assert.match(vendas, /LockService\.getDocumentLock\(\)/);
@@ -59,6 +60,7 @@ test('login administrativo garante o trigger sem derrubar autenticação se houv
 test('API autoriza somente sessão administrativa para o novo fechamento diário', () => {
   const api = read('apps-script/Api.gs');
   assert.match(api, /"obterStatusFechamentoDiario"/);
+  assert.match(api, /"obterPreviaFechamentoDiario"/);
   assert.match(api, /"fecharDiaSeguro"/);
   const blocoEliel = api.match(/const acoesEliel = \[([\s\S]*?)\];/)[1];
   assert.doesNotMatch(blocoEliel, /fecharDiaSeguro/);
@@ -73,4 +75,18 @@ test('frontend não zera localmente antes da confirmação do servidor', () => {
   assert.match(ui, /window\.confirmarRegistroFechamentoDiario = confirmarFechamentoDiarioSeguro/);
   assert.doesNotMatch(ui, /historicoNuvem\s*=\s*\[\]/);
   assert.match(ui, /Nada foi zerado na tela/);
+});
+
+
+test('pré-validação mostra totais e bloqueia divergência sem gravar ou limpar', () => {
+  const service = read('apps-script/FechamentoDiarioService.gs');
+  const ui = read('frontend/fechamento-diario-seguro.js');
+  assert.match(service, /DIVERGENCIA_PAGAMENTOS/);
+  assert.match(service, /somaPagamentos/);
+  assert.match(service, /linhasVendasHoje/);
+  assert.match(ui, /Pré-validando fechamento diário/);
+  assert.match(ui, /Total faturado:/);
+  assert.match(ui, /Confirmar fechamento/);
+  assert.match(ui, /Voltar e revisar/);
+  assert.match(ui, /\.obterPreviaFechamentoDiario\(dataHojePtBr\(\)\)/);
 });
