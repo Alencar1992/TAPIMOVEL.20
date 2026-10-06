@@ -125,6 +125,7 @@ function executarAcaoApi_(action, args, token) {
     "buscarDadosEspelhoBackend",
     "salvarFechamentoDiaPlanilha",
     "obterStatusFechamentoDiario",
+    "obterPreviaFechamentoDiario",
     "fecharDiaSeguro",
     "salvarDisponibilidadeCardapio",
     "inicializarCatalogoConfiguracao",
