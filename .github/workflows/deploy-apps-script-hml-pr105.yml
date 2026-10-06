@@ -23,6 +23,7 @@ jobs:
       HML_SPREADSHEET_ID: 1-w_ANWw2Vlv2LS_DwAYQxzLHA0LUhWNaoNcKfY9bGMw
       HML_REF: 27e21434e03e4dcdd777544d27c7aef5c2f93155
       PROD_SCRIPT_ID: 1HMoBIVEYDJ6tS6x_7byfiwkQo92caEAa1SJnU0AGYXU933-xm7sO2Bsn
+      HML_SCRIPT_ID: 1k6FnACYqdaW2M8o_UxIjezDF9-KohZWRhtc61swI7sjkRNgTQl3BeOzj
 
     steps:
       - name: Checkout código da PR 105
@@ -56,20 +57,14 @@ jobs:
           chmod 600 "$HOME/.clasprc.json"
           npx -y @google/clasp@3.3.0 --version
 
-      - name: Criar projeto Apps Script isolado ligado à planilha HML
+      - name: Configurar projeto Apps Script HML existente
         shell: bash
         run: |
-          mv .clasp.json .clasp.production.json
-          npx -y @google/clasp@3.3.0 create-script \
-            --title "TAPIMOVEL HML PR105" \
-            --parentId "$HML_SPREADSHEET_ID" \
-            --rootDir apps-script \
-            --json | tee /tmp/hml-create.json
-
-          HML_SCRIPT_ID="$(node -e "const fs=require('fs');const t=fs.readFileSync('/tmp/hml-create.json','utf8');const j=JSON.parse(t.slice(t.indexOf('{')));process.stdout.write(j.scriptId||'')")"
           test -n "$HML_SCRIPT_ID"
           test "$HML_SCRIPT_ID" != "$PROD_SCRIPT_ID"
-          echo "HML_SCRIPT_ID=$HML_SCRIPT_ID" >> "$GITHUB_ENV"
+          printf '%s\n' "{\"scriptId\":\"$HML_SCRIPT_ID\",\"rootDir\":\"apps-script\"}" > .clasp.json
+          grep -Fq "$HML_SCRIPT_ID" .clasp.json
+          ! grep -Fq "$PROD_SCRIPT_ID" .clasp.json
 
       - name: Publicar código da PR no HML
         shell: bash
