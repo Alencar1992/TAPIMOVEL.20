@@ -2718,12 +2718,58 @@
                 .carregarVendasHojePersistidas();
         }
 
-        function atualizarTudo() {
-            let qtdHoje = 0;
-
-            vendasHojeCompletas().forEach(v => {
-                (v.itens || []).forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdHoje += Number(i.quantidade) || 0; });
+        function quantidadeTapiocasFeitasHoje() {
+            const vendas = vendasHojeCompletas();
+            const vendasPorChave = {};
+            vendas.forEach(function(venda) {
+                vendasPorChave[chaveVendaHoje(venda)] = venda;
             });
+
+            let total = 0;
+            const pedidosAtivosConsiderados = {};
+
+            historicoNuvem.forEach(function(pedido) {
+                const ehDoDia = ehHoje(pedido && pedido.timestampCriacao) || ehHoje(pedido && pedido.timestamp);
+                if (!pedido || !ehDoDia) return;
+
+                const chave = chaveVendaHoje(pedido);
+                const vendaPersistida = vendasPorChave[chave];
+                const pedidoPagoSemVendaPersistida = Boolean(pedido.timestamp && !vendaPersistida);
+
+                if (pedidoPagoSemVendaPersistida) return;
+
+                let subtotal = 0;
+                (pedido.itens || []).forEach(function(item) {
+                    if ((item.tipo === 'tapioca' || item.tipo === 'extra') && item.pronto === true) {
+                        subtotal += Number(item.quantidade) || 0;
+                    }
+                });
+
+                if (subtotal > 0) {
+                    total += subtotal;
+                    pedidosAtivosConsiderados[chave] = true;
+                } else if (vendaPersistida) {
+                    // Enquanto o pedido ainda está ativo, o estado da Produção prevalece
+                    // para não contar como feita uma tapioca paga mas ainda não concluída.
+                    pedidosAtivosConsiderados[chave] = true;
+                }
+            });
+
+            vendas.forEach(function(venda) {
+                const chave = chaveVendaHoje(venda);
+                if (pedidosAtivosConsiderados[chave]) return;
+                (venda.itens || []).forEach(function(item) {
+                    if (item.tipo === 'tapioca' || item.tipo === 'extra') {
+                        total += Number(item.quantidade) || 0;
+                    }
+                });
+            });
+
+            return total;
+        }
+
+        function atualizarTudo() {
+            let qtdHoje = quantidadeTapiocasFeitasHoje();
 
             historicoNuvem.forEach(v => {
                 let itensCozinha = v.itens.filter(i => i.tipo !== 'bebida');

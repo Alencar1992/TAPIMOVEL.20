@@ -722,3 +722,27 @@ test("reabrir pedido remove a venda local antes da próxima sincronização", ()
   assert.match(bloco, /vendasHojePersistidas = vendasHojePersistidas\.filter/);
   assert.match(bloco, /Number\(venda && venda\.numero\) !== Number\(numero\)/);
 });
+
+
+test("contador de tapiocas soma itens concluídos na Produção e evita duplicidade com Vendas Hoje", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function quantidadeTapiocasFeitasHoje");
+  const fim = html.indexOf("function atualizarTudo", inicio);
+  const bloco = html.slice(inicio, fim);
+
+  assert.match(bloco, /item\.pronto === true/);
+  assert.match(bloco, /subtotal \+= Number\(item\.quantidade\) \|\| 0/);
+  assert.match(bloco, /pedidosAtivosConsiderados\[chave\] = true/);
+  assert.match(bloco, /if \(pedidosAtivosConsiderados\[chave\]\) return/);
+  assert.match(bloco, /pedidoPagoSemVendaPersistida/);
+});
+
+test("contador do topo usa quantidade de tapiocas feitas, não somente vendas pagas", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function atualizarTudo");
+  const fim = html.indexOf("function renderizarHistorico", inicio);
+  const bloco = html.slice(inicio, fim);
+
+  assert.match(bloco, /let qtdHoje = quantidadeTapiocasFeitasHoje\(\)/);
+  assert.match(bloco, /btnTopoTapiocas/);
+});
