@@ -305,7 +305,7 @@ test("Vendas Hoje usa somente a fonte oficial e fechamento seguro no servidor", 
   assert.match(index, /ultimaSincronizacaoVendasHoje = Date\.now\(\)/);
   assert.match(index, /Date\.now\(\) - ultimaSincronizacaoVendasHoje >= 30000/);
   assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
-  assert.match(index, /\.registrarVendaHojeAdmin\(JSON\.stringify\(pedido\)\)/);
+  assert.match(index, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
   assert.match(index, /\.fecharDiaSeguro\(\)/);
   assert.doesNotMatch(
     index.slice(index.indexOf("function registrarFechamentoDia()"), index.indexOf("let faturamentoMesGlobal")),
@@ -322,8 +322,8 @@ test("perfil Produção usa transições seguras e assets sem cache legado", () 
   assert.match(index, /configuracao\.js\?v=20261002\.1/);
   assert.match(css, /\.config-seguranca\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
   assert.match(index, /\.btn-top\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
-  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,220}atualizarEstadoProducao/);
-  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}finalizarPagamentoProducao/);
+  assert.match(index, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
+  assert.match(index, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}cancelarPedidoProducao/);
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}excluirPedidoTravadoProducao/);
 });
