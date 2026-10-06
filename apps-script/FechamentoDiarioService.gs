@@ -261,6 +261,61 @@ function removerSomentePedidosDoDiaFechado_(fila, dataReferencia) {
   return conferida.length;
 }
 
+function obterPreviaFechamentoDiario(dataReferencia) {
+  const data = normalizarDataFechamentoDiario_(dataReferencia) || formatarDataFechamentoDiario_(new Date());
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const jaFechado = fechamentoJaExiste_(ss, data) || dataJaFechadaNoLivro_(data);
+
+  const abaVendas = ss.getSheetByName("Vendas_hoje");
+  const linhasDia = abaVendas && abaVendas.getLastRow() > 1
+    ? abaVendas.getDataRange().getValues().slice(1).filter(function(linha) {
+        return normalizarDataFechamentoDiario_(linha[0]) === data;
+      })
+    : [];
+
+  const chavesPedidos = {};
+  linhasDia.forEach(function(linha) {
+    const chave = String(linha[1] || "").trim();
+    if (chave) chavesPedidos[chave] = true;
+  });
+
+  const fila = typeof carregarFilaPdvAtivos_ === "function" ? carregarFilaPdvAtivos_() : [];
+  const pendentes = fila.filter(function(pedido) {
+    return pedidoPendenteFechamentoDiario_(pedido, data);
+  });
+
+  const resumo = obterResumoFechamentoDasVendas_(linhasDia);
+  resumo.pedidosFinalizados = Object.keys(chavesPedidos).length;
+  resumo.pedidosPendentes = pendentes.length;
+  resumo.linhasVendasHoje = linhasDia.length;
+
+  const somaPagamentos = Math.round((
+    Number(resumo.dinheiro || 0) +
+    Number(resumo.pix || 0) +
+    Number(resumo.credito || 0) +
+    Number(resumo.debito || 0) +
+    Number(resumo.vr || 0)
+  ) * 100) / 100;
+  const divergenciaPagamentos = Math.abs(somaPagamentos - Number(resumo.total || 0)) > 0.005;
+
+  let status = "PRONTO";
+  if (jaFechado) status = "JA_FECHADO";
+  else if (pendentes.length) status = "BLOQUEADO_PENDENCIAS";
+  else if (!linhasDia.length) status = "SEM_MOVIMENTO";
+  else if (divergenciaPagamentos) status = "DIVERGENCIA_PAGAMENTOS";
+
+  return JSON.stringify({
+    ok: status === "PRONTO" || status === "SEM_MOVIMENTO" || status === "JA_FECHADO",
+    status: status,
+    data: data,
+    fechado: jaFechado,
+    pedidosPendentes: pendentes.length,
+    divergenciaPagamentos: divergenciaPagamentos,
+    somaPagamentos: somaPagamentos,
+    resumo: resumo
+  });
+}
+
 function obterStatusFechamentoDiario(dataReferencia) {
   return JSON.stringify(obterStatusFluxoVendasHoje_(dataReferencia));
 }
