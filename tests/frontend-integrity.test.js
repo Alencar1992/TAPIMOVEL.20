@@ -693,7 +693,7 @@ test("API do PDV aceita respostas já desserializadas e JSON em texto", () => {
   const inicioVendas = html.indexOf("function atualizarVendasHojePersistidas");
   const fimVendas = html.indexOf("function atualizarTudo", inicioVendas);
   const vendas = html.slice(inicioVendas, fimVendas);
-  assert.match(vendas, /normalizarRespostaApi\(resposta, \[\]\) \|\| \[\]/);
+  assert.match(vendas, /normalizarRespostaApi\(resposta, null\)/);
   assert.doesNotMatch(vendas, /JSON\.parse\(resposta/);
 
   assert.doesNotMatch(html, /JSON\.parse\(res\)/);
