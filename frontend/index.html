@@ -2571,11 +2571,9 @@
             const index = historicoNuvem.findIndex(p => p.numero == pedidoAguardandoPagamento);
             if (index === -1) return;
 
-            let audioCaixa = document.getElementById('somCaixa');
-            if(audioCaixa) audioCaixa.play().catch(e => console.log(e));
-
             const pedido = historicoNuvem[index];
             const numeroSalvo = pedido.numero;
+            const estadoAnterior = JSON.parse(JSON.stringify(pedido));
 
             pedido.formaPagamento = forma;
             pedido.timestamp = new Date().getTime();
@@ -2589,28 +2587,44 @@
             fecharModais();
             atualizarTudo();
 
+            function confirmarPersistencia() {
+                let audioCaixa = document.getElementById('somCaixa');
+                if(audioCaixa) audioCaixa.play().catch(e => console.log(e));
+                atualizarVendasHojePersistidas();
+                mostrarConfirmacaoPagamento(numeroSalvo);
+            }
+
+            function restaurarAposFalha(erro) {
+                historicoNuvem[index] = estadoAnterior;
+                atualizarTudo();
+                mostrarAlerta((erro && erro.message) || 'Não foi possível finalizar o pagamento.');
+            }
+
             if(typeof google !== 'undefined') {
                 if (acessoEhProducao()) {
                     google.script.run
                         .withSuccessHandler(function() {
-                            atualizarVendasHojePersistidas();
+                            confirmarPersistencia();
                         })
-                        .withFailureHandler(function(erro) {
-                            mostrarAlerta(erro.message || 'Não foi possível finalizar o pagamento.');
-                        })
+                        .withFailureHandler(restaurarAposFalha)
                         .finalizarPagamentoProducao(JSON.stringify(pedido));
                 } else {
                     google.script.run
                         .withSuccessHandler(function() {
-                            atualizarVendasHojePersistidas();
+                            google.script.run
+                                .withSuccessHandler(function() {
+                                    checarBaixaCache(pedido);
+                                    confirmarPersistencia();
+                                })
+                                .withFailureHandler(restaurarAposFalha)
+                                .atualizarVendaRealTime(JSON.stringify(pedido));
                         })
-                        .moverParaHistorico(JSON.stringify(pedido));
-                    google.script.run.atualizarVendaRealTime(JSON.stringify(pedido));
+                        .withFailureHandler(restaurarAposFalha)
+                        .registrarVendaHojeAdmin(JSON.stringify(pedido));
                 }
+            } else {
+                confirmarPersistencia();
             }
-            if (!acessoEhProducao()) checarBaixaCache(pedido);
-
-            mostrarConfirmacaoPagamento(numeroSalvo);
         }
 
         function maskCurrency(e) { let value = e.target.value.replace(/\D/g, ''); if (value === '') { e.target.value = ''; if(e.target.id === 'inputValorRecebido') calcularTroco(); else calcularTotalMisto(); return; } value = (parseInt(value, 10) / 100).toFixed(2); value = value.replace('.', ','); value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.'); e.target.value = value; if(e.target.id === 'inputValorRecebido') calcularTroco(); else calcularTotalMisto(); }
@@ -2769,46 +2783,40 @@
         }
 
         function registrarFechamentoDia() {
-            let qtdTapiocasStr = document.getElementById('relQtdTapiocas').textContent.replace(/\D/g, '');
-            let qtdTapiocasNum = parseInt(qtdTapiocasStr) || 0;
-
-            let resumo = {
-                data: new Date().toLocaleDateString('pt-BR'),
-                total: document.getElementById('relFaturamento').textContent,
-                dinheiro: document.getElementById('relDin').textContent,
-                pix: document.getElementById('relPix').textContent,
-                credito: document.getElementById('relCred').textContent,
-                debito: document.getElementById('relDeb').textContent,
-                vr: document.getElementById('relVR').textContent,
-                qtdTapiocas: qtdTapiocasNum
-            };
-
-            document.getElementById('loadingText').textContent = 'Registrando fechamento diário...';
+            document.getElementById('loadingText').textContent = 'Validando e fechando o expediente...';
             document.getElementById('loadingScreen').style.display = 'flex';
 
             if(typeof google !== 'undefined') {
                 google.script.run
                     .withSuccessHandler(function(resposta) {
                         document.getElementById('loadingScreen').style.display = 'none';
-                        if (resposta === "OK") {
-                            historicoNuvem = [];
-                            carrinho = [];
-                            google.script.run.salvarNuvemCompleta("[]");
-
-                            atualizarTudo();
-                            fecharModais();
-                            mostrarAlerta("✅ Fechamento do dia salvo com sucesso!");
-                        } else {
-                            mostrarAlerta("⚠️ Erro: " + resposta);
+                        if (!resposta || resposta.ok !== true) {
+                            mostrarAlerta("⚠️ O fechamento não foi confirmado pelo servidor.");
+                            return;
                         }
+
+                        historicoNuvem = [];
+                        vendasHojePersistidas = [];
+                        carrinho = [];
+                        google.script.run.salvarNuvemCompleta("[]");
+
+                        atualizarTudo();
+                        fecharModais();
+                        const total = resposta.resumo && Number(resposta.resumo.total) || 0;
+                        mostrarAlerta(
+                            "✅ Fechamento concluído com segurança!<br>" +
+                            "<small>ID: " + escaparHtml(resposta.fechamentoId || '-') +
+                            " · Total: " + escaparHtml(formatarMoeda(total)) + "</small>"
+                        );
                     })
                     .withFailureHandler(function(erro) {
                         document.getElementById('loadingScreen').style.display = 'none';
-                        mostrarAlerta("❌ Falha crítica: " + erro.message);
+                        mostrarAlerta("❌ Fechamento não realizado. Nenhuma venda foi apagada.<br><small>" + escaparHtml(erro.message || erro) + "</small>");
                     })
-                    .salvarFechamentoDiaPlanilha(JSON.stringify(resumo));
+                    .fecharDiaSeguro();
             }
         }
+
 
         let faturamentoMesGlobal = 0;
         let combustivelMesGlobal = 0;

@@ -476,87 +476,19 @@ function garantirAbaVendasHoje_(ss) {
 }
 
 function sincronizarVendasHojeComHistoricoSemLock_(dataReferencia) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const historico = ss.getSheetByName("Historico_Diario");
-  const vendasHoje = garantirAbaVendasHoje_(ss);
-  if (!historico || historico.getLastRow() < 2) {
-    return { data: dataReferencia, inseridas: 0, historico: 0, vendasHoje: Math.max(0, vendasHoje.getLastRow() - 1) };
-  }
-
-  const dadosHistorico = historico.getDataRange().getValues();
-  const dadosVendas = vendasHoje.getDataRange().getValues();
-  const existentes = {};
-
-  for (let i = 1; i < dadosVendas.length; i++) {
-    const dataLinha = String(dadosVendas[i][0] || "");
-    if (dataLinha.indexOf(dataReferencia) !== 0) continue;
-    const chave = chaveLinhaVendaHoje_(dadosVendas[i]);
-    existentes[chave] = (existentes[chave] || 0) + 1;
-  }
-
-  const necessarias = {};
-  const linhasHistorico = [];
-  for (let i = 1; i < dadosHistorico.length; i++) {
-    const linha = dadosHistorico[i];
-    const dataHora = String(linha[1] || "");
-    if (dataHora.indexOf(dataReferencia) !== 0) continue;
-
-    const qtd = normalizarNumeroVendaHoje_(linha[4]);
-    const total = Math.round(normalizarNumeroVendaHoje_(linha[6]) * 100) / 100;
-    const convertida = [
-      dataHora,
-      String(linha[0] || ""),
-      qtd,
-      String(linha[2] || ""),
-      String(linha[7] || ""),
-      total,
-      String(linha[3] || "").toUpperCase()
-    ];
-    const chave = chaveLinhaVendaHoje_(convertida);
-    necessarias[chave] = (necessarias[chave] || 0) + 1;
-    linhasHistorico.push({ chave: chave, linha: convertida });
-  }
-
-  const usadas = {};
-  const faltantes = [];
-  linhasHistorico.forEach(function(item) {
-    usadas[item.chave] = (usadas[item.chave] || 0) + 1;
-    if ((existentes[item.chave] || 0) >= usadas[item.chave]) return;
-    faltantes.push(item.linha);
-  });
-
-  if (faltantes.length) {
-    vendasHoje
-      .getRange(vendasHoje.getLastRow() + 1, 1, faltantes.length, 7)
-      .setValues(faltantes);
-  }
-
-  return {
-    data: dataReferencia,
-    inseridas: faltantes.length,
-    historico: linhasHistorico.length,
-    vendasHoje: Object.keys(necessarias).reduce(function(total, chave) {
-      return total + necessarias[chave];
-    }, 0)
-  };
+  // Alias legado: a contingência oficial agora é Livro_Transacoes -> Vendas_hoje.
+  return reconciliarVendasHojeComLivroSemLock_(dataReferencia);
 }
 
 function sincronizarVendasHojeComHistorico() {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    return sincronizarVendasHojeComHistoricoSemLock_(hoje);
-  } finally {
-    lock.releaseLock();
-  }
+  return reconciliarVendasHojeComLivro();
 }
 
 function carregarVendasHojePersistidas() {
-  sincronizarVendasHojeComHistorico();
+  reconciliarVendasHojeComLivro();
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const aba = garantirAbaVendasHoje_(ss);
+  const aba = garantirEstruturaVendasHojeCompleta_(ss);
   if (aba.getLastRow() < 2) return JSON.stringify([]);
 
   const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
@@ -580,24 +512,30 @@ function carregarVendasHojePersistidas() {
         timestamp: timestampHistoricoHoje_(dataHora),
         dataExibicao: dataHora,
         formaPagamento: String(linha[4] || ""),
+        pagamentosMistos: [],
         total: 0,
         produzido: true,
-        persistidaHistorico: true,
         fonteVendasHoje: true,
         itens: []
       };
+      if (linha[9]) {
+        try {
+          agrupados[chave].pagamentosMistos = JSON.parse(String(linha[9]));
+        } catch (_) {}
+      }
     }
 
     const qtd = normalizarNumeroVendaHoje_(linha[2]);
     const totalLinha = normalizarNumeroVendaHoje_(linha[5]);
+    const precoUnit = normalizarNumeroVendaHoje_(linha[7]) || (qtd > 0 ? totalLinha / qtd : totalLinha);
     agrupados[chave].total += totalLinha;
     agrupados[chave].itens.push({
       nome: String(linha[3] || ""),
       tipo: String(linha[6] || "TAPIOCA").toLowerCase(),
       quantidade: qtd,
-      preco: qtd > 0 ? totalLinha / qtd : totalLinha,
+      preco: Math.round(precoUnit * 100) / 100,
       pronto: true,
-      obs: ""
+      obs: String(linha[8] || "-")
     });
   }
 
@@ -606,7 +544,6 @@ function carregarVendasHojePersistidas() {
     venda.total = Math.round(venda.total * 100) / 100;
     return venda;
   });
-
   vendas.sort(function(a, b) {
     return Number(a.timestamp || 0) - Number(b.timestamp || 0);
   });
@@ -614,43 +551,11 @@ function carregarVendasHojePersistidas() {
 }
 
 function moverParaHistorico(pedidoJSON) {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const p = JSON.parse(pedidoJSON);
-    let aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Historico_Diario");
-    if(!aba) {
-      aba = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Historico_Diario");
-      aba.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
-      aba.getRange("A1:I1").setFontWeight("bold").setBackground("#d9ead3");
-    }
-    let matrizItens = [];
-    p.itens.forEach(i => {
-      matrizItens.push([
-        "#" + p.numero,
-        valorSeguroPlanilha_(String(p.dataExibicao || "")),
-        valorSeguroPlanilha_(String(i.nome || "")),
-        valorSeguroPlanilha_(String(i.tipo || "").toUpperCase()),
-        Number(i.quantidade) || 0,
-        Number(i.preco) || 0,
-        (Number(i.quantidade) || 0) * (Number(i.preco) || 0),
-        valorSeguroPlanilha_(String(p.formaPagamento || "")),
-        valorSeguroPlanilha_(String(i.obs || "-"))
-      ]);
-    });
-    if (matrizItens.length > 0) {
-      aba.getRange(aba.getLastRow() + 1, 1, matrizItens.length, matrizItens[0].length).setValues(matrizItens);
-      invalidarCacheLeituraAnalitica_("Historico_Diario");
-      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
-    }
-  } catch(e) {
-    console.error("Erro moverParaHistorico: ", e);
-    throw e;
-  } finally {
-    lock.releaseLock();
-  }
+  // Compatibilidade temporária com clientes antigos:
+  // nunca mais grava no histórico durante o expediente.
+  return registrarVendaHojeAdmin(pedidoJSON);
 }
+
 
 function moverParaCancelados(pedidoJSON) {
   const lock = LockService.getDocumentLock();
@@ -685,30 +590,12 @@ function moverParaCancelados(pedidoJSON) {
 }
 
 function reabrirPedidoBackend(pedidoJSON) {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const p = JSON.parse(pedidoJSON);
-    const idPedido = "#" + p.numero;
-    const plan = SpreadsheetApp.getActiveSpreadsheet();
-    const abaHist = plan.getSheetByName("Historico_Diario");
-    if (abaHist) {
-      const dHist = abaHist.getDataRange().getValues();
-      for (let i = dHist.length - 1; i >= 1; i--) {
-        if (dHist[i][0] == idPedido || dHist[i][0] == p.numero) {
-          abaHist.deleteRow(i + 1);
-        }
-      }
-    }
-    invalidarCacheLeituraAnalitica_("Historico_Diario");
-  } catch(e) {
-    console.error("Erro reabrirPedidoBackend: ", e);
-    throw e;
-  } finally {
-    lock.releaseLock();
-  }
+  const pedido = JSON.parse(pedidoJSON || "{}");
+  estornarVendaHojePedido_(pedido);
   lancarPedidoPlanilha(pedidoJSON);
+  return { reaberto: true, numero: Number(pedido.numero) || 0 };
 }
+
 
 // =========================================================
 // 1. BUSCAR DADOS DO MÊS (Incluindo Tapiocas e Taxas)
@@ -1177,42 +1064,10 @@ function buscarDadosEspelhoBackend(nomeAba) {
 // SALVAR FECHAMENTO DO DIA NA PLANILHA
 // =========================================================
 function salvarFechamentoDiaPlanilha(resumoJSON) {
-  const lock = LockService.getDocumentLock();
-  try {
-    lock.waitLock(10000);
-    const resumo = JSON.parse(resumoJSON);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    let abaFech = ss.getSheetByName("Fechamentos_Diarios");
-    if (abaFech) {
-      abaFech.appendRow([
-        resumo.data,
-        resumo.total,
-        resumo.dinheiro,
-        resumo.pix,
-        resumo.credito,
-        resumo.debito,
-        resumo.vr
-      ]);
-    }
-
-    let abaTap = ss.getSheetByName("Tapiocas Diária");
-    if (abaTap) {
-      abaTap.appendRow([
-        resumo.data,
-        resumo.qtdTapiocas
-      ]);
-    }
-
-    invalidarCacheLeituraAnalitica_("Fechamentos_Diarios");
-    invalidarCacheLeituraAnalitica_("Tapiocas Diária");
-    return "OK";
-  } catch (e) {
-    return "Erro ao salvar no servidor: " + e.toString();
-  } finally {
-    lock.releaseLock();
-  }
+  // Mantido por compatibilidade. O backend recalcula tudo a partir de Vendas_hoje.
+  return fecharDiaSeguro();
 }
+
 
 // =========================================================
 // EXCLUIR CONTADOR DE HOJE

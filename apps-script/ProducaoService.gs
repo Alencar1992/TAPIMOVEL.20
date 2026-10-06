@@ -48,46 +48,16 @@ function abaContemNumeroPedidoProducao_(aba, numero) {
   });
 }
 
-function registrarHistoricoPagamentoProducao_(pedido) {
+function registrarVendaHojePagamentoProducao_(pedido) {
   const lock = LockService.getDocumentLock();
   try {
     lock.waitLock(10000);
-    const planilha = SpreadsheetApp.getActiveSpreadsheet();
-    let aba = planilha.getSheetByName("Historico_Diario");
-    if (!aba) {
-      aba = planilha.insertSheet("Historico_Diario");
-      aba.appendRow(["ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Pago", "Forma Pagamento", "Observações"]);
-      aba.getRange("A1:I1").setFontWeight("bold").setBackground("#d9ead3");
-    }
-    if (abaContemPedidoProducao_(aba, pedido)) {
-      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
-      return false;
-    }
-    const linhas = pedido.itens.map(function(item) {
-      return [
-        idPedidoPlanilhaProducao_(pedido),
-        valorSeguroPlanilha_(String(pedido.dataExibicao || "")),
-        valorSeguroPlanilha_(String(item.nome || "")),
-        valorSeguroPlanilha_(String(item.tipo || "").toUpperCase()),
-        Number(item.quantidade) || 0,
-        Number(item.preco) || 0,
-        (Number(item.quantidade) || 0) * (Number(item.preco) || 0),
-        valorSeguroPlanilha_(String(pedido.formaPagamento || "")),
-        valorSeguroPlanilha_(String(item.obs || "-"))
-      ];
-    });
-    if (linhas.length) {
-      aba.getRange(aba.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
-      invalidarCacheLeituraAnalitica_("Historico_Diario");
-      const dataHoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-      sincronizarVendasHojeComHistoricoSemLock_(dataHoje);
-    }
-    return true;
+    return registrarVendaHojePedidoSemLock_(pedido);
   } finally {
     lock.releaseLock();
   }
 }
+
 
 function registrarCancelamentoProducao_(pedido) {
   const lock = LockService.getDocumentLock();
@@ -209,9 +179,9 @@ function finalizarPagamentoProducao(pedidoJSON) {
       );
     }
 
-    // O histórico é persistido antes de remover o pedido ativo.
-    // Se a planilha falhar, o pedido continua recuperável para uma nova tentativa.
-    registrarHistoricoPagamentoProducao_(pedido);
+    // A venda do expediente é persistida em Livro_Transacoes + Vendas_hoje.
+    // Historico_Diario só recebe os dados durante o fechamento seguro.
+    registrarVendaHojePagamentoProducao_(pedido);
 
     removerAtivo = Boolean(pedido.produzido);
     if (removerAtivo) ativos.splice(indice, 1);
