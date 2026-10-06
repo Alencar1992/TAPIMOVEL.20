@@ -1,0 +1,112 @@
+name: Deploy Apps Script - HML PR105
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-apps-script-hml-pr105.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-apps-script-hml-pr105
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar-hml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: apps-script-production
+    env:
+      HML_SPREADSHEET_ID: 1-w_ANWw2Vlv2LS_DwAYQxzLHA0LUhWNaoNcKfY9bGMw
+      HML_REF: 27e21434e03e4dcdd777544d27c7aef5c2f93155
+      PROD_SCRIPT_ID: 1HMoBIVEYDJ6tS6x_7byfiwkQo92caEAa1SJnU0AGYXU933-xm7sO2Bsn
+
+    steps:
+      - name: Checkout código da PR 105
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HML_REF }}
+          fetch-depth: 1
+
+      - name: Validar isolamento HML
+        shell: bash
+        run: |
+          test "$HML_SPREADSHEET_ID" != "1sS8qU1Iw5c9nhNBjNk74jJ7Xo69nTbM2IhZmZtzDERc"
+          test "$(git rev-parse HEAD)" = "$HML_REF"
+          grep -Fq "$PROD_SCRIPT_ID" .clasp.json
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar código
+        run: npm run ci
+
+      - name: Preparar autenticação clasp
+        shell: bash
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          npx -y @google/clasp@3.3.0 --version
+
+      - name: Criar projeto Apps Script isolado ligado à planilha HML
+        shell: bash
+        run: |
+          mv .clasp.json .clasp.production.json
+          npx -y @google/clasp@3.3.0 create-script \
+            --title "TAPIMOVEL HML PR105" \
+            --parentId "$HML_SPREADSHEET_ID" \
+            --rootDir apps-script \
+            --json | tee /tmp/hml-create.json
+
+          HML_SCRIPT_ID="$(node -e "const fs=require('fs');const t=fs.readFileSync('/tmp/hml-create.json','utf8');const j=JSON.parse(t.slice(t.indexOf('{')));process.stdout.write(j.scriptId||'')")"
+          test -n "$HML_SCRIPT_ID"
+          test "$HML_SCRIPT_ID" != "$PROD_SCRIPT_ID"
+          echo "HML_SCRIPT_ID=$HML_SCRIPT_ID" >> "$GITHUB_ENV"
+
+      - name: Publicar código da PR no HML
+        shell: bash
+        run: |
+          npx -y @google/clasp@3.3.0 show-file-status
+          npx -y @google/clasp@3.3.0 push --force
+
+      - name: Criar deployment web HML
+        shell: bash
+        run: |
+          npx -y @google/clasp@3.3.0 create-deployment \
+            --description "HML PR105 - ${HML_REF:0:12}" | tee /tmp/hml-deploy.txt
+
+          HML_DEPLOYMENT_ID="$(grep -oE 'AKfy[a-zA-Z0-9_-]+' /tmp/hml-deploy.txt | tail -1)"
+          test -n "$HML_DEPLOYMENT_ID"
+          HML_URL="https://script.google.com/macros/s/$HML_DEPLOYMENT_ID/exec"
+          echo "HML_DEPLOYMENT_ID=$HML_DEPLOYMENT_ID" >> "$GITHUB_ENV"
+          echo "HML_URL=$HML_URL" >> "$GITHUB_ENV"
+
+      - name: Smoke test HML
+        shell: bash
+        run: |
+          sleep 5
+          curl --fail --location --retry 3 --retry-delay 2 "$HML_URL" | tee /tmp/hml-health.json
+          grep -Fq '"status":"online"' /tmp/hml-health.json
+
+      - name: Resumo do ambiente
+        shell: bash
+        run: |
+          {
+            echo "## TAPIMOVEL HML PR105"
+            echo ""
+            echo "- Commit testado: \`$HML_REF\`"
+            echo "- Apps Script HML: \`$HML_SCRIPT_ID\`"
+            echo "- Deployment HML: \`$HML_DEPLOYMENT_ID\`"
+            echo "- API HML: $HML_URL"
+            echo "- Planilha HML: https://docs.google.com/spreadsheets/d/$HML_SPREADSHEET_ID/edit"
+            echo ""
+            echo "Produção não foi alterada."
+          } >> "$GITHUB_STEP_SUMMARY"
