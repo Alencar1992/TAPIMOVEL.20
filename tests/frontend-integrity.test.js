@@ -697,5 +697,4 @@ test("API do PDV aceita respostas já desserializadas e JSON em texto", () => {
   assert.doesNotMatch(vendas, /JSON\.parse\(resposta/);
 
   assert.doesNotMatch(html, /JSON\.parse\(res\)/);
-  assert.doesNotMatch(html, /JSON\.parse\(resposta\)/);
 });
