@@ -1110,6 +1110,18 @@
             ? parametroAcesso
             : 'admin';
 
+        function normalizarRespostaApi(resposta, fallback) {
+            const valorFallback = arguments.length > 1 ? fallback : null;
+            if (resposta === null || resposta === undefined || resposta === '') return valorFallback;
+            if (typeof resposta !== 'string') return resposta;
+            try {
+                return JSON.parse(resposta);
+            } catch (erro) {
+                console.error('Resposta inválida recebida da API:', erro);
+                return valorFallback;
+            }
+        }
+
         function acessoEhEliel() {
             return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'eliel');
         }
@@ -1329,7 +1341,7 @@
 
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {
-                    let d = JSON.parse(res);
+                    let d = normalizarRespostaApi(res);
                     document.getElementById('loadingEstimativa').style.display = 'none';
                     document.getElementById('conteudoEstimativa').style.display = 'block';
 
@@ -1403,7 +1415,7 @@
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {
                     document.getElementById('loadingFolgas').style.display = 'none';
-                    let dados = JSON.parse(res);
+                    let dados = normalizarRespostaApi(res);
                     let divRes = document.getElementById('resultadoFolgas');
                     divRes.style.display = 'block';
 
@@ -1437,7 +1449,7 @@
                     google.script.run.withSuccessHandler(function(resposta) {
                         syncEmAndamento = false;
                         if (!pausarSync) {
-                            let novaNuvem = JSON.parse(resposta) || [];
+                            let novaNuvem = normalizarRespostaApi(resposta) || [];
                             if(JSON.stringify(historicoNuvem) !== JSON.stringify(novaNuvem)) {
                                 const quantidadeAnterior = historicoNuvem.length;
                                 if (novaNuvem.length > quantidadeAnterior) {
@@ -1615,7 +1627,7 @@
                 if(typeof google !== 'undefined') {
                     google.script.run.withSuccessHandler(function(resposta) {
                         try {
-                            historicoNuvem = JSON.parse(resposta) || [];
+                            historicoNuvem = normalizarRespostaApi(resposta) || [];
                         } catch(e) {
                             historicoNuvem = [];
                             console.error("Erro ao ler nuvem:", e);
@@ -1655,7 +1667,7 @@
             carregarDisponibilidadeCardapio();
             google.script.run
                 .withSuccessHandler(function(resposta) {
-                    const catalogo = JSON.parse(resposta || '{}');
+                    const catalogo = normalizarRespostaApi(resposta, {});
                     TapimovelCatalogo.substituir(bdCatalogo, catalogo);
                     document.getElementById('loadingScreen').style.display = 'none';
                     abrirRelatorioEliel();
@@ -2020,7 +2032,7 @@
             google.script.run
                 .withSuccessHandler(function(resposta) {
                     try {
-                        itensIndisponiveis = JSON.parse(resposta || "[]");
+                        itensIndisponiveis = normalizarRespostaApi(resposta, []);
                     } catch (_) {
                         itensIndisponiveis = [];
                     }
@@ -2047,7 +2059,7 @@
             google.script.run
                 .withSuccessHandler(function(resposta) {
                     try {
-                        itensIndisponiveis = JSON.parse(resposta || "[]");
+                        itensIndisponiveis = normalizarRespostaApi(resposta, []);
                     } catch (_) {}
                     mostrarToast(itensIndisponiveis.includes(nome)
                         ? `⛔ ${nome} marcado como esgotado no cardápio do cliente.`
@@ -2683,7 +2695,7 @@
             google.script.run
                 .withSuccessHandler(function(resposta) {
                     try {
-                        vendasHojePersistidas = JSON.parse(resposta || '[]') || [];
+                        vendasHojePersistidas = normalizarRespostaApi(resposta, []) || [];
                         ultimaSincronizacaoVendasHoje = Date.now();
                     } catch (erro) {
                         vendasHojePersistidas = [];
@@ -2832,7 +2844,7 @@
 
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {
-                    let dados = JSON.parse(res);
+                    let dados = normalizarRespostaApi(res);
                     faturamentoMesGlobal = dados.total;
                     combustivelMesGlobal = dados.combustivel;
                     creditoMesGlobal = dados.credito || 0;
@@ -2975,7 +2987,7 @@
 
             if(typeof google !== 'undefined') {
                 google.script.run.withSuccessHandler(function(res) {
-                    var dados = JSON.parse(res);
+                    var dados = normalizarRespostaApi(res);
                     document.getElementById('combResumoGasto').textContent = formatarMoeda(dados.totalGasto);
                     document.getElementById('combResumoLitros').textContent = dados.totalLitros.toFixed(1) + " L";
 
@@ -3097,7 +3109,7 @@
                     container.style.display = 'block';
 
                     try {
-                        let dados = JSON.parse(res);
+                        let dados = normalizarRespostaApi(res);
                         let headEl = document.getElementById('headEspelho');
                         let bodyEl = document.getElementById('bodyEspelho');
 
@@ -3196,7 +3208,7 @@
                 .withSuccessHandler(function(res) {
                     loading.style.display = 'none';
                     try {
-                        var dados = JSON.parse(res);
+                        var dados = normalizarRespostaApi(res);
                         if(dados.length === 0) {
                             divResult.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Nenhum dado de vendas encontrado.</p>';
                             return;
@@ -3245,7 +3257,7 @@
                 google.script.run.withSuccessHandler(function(res) {
                     loading.style.display = 'none';
                     try {
-                        var dados = JSON.parse(res);
+                        var dados = normalizarRespostaApi(res);
                         if(dados.length === 0) {
                             divResult.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Nenhuma venda encontrada.</p>';
                             return;
