@@ -2514,10 +2514,12 @@
             p.produzido = p.itens.filter(i => i.tipo !== 'bebida').every(i => i.pronto === true);
 
             if(typeof google !== 'undefined') {
-                if (acessoEhProducao()) google.script.run.atualizarEstadoProducao(JSON.stringify(p));
-                else google.script.run.atualizarVendaRealTime(JSON.stringify(p));
+                google.script.run
+                    .withFailureHandler(function(erro) {
+                        mostrarAlerta((erro && erro.message) || 'Não foi possível atualizar o estado do pedido.');
+                    })
+                    .atualizarEstadoProducao(JSON.stringify(p));
             }
-            checarBaixaCache(p);
             atualizarTudo();
         }
 
@@ -2602,27 +2604,12 @@
             }
 
             if(typeof google !== 'undefined') {
-                if (acessoEhProducao()) {
-                    google.script.run
-                        .withSuccessHandler(function() {
-                            confirmarPersistencia();
-                        })
-                        .withFailureHandler(restaurarAposFalha)
-                        .finalizarPagamentoProducao(JSON.stringify(pedido));
-                } else {
-                    google.script.run
-                        .withSuccessHandler(function() {
-                            google.script.run
-                                .withSuccessHandler(function() {
-                                    checarBaixaCache(pedido);
-                                    confirmarPersistencia();
-                                })
-                                .withFailureHandler(restaurarAposFalha)
-                                .atualizarVendaRealTime(JSON.stringify(pedido));
-                        })
-                        .withFailureHandler(restaurarAposFalha)
-                        .registrarVendaHojeAdmin(JSON.stringify(pedido));
-                }
+                google.script.run
+                    .withSuccessHandler(function() {
+                        confirmarPersistencia();
+                    })
+                    .withFailureHandler(restaurarAposFalha)
+                    .finalizarPagamentoProducao(JSON.stringify(pedido));
             } else {
                 confirmarPersistencia();
             }
