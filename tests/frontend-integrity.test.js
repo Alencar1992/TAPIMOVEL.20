@@ -305,7 +305,7 @@ test("Vendas Hoje usa somente a fonte oficial e fechamento seguro no servidor", 
   assert.match(index, /ultimaSincronizacaoVendasHoje = Date\.now\(\)/);
   assert.match(index, /Date\.now\(\) - ultimaSincronizacaoVendasHoje >= 30000/);
   assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
-  assert.match(index, /\.registrarVendaHojeAdmin\(JSON\.stringify\(pedido\)\)/);
+  assert.match(index, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
   assert.match(index, /\.fecharDiaSeguro\(\)/);
   assert.doesNotMatch(
     index.slice(index.indexOf("function registrarFechamentoDia()"), index.indexOf("let faturamentoMesGlobal")),
@@ -322,8 +322,8 @@ test("perfil Produção usa transições seguras e assets sem cache legado", () 
   assert.match(index, /configuracao\.js\?v=20261002\.1/);
   assert.match(css, /\.config-seguranca\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
   assert.match(index, /\.btn-top\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
-  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,220}atualizarEstadoProducao/);
-  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}finalizarPagamentoProducao/);
+  assert.match(index, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
+  assert.match(index, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}cancelarPedidoProducao/);
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}excluirPedidoTravadoProducao/);
 });
@@ -627,4 +627,27 @@ test("monitor central registra ação, protege dados e evita duplicidade", () =>
   assert.match(apiClient, /prop !== "registrarFalhaSistema"/);
   assert.match(pdv, /investigador\.js\?v=20260908\.1/);
   assert.match(cliente, /investigador\.js\?v=20260908\.1/);
+});
+
+
+test("P1-A unifica pagamento e conclusão de produção entre Admin e Produção", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+
+  const inicioPagamento = html.indexOf("function finalizarVenda");
+  const fimPagamento = html.indexOf("function maskCurrency", inicioPagamento);
+  assert.ok(inicioPagamento >= 0 && fimPagamento > inicioPagamento);
+  const pagamento = html.slice(inicioPagamento, fimPagamento);
+
+  assert.match(pagamento, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
+  assert.doesNotMatch(pagamento, /registrarVendaHojeAdmin/);
+  assert.doesNotMatch(pagamento, /atualizarVendaRealTime/);
+
+  const inicioProducao = html.indexOf("function marcarItemEExtrasPronto");
+  const fimProducao = html.indexOf("function renderizarPainelPedidos", inicioProducao);
+  assert.ok(inicioProducao >= 0 && fimProducao > inicioProducao);
+  const producao = html.slice(inicioProducao, fimProducao);
+
+  assert.match(producao, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
+  assert.doesNotMatch(producao, /atualizarVendaRealTime/);
+  assert.doesNotMatch(producao, /checarBaixaCache\(p\)/);
 });
