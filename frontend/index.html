@@ -2694,18 +2694,25 @@
             }
             google.script.run
                 .withSuccessHandler(function(resposta) {
-                    try {
-                        vendasHojePersistidas = normalizarRespostaApi(resposta, []) || [];
+                    const recebidas = normalizarRespostaApi(resposta, null);
+                    const vendasAtuaisDoDia = vendasHojePersistidas.filter(function(venda) {
+                        return venda && venda.timestamp && ehHoje(venda.timestamp);
+                    });
+
+                    if (!Array.isArray(recebidas)) {
+                        console.warn('Resposta de Vendas Hoje inválida; mantendo o último estado confirmado.');
+                    } else if (recebidas.length === 0 && vendasAtuaisDoDia.length > 0) {
+                        console.warn('Leitura vazia de Vendas Hoje ignorada para não zerar vendas já confirmadas.');
+                    } else {
+                        vendasHojePersistidas = recebidas;
                         ultimaSincronizacaoVendasHoje = Date.now();
-                    } catch (erro) {
-                        vendasHojePersistidas = [];
-                        console.error('Erro ao reconstruir vendas de hoje:', erro);
                     }
+
                     atualizarTudo();
                     if (callback) callback();
                 })
                 .withFailureHandler(function(erro) {
-                    console.error('Não foi possível recuperar as vendas de hoje:', erro);
+                    console.error('Não foi possível recuperar as vendas de hoje; mantendo o último estado válido:', erro);
                     if (callback) callback();
                 })
                 .carregarVendasHojePersistidas();
@@ -2938,7 +2945,11 @@
                 travarSyncTemporariamente();
                 const index = historicoNuvem.findIndex(p => p.numero == numero);
                 if(index !== -1) {
-                    const pedido = historicoNuvem[index]; delete pedido.timestamp; delete pedido.formaPagamento; delete pedido.dataExibicao; delete pedido.pagamentosMistos; delete pedido.troco; atualizarTudo();
+                    const pedido = historicoNuvem[index];
+                    vendasHojePersistidas = vendasHojePersistidas.filter(function(venda) {
+                        return Number(venda && venda.numero) !== Number(numero);
+                    });
+                    delete pedido.timestamp; delete pedido.formaPagamento; delete pedido.dataExibicao; delete pedido.pagamentosMistos; delete pedido.troco; atualizarTudo();
                     if(typeof google !== 'undefined') { google.script.run.reabrirPedidoBackend(JSON.stringify(pedido)); google.script.run.atualizarVendaRealTime(JSON.stringify(pedido)); }
                     mostrarAlerta("✅ Pedido #" + numero + " reaberto! Ele voltou para a tela de Caixa."); mudarTela('view-painel');
                 }
