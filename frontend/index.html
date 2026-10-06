@@ -841,6 +841,7 @@
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Débito:</span> <strong id="relDeb">R$ 0,00</strong></div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px dashed var(--border); padding-bottom:10px;"><span>VR:</span> <strong id="relVR">R$ 0,00</strong></div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-weight:bold; font-size:1.1rem;"><span>🌮 Tapiocas Hoje:</span> <strong id="relQtdTapiocas">0 un</strong></div>
+                <p id="statusPreviaFechamento" style="margin:14px 0 0; text-align:center; font-size:.82rem; color:var(--text-muted);">Aguardando consulta dos valores oficiais.</p>
             </div>
             <button id="btnSalvarPrint" class="btn-acao" style="background: var(--edit); margin-bottom: 10px;" onclick="baixarPrintFechamento()">📸 Print</button>
             <button class="btn-acao btn-fechamento-seguro" style="background: var(--success); margin-bottom: 10px;" onclick="confirmarRegistroFechamentoDiario()">Registrar e Zerar Dia</button>
@@ -2751,35 +2752,15 @@
         function limparHistoricoVendasHoje() { mostrarConfirmacao("Limpar tela de Vendas Hoje?", function() { vendasHojeCompletas().forEach(function(v) { vendasHojeOcultas.add(chaveVendaHoje(v)); }); historicoNuvem.forEach(v => { if(v.timestamp && ehHoje(v.timestamp) && !v.ocultoVisualmente) { v.ocultoVisualmente = true; } }); renderizarHistorico(); if(typeof google !== 'undefined') google.script.run.salvarNuvemCompleta(JSON.stringify(historicoNuvem)); }); }
 
         function abrirModalRelatorio() {
-            let totDin = 0, totPix = 0, totCred = 0, totDeb = 0, totVR = 0, totTotal = 0, qtdTapiocasHoje = 0;
+            if (typeof window.carregarPreviaFechamentoDiarioNoModal === 'function') {
+                window.carregarPreviaFechamentoDiarioNoModal();
+                return;
+            }
 
-            vendasHojeCompletas().forEach(v => {
-                totTotal += v.total;
-                v.itens.forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdTapiocasHoje += i.quantidade; });
-                let arrPagamentos = v.pagamentosMistos || [{forma: v.formaPagamento, valor: v.total}];
-                arrPagamentos.forEach(pag => {
-                    if(pag.forma === 'Dinheiro') totDin += pag.valor;
-                    if(pag.forma === 'PIX') totPix += pag.valor;
-                    if(pag.forma === 'Cartão de Crédito') totCred += pag.valor;
-                    if(pag.forma === 'Cartão de Débito') totDeb += pag.valor;
-                    if(pag.forma === 'VR') totVR += pag.valor;
-                });
-            });
-
-            document.getElementById('relFaturamento').textContent = formatarMoeda(totTotal);
-            document.getElementById('relDin').textContent = formatarMoeda(totDin);
-            document.getElementById('relPix').textContent = formatarMoeda(totPix);
-            document.getElementById('relCred').textContent = formatarMoeda(totCred);
-            document.getElementById('relDeb').textContent = formatarMoeda(totDeb);
-            document.getElementById('relVR').textContent = formatarMoeda(totVR);
-            document.getElementById('relQtdTapiocas').textContent = qtdTapiocasHoje + " un";
-
-            let hoje = new Date();
-            let dia = String(hoje.getDate()).padStart(2, '0');
-            let mes = String(hoje.getMonth() + 1).padStart(2, '0');
-            document.getElementById('dataFechamentoPrint').textContent = `${dia}/${mes}`;
-
-            document.getElementById('modalRelatorio').style.display = 'flex';
+            mostrarAlerta(
+                '⚠️ O módulo de fechamento seguro ainda não foi carregado.<br>' +
+                '<small>Atualize a página antes de tentar fechar o dia.</small>'
+            );
         }
 
         function registrarFechamentoDia() {
