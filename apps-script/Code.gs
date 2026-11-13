@@ -601,79 +601,131 @@ function reabrirPedidoBackend(pedidoJSON) {
 // 1. BUSCAR DADOS DO MÊS (Incluindo Tapiocas e Taxas)
 // =========================================================
 function obterResumoMesPlanilha() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaFechamentos = ss.getSheetByName("Fechamentos_Diarios");
-  const abaTapiocas = ss.getSheetByName("Tapiocas Diária");
-  const abaCombustivel = ss.getSheetByName("Combustivel");
+  const ss = obterSpreadsheetAplicacao_();
+  const mesAtual = chaveMesDaDataAplicacao_(new Date());
 
-  const hoje = new Date();
-  const mesAtualStr = ("0" + (hoje.getMonth() + 1)).slice(-2);
-  const anoAtualStr = hoje.getFullYear().toString();
+  function falhar(codigo, aba, linha, campo) {
+    const erro = new Error("Resumo mensal: " + aba + ", linha " + linha +
+      (campo ? ", campo " + campo : "") + ". Dados inconsistentes; resumo bloqueado.");
+    erro.code = codigo;
+    throw erro;
+  }
 
-  let totalFaturamento = 0;
-  let totalCredito = 0;
-  let totalDebito = 0;
-  let totalVR = 0;
+  // Evita o parser permissivo de dataAplicacao_ para datas textuais inválidas
+  // e mantém datas ISO com timezone no dia operacional do script.
+  function diaValidado(valor, aba, linha) {
+    if (valor instanceof Date) {
+      if (!Number.isFinite(valor.getTime())) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+      const diaObjeto = normalizarDataFechamentoDiario_(valor);
+      if (!diaObjeto) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+      return diaObjeto;
+    }
+    if (typeof valor !== "string") falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+    const texto = valor.trim();
+    const civil = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[, ]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/);
+    if (!civil && !iso) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+    const ano = Number(civil ? civil[3] : iso[1]);
+    const mes = Number(civil ? civil[2] : iso[2]);
+    const dia = Number(civil ? civil[1] : iso[3]);
+    const diasMes = mes >= 1 && mes <= 12 ? new Date(Date.UTC(ano, mes, 0)).getUTCDate() : 0;
+    if (ano < 1900 || ano > 9999 || dia < 1 || dia > diasMes) {
+      falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+    }
+    const hora = civil ? civil[4] : iso[4];
+    const minuto = civil ? civil[5] : iso[5];
+    const segundo = civil ? civil[6] : iso[6];
+    if (hora != null && (Number(hora) > 23 || Number(minuto) > 59 || Number(segundo || 0) > 59)) {
+      falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+    }
+    const fuso = iso && iso[8];
+    if (fuso && fuso !== "Z") {
+      const partes = fuso.slice(1).split(":");
+      if (Number(partes[0]) > 23 || Number(partes[1]) > 59) {
+        falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+      }
+    }
+    if (fuso) {
+      const instante = new Date(texto.replace(" ", "T"));
+      if (!Number.isFinite(instante.getTime())) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+      const diaFuso = normalizarDataFechamentoDiario_(instante);
+      if (!diaFuso) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, linha, "data");
+      return diaFuso;
+    }
+    return String(dia).padStart(2, "0") + "/" + String(mes).padStart(2, "0") + "/" + String(ano);
+  }
 
-  let totalTapiocas = 0;
-  let totalCombustivel = 0;
+  function numeroValidado(valor, aba, linha, campo, quantidade) {
+    if (valor == null || (typeof valor === "string" && valor.trim() === "")) return 0;
+    const codigo = quantidade ? "MONTHLY_SUMMARY_INVALID_QUANTITY" : "MONTHLY_SUMMARY_INVALID_VALUE";
+    if (typeof valor !== "number" && typeof valor !== "string") falhar(codigo, aba, linha, campo);
+    if (typeof valor === "string") {
+      const texto = valor.trim().replace(/^(-?)R\$\s*/i, "$1");
+      // Valida a entrada inteira; a conversao continua no utilitario compartilhado.
+      if (!/^-?(?:\d+(?:[.,]\d+)?|\d{1,3}(?:\.\d{3})+(?:,\d+)?)$/.test(texto)) falhar(codigo, aba, linha, campo);
+    }
+    if (typeof valor === "number" && !Number.isFinite(valor)) falhar(codigo, aba, linha, campo);
+    const numero = numeroAplicacao_(valor);
+    // O conversor legado devolve zero para overflow; nao aceitar esse fallback
+    // como valor financeiro valido quando a entrada continha digitos nao zero.
+    if (!Number.isFinite(numero) || (typeof valor === "string" && numero === 0 && /[1-9]/.test(valor))) falhar(codigo, aba, linha, campo);
+    if (quantidade) {
+      if (!Number.isSafeInteger(numero) || numero < 0) falhar(codigo, aba, linha, campo);
+      return numero;
+    }
+    const centavos = Math.round(arredondarMoedaAplicacao_(Math.abs(numero)) * 100) * (numero < 0 ? -1 : 1);
+    if (!Number.isSafeInteger(centavos)) falhar(codigo, aba, linha, campo);
+    return centavos;
+  }
 
-  if (abaFechamentos) {
-    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
+  function somar(atual, parcela, aba, linha, campo) {
+    const soma = atual + parcela;
+    if (!Number.isSafeInteger(soma)) falhar("MONTHLY_SUMMARY_UNSAFE_TOTAL", aba, linha, campo);
+    return soma;
+  }
+
+  function linhasDoMes(aba, unicaPorDia) {
+    if (!ss.getSheetByName(aba)) return [];
+    const dados = lerAbaAnalitica_(aba, false, ss);
+    const dias = Object.create(null);
+    const selecionadas = [];
     for (let i = 1; i < dados.length; i++) {
-      let dataPlan = dados[i][0];
-      let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (match) {
-        let m = ("0" + match[2]).slice(-2);
-        let a = match[3];
-        if (m === mesAtualStr && a === anoAtualStr) {
-          totalFaturamento += parseFloat(String(dados[i][1]).replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-          totalCredito += parseFloat(String(dados[i][4]).replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-          totalDebito += parseFloat(String(dados[i][5]).replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-          totalVR += parseFloat(String(dados[i][6]).replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-        }
-      }
+      const linha = dados[i];
+      if (!Array.isArray(linha)) falhar("MONTHLY_SUMMARY_INVALID_DATE", aba, i + 1, "data");
+      if (!linha.some(function(valor) { return valor != null && String(valor).trim() !== ""; })) continue;
+      const dia = diaValidado(linha[0], aba, i + 1);
+      // Datas civis validadas nao sao reinterpretadas como instantes no fuso do host.
+      if (dia.slice(6) + "-" + dia.slice(3, 5) !== mesAtual) continue;
+      const status = String(linha[8] == null ? "" : linha[8]).trim();
+      if (aba === "Fechamentos_Diarios" && status !== "" && status !== "CONCLUIDO") falhar("MONTHLY_SUMMARY_INCOMPLETE_CLOSURE", aba, i + 1, "status");
+      if (unicaPorDia && dias[dia]) falhar("MONTHLY_SUMMARY_DUPLICATE_DATE", aba, i + 1, "data");
+      dias[dia] = true;
+      selecionadas.push({ valores: linha, numero: i + 1 });
     }
+    return selecionadas;
   }
 
-  if (abaTapiocas) {
-    const dadosTap = lerAbaAnalitica_("Tapiocas Diária");
-    for (let i = 1; i < dadosTap.length; i++) {
-      let dataPlan = dadosTap[i][0];
-      let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (match) {
-        let m = ("0" + match[2]).slice(-2);
-        let a = match[3];
-        if (m === mesAtualStr && a === anoAtualStr) {
-          let qtd = parseInt(dadosTap[i][1], 10) || 0;
-          totalTapiocas += qtd;
-        }
-      }
-    }
-  }
-
-  if (abaCombustivel) {
-    const dadosComb = lerAbaAnalitica_("Combustivel");
-    for (let j = 1; j < dadosComb.length; j++) {
-      let dataPlan = dadosComb[j][0];
-      let match = String(dataPlan).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (match) {
-        let m = ("0" + match[2]).slice(-2);
-        let a = match[3];
-        if (m === mesAtualStr && a === anoAtualStr) {
-          let valor = parseFloat(String(dadosComb[j][1]).replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-          totalCombustivel += valor;
-        }
-      }
-    }
-  }
-
+  let totalFaturamento = 0, totalCredito = 0, totalDebito = 0, totalVR = 0;
+  let totalTapiocas = 0, totalCombustivel = 0;
+  linhasDoMes("Fechamentos_Diarios", true).forEach(function(registro) {
+    const valores = registro.valores, linha = registro.numero;
+    totalFaturamento = somar(totalFaturamento, numeroValidado(valores[1], "Fechamentos_Diarios", linha, "total"), "Fechamentos_Diarios", linha, "total");
+    totalCredito = somar(totalCredito, numeroValidado(valores[4], "Fechamentos_Diarios", linha, "credito"), "Fechamentos_Diarios", linha, "credito");
+    totalDebito = somar(totalDebito, numeroValidado(valores[5], "Fechamentos_Diarios", linha, "debito"), "Fechamentos_Diarios", linha, "debito");
+    totalVR = somar(totalVR, numeroValidado(valores[6], "Fechamentos_Diarios", linha, "vr"), "Fechamentos_Diarios", linha, "vr");
+  });
+  linhasDoMes("Tapiocas Diária", true).forEach(function(registro) {
+    totalTapiocas = somar(totalTapiocas, numeroValidado(registro.valores[1], "Tapiocas Diária", registro.numero, "quantidade", true), "Tapiocas Diária", registro.numero, "quantidade");
+  });
+  linhasDoMes("Combustivel", false).forEach(function(registro) {
+    totalCombustivel = somar(totalCombustivel, numeroValidado(registro.valores[1], "Combustivel", registro.numero, "valor"), "Combustivel", registro.numero, "valor");
+  });
   return JSON.stringify({
-    total: totalFaturamento,
-    credito: totalCredito,
-    debito: totalDebito,
-    vr: totalVR,
-    combustivel: totalCombustivel,
+    total: totalFaturamento / 100,
+    credito: totalCredito / 100,
+    debito: totalDebito / 100,
+    vr: totalVR / 100,
+    combustivel: totalCombustivel / 100,
     qtdTapiocas: totalTapiocas
   });
 }

@@ -112,7 +112,7 @@ test('P12 otimiza consultas legadas mais frequentes sem alterar os contratos', (
   ]) {
     assert.match(code, new RegExp(`function ${fn}`));
   }
-  assert.match(code, /function obterResumoMesPlanilha[\s\S]*lerAbaAnalitica_\("Fechamentos_Diarios"\)/);
+  assert.match(code, /function obterResumoMesPlanilha[\s\S]*lerAbaAnalitica_\(aba, false, ss\)/);
   assert.match(code, /function buscarTopProdutosBackend[\s\S]*lerAbaAnalitica_\("Historico_Diario"\)/);
 });
 

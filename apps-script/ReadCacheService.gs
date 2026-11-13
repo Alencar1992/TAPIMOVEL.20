@@ -21,7 +21,7 @@ function chaveCacheLeituraAnalitica_(nomeAba) {
   return CACHE_LEITURA_ANALITICA_PREFIXO_ + String(nomeAba || "");
 }
 
-function lerAbaAnalitica_(nomeAba, forcarAtualizacao) {
+function lerAbaAnalitica_(nomeAba, forcarAtualizacao, planilha) {
   const nome = String(nomeAba || "");
   if (!abaPermitidaCacheLeituraAnalitica_(nome)) {
     throw new Error("A aba " + nome + " não pode usar o cache analítico.");
@@ -41,7 +41,7 @@ function lerAbaAnalitica_(nomeAba, forcarAtualizacao) {
     }
   }
 
-  const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nome);
+  const aba = (planilha || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(nome);
   if (!aba) return [];
   const dados = aba.getDataRange().getDisplayValues();
   const serializado = JSON.stringify(dados);
