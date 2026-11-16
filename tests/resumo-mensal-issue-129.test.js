@@ -29,7 +29,7 @@ function harness({ fechamentos = [], tapiocas = [], combustivel = [], now = '202
     }; },
     appendRow: forbidden('appendRow'), deleteRow: forbidden('deleteRow'), clear: forbidden('clear'), getRange: forbidden('getRange')
   }]));
-  const spreadsheet = { getSheetByName(name) { return sheets[name] || null; }, insertSheet: forbidden('insertSheet'), getSpreadsheetTimeZone: () => 'America/Sao_Paulo' };
+  const spreadsheet = { getId: () => 'fixture-planilha', getSheetByName(name) { return sheets[name] || null; }, insertSheet: forbidden('insertSheet'), getSpreadsheetTimeZone: () => 'America/Sao_Paulo' };
   const sandbox = {
     console: { log() {}, error() {} }, Date: ControlledDate, Number, String, Math, isNaN, isFinite,
     Session: { getScriptTimeZone: () => timezone },
@@ -49,7 +49,7 @@ function harness({ fechamentos = [], tapiocas = [], combustivel = [], now = '202
     PropertiesService: { getScriptProperties: () => ({
       getProperty(key) {
         assert.equal(key, 'tapimovel_spreadsheet_aplicacao_v1');
-        return webApp && configured ? 'fixture-planilha' : null;
+        return !webApp || configured ? 'fixture-planilha' : null;
       },
       setProperty: forbidden('setProperty')
     }) },
@@ -187,4 +187,13 @@ test('129 Web App sem planilha configurada falha sem consultar abas ou gravar', 
   assert.deepEqual(h.opened, []);
   assert.deepEqual(h.reads, []);
   assert.deepEqual(h.writes, []);
+});
+
+test('129 arredonda metade do centavo para longe de zero, inclusive no cache real', () => {
+  const fechado = fechamento('02/11/2026', '10,075', '1.234,565', '10.0750', '-10,075');
+  const h = harness({ realCache: true, fechamentos: [fechado.map(String)],
+    combustivel: [['02/11/2026', '0,00499999999999999999']] });
+  assert.deepEqual(h.summary(), result(10.08, 1234.57, 10.08, -10.08));
+  const numerico = harness({ fechamentos: [fechamento('02/11/2026', 10.075, 5e-7, 50e-4, -10.075)] });
+  assert.deepEqual(numerico.summary(), result(10.08, 0, 0.01, -10.08));
 });

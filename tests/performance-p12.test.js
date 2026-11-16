@@ -28,6 +28,7 @@ function carregarCacheService() {
     SpreadsheetApp: {
       getActiveSpreadsheet() {
         return {
+          getId() { return "planilha-A"; },
           getSheetByName(nome) {
             if (nome !== 'Historico_Diario') return null;
             return {
@@ -58,6 +59,30 @@ test('P12 cacheia leitura analítica e invalidação força nova leitura', () =>
   assert.equal(getLeituras(), 1);
   sandbox.invalidarCacheLeituraAnalitica_('Historico_Diario');
   sandbox.lerAbaAnalitica_('Historico_Diario');
+  assert.equal(getLeituras(), 2);
+});
+
+test('P12 identifica a planilha de cada snapshot e preserva invalidação', () => {
+  const { sandbox, getLeituras } = carregarCacheService();
+  let valor = 'B';
+  let leiturasB = 0;
+  const planilhaB = {
+    getId: () => 'planilha-B',
+    getSheetByName: () => ({
+      getDataRange: () => ({
+        getDisplayValues() { leiturasB++; return [['ID'], [valor]]; }
+      })
+    })
+  };
+  const linha = (planilha) => sandbox.lerAbaAnalitica_('Historico_Diario', false, planilha)[1][0];
+  assert.equal(linha(), '1');
+  assert.equal(linha(planilhaB), 'B');
+  assert.equal(linha(planilhaB), 'B');
+  assert.equal(leiturasB, 1);
+  valor = 'B atualizado';
+  sandbox.invalidarCacheLeituraAnalitica_('Historico_Diario');
+  assert.equal(linha(planilhaB), 'B atualizado');
+  assert.equal(linha(), '1');
   assert.equal(getLeituras(), 2);
 });
 

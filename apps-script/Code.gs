@@ -659,21 +659,29 @@ function obterResumoMesPlanilha() {
     if (valor == null || (typeof valor === "string" && valor.trim() === "")) return 0;
     const codigo = quantidade ? "MONTHLY_SUMMARY_INVALID_QUANTITY" : "MONTHLY_SUMMARY_INVALID_VALUE";
     if (typeof valor !== "number" && typeof valor !== "string") falhar(codigo, aba, linha, campo);
+    let texto = String(valor).trim().replace(/^(-?)R\$\s*/i, "$1");
     if (typeof valor === "string") {
-      const texto = valor.trim().replace(/^(-?)R\$\s*/i, "$1");
-      // Valida a entrada inteira; a conversao continua no utilitario compartilhado.
       if (!/^-?(?:\d+(?:[.,]\d+)?|\d{1,3}(?:\.\d{3})+(?:,\d+)?)$/.test(texto)) falhar(codigo, aba, linha, campo);
+      if (texto.includes(",") || /^-?\d{1,3}(?:\.\d{3})+$/.test(texto)) {
+        texto = texto.replace(/\./g, "").replace(",", ".");
+      }
     }
     if (typeof valor === "number" && !Number.isFinite(valor)) falhar(codigo, aba, linha, campo);
-    const numero = numeroAplicacao_(valor);
-    // O conversor legado devolve zero para overflow; nao aceitar esse fallback
-    // como valor financeiro valido quando a entrada continha digitos nao zero.
-    if (!Number.isFinite(numero) || (typeof valor === "string" && numero === 0 && /[1-9]/.test(valor))) falhar(codigo, aba, linha, campo);
     if (quantidade) {
+      const numero = Number(texto);
       if (!Number.isSafeInteger(numero) || numero < 0) falhar(codigo, aba, linha, campo);
       return numero;
     }
-    const centavos = Math.round(arredondarMoedaAplicacao_(Math.abs(numero)) * 100) * (numero < 0 ? -1 : 1);
+
+    // Calcula os centavos pelos dígitos da representação decimal, incluindo
+    // a notação exponencial usada por String() para alguns valores numéricos.
+    const [coeficiente, expoente = "0"] = texto.replace(/^-/, "").split("e");
+    const [inteiro, fracao = ""] = coeficiente.split(".");
+    const digitos = inteiro + fracao;
+    const corte = inteiro.length + Number(expoente) + 2;
+    const parteInteira = corte > 0 ? Number(digitos.slice(0, corte).padEnd(corte, "0")) : 0;
+    const arredondar = corte >= 0 && digitos.charAt(corte) >= "5";
+    const centavos = (parteInteira + Number(arredondar)) * (texto.startsWith("-") ? -1 : 1);
     if (!Number.isSafeInteger(centavos)) falhar(codigo, aba, linha, campo);
     return centavos;
   }
