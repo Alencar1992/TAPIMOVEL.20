@@ -21,30 +21,34 @@ function chaveCacheLeituraAnalitica_(nomeAba) {
   return CACHE_LEITURA_ANALITICA_PREFIXO_ + String(nomeAba || "");
 }
 
-function lerAbaAnalitica_(nomeAba, forcarAtualizacao) {
+function lerAbaAnalitica_(nomeAba, forcarAtualizacao, planilha) {
   const nome = String(nomeAba || "");
   if (!abaPermitidaCacheLeituraAnalitica_(nome)) {
     throw new Error("A aba " + nome + " não pode usar o cache analítico.");
   }
 
+  const origem = planilha || SpreadsheetApp.getActiveSpreadsheet();
+  const planilhaId = origem.getId();
   const cache = CacheService.getScriptCache();
   const chave = chaveCacheLeituraAnalitica_(nome);
   if (forcarAtualizacao !== true) {
     const salvo = cache.get(chave);
     if (salvo) {
       try {
-        const dados = JSON.parse(salvo);
-        if (Array.isArray(dados)) return dados;
+        const snapshot = JSON.parse(salvo);
+        if (snapshot && snapshot.planilhaId === planilhaId && Array.isArray(snapshot.dados)) {
+          return snapshot.dados;
+        }
       } catch (_) {
         cache.remove(chave);
       }
     }
   }
 
-  const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nome);
+  const aba = origem.getSheetByName(nome);
   if (!aba) return [];
   const dados = aba.getDataRange().getDisplayValues();
-  const serializado = JSON.stringify(dados);
+  const serializado = JSON.stringify({ planilhaId: planilhaId, dados: dados });
   if (serializado.length <= CACHE_LEITURA_ANALITICA_LIMITE_) {
     cache.put(chave, serializado, CACHE_LEITURA_ANALITICA_TTL_);
   }

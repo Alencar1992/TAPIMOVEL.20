@@ -906,6 +906,8 @@
                 </div>
             </div>
 
+            <p id="erroLiquidez" role="alert" style="display:none; color:var(--danger); text-align:center;"></p>
+
             <div id="conteudoLiquidez">
                 <h3 style="text-align:center; color: var(--primary); margin-top:0;">📊 Liquidez Mensal</h3>
                 <p id="mesReferenciaPDF" style="text-align:center; color: var(--text-muted); margin-top: -10px; font-weight: bold;"></p>
@@ -2844,14 +2846,27 @@
             document.getElementById('modalLiquidez').style.display = 'flex';
             document.getElementById('conteudoLiquidez').style.display = 'none';
             document.getElementById('loadingLiquidez').style.display = 'block';
+            const erroLiquidez = document.getElementById('erroLiquidez');
+            erroLiquidez.textContent = '';
+            erroLiquidez.style.display = 'none';
 
             if(!document.getElementById('inpSalCozinha').value) document.getElementById('inpSalCozinha').value = '750,00';
             if(!document.getElementById('inpSalCarro').value) document.getElementById('inpSalCarro').value = '300,00';
             if(!document.getElementById('inpManutCarro').value) document.getElementById('inpManutCarro').value = '200,00';
 
-            if(typeof google !== 'undefined') {
+            function mostrarErroLiquidez(erro) {
+                document.getElementById('loadingLiquidez').style.display = 'none';
+                erroLiquidez.textContent = (erro && erro.message) || 'Não foi possível consultar a Liquidez Mensal.';
+                erroLiquidez.style.display = 'block';
+            }
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run.withSuccessHandler(function(res) {
-                    let dados = normalizarRespostaApi(res);
+                    const dados = normalizarRespostaApi(res);
+                    if (!dados || !Number.isFinite(dados.total)) {
+                        mostrarErroLiquidez();
+                        return;
+                    }
                     faturamentoMesGlobal = dados.total;
                     combustivelMesGlobal = dados.combustivel;
                     creditoMesGlobal = dados.credito || 0;
@@ -2863,7 +2878,9 @@
                     recalcularLiquidez();
                     document.getElementById('loadingLiquidez').style.display = 'none';
                     document.getElementById('conteudoLiquidez').style.display = 'block';
-                }).obterResumoMesPlanilha();
+                }).withFailureHandler(mostrarErroLiquidez).obterResumoMesPlanilha();
+            } else {
+                mostrarErroLiquidez();
             }
         }
 
