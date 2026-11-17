@@ -57,6 +57,13 @@
         .app-view { display: none; flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; flex-direction: column;}
         .app-view.active { display: flex; }
         .nav-voltar { background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 15px; transition: 0.2s;}
+        .fechamentos-diarios { max-width: 620px; margin: 0 auto; }
+        .fechamentos-diarios label { display: block; margin-bottom: 6px; }
+        .fechamentos-diarios input { color-scheme: dark; max-width: 100%; }
+        .fechamentos-diarios ul { padding: 0; list-style: none; }
+        .fechamentos-diarios li { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); }
+        .fechamentos-diarios img { display: block; width: 100%; max-width: 520px; margin: 0 auto 12px; }
+        .fechamentos-diarios a { text-align: center; text-decoration: none; display: block; }
         .tabs-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; }
         .tab-btn { background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 20px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 0.95rem; flex-grow: 1; text-align: center; transition: 0.2s;}
         .tab-btn.active { background: var(--tab-active); color: #000; border-color: var(--tab-active); box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);}
@@ -343,6 +350,10 @@
             <button class="btn-categoria" onclick="abrirRestrito('relatorio-eliel')">📊 Relatório Eliel</button>
         </div>
 
+        <div class="menu-grupo menu-eliel" id="menuHistoricoFechamentos" hidden>
+            <button class="btn-categoria" onclick="abrirRestrito('fechamento-diario')">📅 Fechamento Diário</button>
+        </div>
+
         <div class="menu-grupo menu-eliel menu-producao">
             <button class="btn-categoria" onclick="abrirRestrito('itens')">📦 Itens</button>
         </div>
@@ -429,6 +440,20 @@
         </div>
         <div id="listaHistoricoHoje"></div>
     </div>
+
+    <section id="view-fechamento-diario" class="app-view fechamentos-diarios" aria-labelledby="tituloFechamentoDiario">
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <h2 id="tituloFechamentoDiario">Fechamento Diário</h2>
+        <label for="mesFechamentoDiario">Mês de referência</label>
+        <input id="mesFechamentoDiario" type="month" placeholder="AAAA-MM" required>
+        <button id="consultarFechamentoDiario" type="button" class="btn-painel btn-p-editar">Consultar</button>
+        <p id="statusHistoricoFechamentos" role="status"></p>
+        <div id="comprovanteFechamentoDiario" hidden>
+            <img id="imagemFechamentoDiario" alt="">
+            <a id="downloadFechamentoDiario" class="btn-acao btn-p-editar">Baixar print em PNG</a>
+        </div>
+        <ul id="listaFechamentosDiarios"></ul>
+    </section>
 
     <div id="view-relatorio-eliel" class="app-view relatorio-eliel-view">
         <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
@@ -1133,6 +1158,10 @@
             return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'producao');
         }
 
+        function podeConsultarFechamentosDiarios() {
+            return Boolean(sessaoAcessoAtual && ['eliel', 'admin'].includes(sessaoAcessoAtual.perfil));
+        }
+
         function aplicarPerfilAcesso(sessao) {
             sessaoAcessoAtual = sessao || null;
             const eliel = acessoEhEliel();
@@ -1149,6 +1178,7 @@
                         ? !grupo.classList.contains('menu-producao')
                         : false;
             });
+            document.getElementById('menuHistoricoFechamentos').hidden = !podeConsultarFechamentosDiarios();
             const identidade = document.getElementById('identidadeAcesso');
             identidade.hidden = !eliel && !producao;
             identidade.textContent = eliel ? 'CEO Eliel' : producao ? 'Produção' : '';
@@ -1216,6 +1246,10 @@
 
         function abrirRestrito(acao) {
             fecharMenuLateral();
+            if (acao === 'fechamento-diario' && podeConsultarFechamentosDiarios()) {
+                mudarTela('view-fechamento-diario');
+                return;
+            }
             if (acessoEhEliel() && ['relatorio-eliel', 'itens', 'configuracao'].indexOf(acao) === -1) {
                 mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
                 return;
@@ -1492,6 +1526,7 @@
         }
 
         function mostrarLoginAdmin(mensagem) {
+            if (window.limparHistoricoFechamentos) window.limparHistoricoFechamentos();
             clearTimeout(syncAtivo);
             syncAtivo = null;
             pausarSync = true;
@@ -1925,9 +1960,10 @@
         }
 
         function mudarTela(idTela) {
+            if (idTela === 'view-fechamento-diario' && !podeConsultarFechamentosDiarios()) return;
             if (
                 acessoEhEliel() &&
-                ['view-relatorio-eliel', 'view-itens', 'view-configuracao'].indexOf(idTela) === -1
+                ['view-relatorio-eliel', 'view-itens', 'view-configuracao', 'view-fechamento-diario'].indexOf(idTela) === -1
             ) {
                 mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
                 return;
@@ -1941,6 +1977,7 @@
             }
             document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
             document.getElementById(idTela).classList.add('active');
+            if (idTela === 'view-fechamento-diario') window.carregarHistoricoFechamentos();
 
             let btnProd = document.getElementById('btnTopoProd');
             let btnCaixa = document.getElementById('btnTopoCaixa');
@@ -2497,10 +2534,7 @@
                 if(htmlItens !== '') {
                     let badgePagamento = pedido.timestamp ? `<span class="badge-status-cozinha badge-pago">PAGO</span>` : `<span class="badge-status-cozinha badge-pendente">PENDENTE</span>`; let badgeOrigem = pedido.origem === 'Online' ? `<span class="badge-status-cozinha" style="background: #339af0; margin-right: 5px; font-size: 0.85rem; padding: 3px 8px;">📲 APP</span> ` : '';
                     const dadosClienteProducao = pedido.origem === 'Online' ? renderizarBlocoClienteOnline(pedido, 'pedido-producao-cliente') : '';
-                    const acaoEditar = !pedido.timestamp && acessoEhProducao()
-                        ? `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar tapioca</button>`
-                        : '';
-                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}${dadosClienteProducao}${acaoEditar}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
+                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}${dadosClienteProducao}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
                 } else {
                     pedido.produzido = true; checarBaixaCache(pedido);
                 }
@@ -3400,5 +3434,6 @@
     animation: encolherBarra 3s linear forwards;
 }
 </style>
+<script src="./historico-fechamentos.js?v=20261117.1"></script>
 </body>
 </html>

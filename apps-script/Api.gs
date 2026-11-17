@@ -78,6 +78,8 @@ function executarAcaoApi_(action, args, token) {
     "registrarAcessoRelatorioEliel",
     "obterConfiguracoesRelatorioEliel",
     "obterHistoricoVendasEliel",
+    "listarFechamentosDiarios",
+    "obterPrintFechamentoDiario",
     "obterPreviaFechamentoRelatorioEliel",
     "fecharMesRelatorioEliel"
   ];
@@ -127,6 +129,8 @@ function executarAcaoApi_(action, args, token) {
     "salvarFechamentoDiaPlanilha",
     "obterStatusFechamentoDiario",
     "obterPreviaFechamentoDiario",
+    "listarFechamentosDiarios",
+    "obterPrintFechamentoDiario",
     "fecharDiaSeguro",
     "salvarDisponibilidadeCardapio",
     "inicializarCatalogoConfiguracao",

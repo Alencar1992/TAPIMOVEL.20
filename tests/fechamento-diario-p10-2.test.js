@@ -44,8 +44,7 @@ test('bloqueia pendências e impede duplicidade silenciosa', () => {
 test('fechamento automático é idempotente, horário e nunca fecha o dia corrente', () => {
   const service = read('apps-script/FechamentoDiarioService.gs');
   assert.match(service, /everyHours\(1\)/);
-  assert.match(service, /HORA_MINIMA_FECHAMENTO_DIARIO_AUTOMATICO_ = 2/);
-  assert.match(service, /if \(data && data !== hoje\) datas\[data\] = true/);
+  assert.match(service, /chaveCronologicaFechamentoDiario_\(data\) < chaveHoje/);
   assert.match(service, /garantirTriggerFechamentoDiarioAutomatico_/);
   assert.match(service, /getProjectTriggers\(\)/);
 });

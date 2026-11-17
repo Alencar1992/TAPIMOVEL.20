@@ -230,7 +230,7 @@ test("acesso exclusivo do CEO Eliel limita navegação e mantém sessão separad
   assert.match(apiClient, /"tapimovel_" \+ accessMode \+ "_"/);
   assert.match(apiClient, /TOKEN_PROFILE_KEY/);
   assert.match(index, /CEO Eliel/);
-  assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao'\]/);
+  assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao', 'view-fechamento-diario'\]/);
   assert.match(index, /\.loginAcesso\(pin, modoAcessoEsperado\)/);
   assert.match(index, /class="[^"]*eliel-owner-only[^"]*"[^>]*>Revisar e fechar mês/);
 });
@@ -268,6 +268,8 @@ test("perfil Produção mantém sessão própria e limita a interface às áreas
   assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)[\s\S]{0,500}sessao\.perfil === 'producao'[\s\S]{0,180}index\.html\?acesso=producao/);
   assert.match(index, /if \(acessoEhProducao\(\)\) mudarTela\('view-producao'\)/);
   assert.match(index, /const rotuloEdicao = acessoEhProducao\(\) \? 'Editar tapioca' : 'Editar'/);
+  const filaProducao = index.match(/function renderizarProducao\([\s\S]*?function marcarItemEExtrasPronto/)[0];
+  assert.doesNotMatch(filaProducao, /carregarParaEdicao|Editar tapioca/);
   assert.match(index, /function carregarParaEdicao\(numero\) \{[\s\S]{0,900}if \(pedido\.timestamp\)/);
 });
 

@@ -367,6 +367,18 @@ function garantirAbaFechamentosDiarios_(ss) {
     aba.appendRow(["Data","Total Faturado","Dinheiro","PIX","Crédito","Débito","VR","Origem","Status","Atualizado Em"]);
     aba.setFrozenRows(1);
   }
+  const cabecalhoPrint = aba.getRange(1, COLUNA_PRINT_FECHAMENTO_DIARIO_, 1, 1);
+  const atual = String(cabecalhoPrint.getValues()[0][0] || "");
+  if (atual && atual !== CABECALHO_PRINT_FECHAMENTO_DIARIO_) {
+    throw new Error("A coluna do comprovante de fechamento está ocupada.");
+  }
+  if (!atual) {
+    if (aba.getLastRow() > 1 && aba.getRange(2, COLUNA_PRINT_FECHAMENTO_DIARIO_, aba.getLastRow() - 1, 1)
+        .getValues().some(function(linha) { return linha[0] !== ""; })) {
+      throw new Error("A coluna reservada ao comprovante contém dados sem cabeçalho.");
+    }
+    cabecalhoPrint.setValues([[CABECALHO_PRINT_FECHAMENTO_DIARIO_]]);
+  }
   return aba;
 }
 
@@ -502,7 +514,7 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
     const linhasDia = dadosVendas.slice(1).filter(function(linha) {
       return linhaVendaDoDia_(linha, data);
     });
-    if (!linhasDia.length) {
+    if (!linhasDia.length && tipoOrigem === "MANUAL") {
       return { ok: true, status: "SEM_MOVIMENTO", data: data, origem: tipoOrigem };
     }
 
@@ -516,6 +528,7 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
     const abaFech = garantirAbaFechamentosDiarios_(ss);
     const abaTap = garantirAbaTapiocasDiaria_(ss);
     const abaLivro = obterLivroTransacoes_();
+    const print = gerarPrintFechamentoDiario_(data, resumo);
 
     const historicoAntes = abaHistorico.getLastRow();
     const fechAntes = abaFech.getLastRow();
@@ -556,7 +569,8 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
         resumo.vr,
         "PDV/Vendas_hoje/" + tipoOrigem,
         "CONCLUIDO",
-        new Date()
+        new Date(),
+        print
       ]);
 
       abaTap.appendRow([data, resumo.qtdTapiocas]);
@@ -576,6 +590,9 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
 
       SpreadsheetApp.flush();
       validarPersistenciaFechamentoDiario_(Object.assign({ data: data }, resumo));
+      if (abaFech.getRange(fechAntes + 1, COLUNA_PRINT_FECHAMENTO_DIARIO_, 1, 1).getValues()[0][0] !== print) {
+        throw new Error("Não foi possível confirmar a gravação do comprovante diário.");
+      }
       if (abaHistorico.getLastRow() !== historicoAntes + novasHist.length ||
           !dataJaFechadaNoLivro_(data)) {
         throw new Error("Não foi possível confirmar o histórico e o livro do fechamento.");
