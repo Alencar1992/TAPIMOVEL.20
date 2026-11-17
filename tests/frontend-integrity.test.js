@@ -267,8 +267,8 @@ test("perfil Produção mantém sessão própria e limita a interface às áreas
   assert.match(index, /id="btnTopoCatalogo" hidden onclick="mudarTela\('view-catalogo'\)"/);
   assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)[\s\S]{0,500}sessao\.perfil === 'producao'[\s\S]{0,180}index\.html\?acesso=producao/);
   assert.match(index, /if \(acessoEhProducao\(\)\) mudarTela\('view-producao'\)/);
-  assert.match(index, /const acaoEditar = acessoEhProducao\(\) \? ''/);
-  assert.match(index, /function carregarParaEdicao\(numero\) \{[\s\S]{0,220}acessoEhProducao\(\)/);
+  assert.match(index, /const rotuloEdicao = acessoEhProducao\(\) \? 'Editar tapioca' : 'Editar'/);
+  assert.match(index, /function carregarParaEdicao\(numero\) \{[\s\S]{0,900}if \(pedido\.timestamp\)/);
 });
 
 test("PIN de Produção no link administrativo nunca libera o perfil Admin", () => {
@@ -290,7 +290,6 @@ test("vendas concluídas permanecem visíveis a partir de Vendas_hoje", () => {
   assert.match(index, /\.carregarVendasHojePersistidas\(\)/);
   assert.match(index, /function vendasHojeCompletas\(\)/);
   assert.match(index, /const vendasHoje = vendasHojeCompletas\(\)\.slice\(\)\.reverse\(\)/);
-  assert.match(index, /vendasHojeCompletas\(\)\.forEach\(v =>/);
   assert.match(index, /function confirmarPersistencia\(pedidoPersistido\)[\s\S]{0,4000}atualizarVendasHojePersistidas\(\)/);
 });
 

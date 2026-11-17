@@ -393,14 +393,13 @@ test("administrador configura o PIN e Produção executa somente ações operaci
   );
 });
 
-test("Produção pode lançar novo pedido, mas não editar pedido nem acessar áreas administrativas", () => {
+test("Produção não acessa áreas administrativas", () => {
   const { context } = createContext();
   context.configurarPinAdministrador("731905");
   context.configurarPinProducao("5931");
   const producao = context.loginAcesso("5931", "admin");
 
   [
-    "atualizarPedidoPdv",
     "obterResumoMesPlanilha",
     "inicializarCatalogoConfiguracao",
     "salvarItemCatalogo",
@@ -418,6 +417,89 @@ test("Produção pode lançar novo pedido, mas não editar pedido nem acessar á
       error => error.code === "PERMISSION_DENIED"
     );
   });
+});
+
+test("Produção edita pedido não pago preservando identidade e preparo dos itens intactos", () => {
+  const { context } = createContext();
+  context.configurarPinProducao("5931");
+  const { token } = context.loginAcesso("5931", "producao");
+  const item = { nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: true };
+  const anterior = {
+    numero: 7, timestampCriacao: 123456, idRequisicao: "pdv-test-abcdefghijkl", origem: "Online",
+    codigoOnline: "ON001", itens: [item], total: 14, produzido: true
+  };
+  context.substituirFilaPdvAtivos_([anterior]);
+  context.removerDaBaseDeVendasBackend = () => {};
+  context.lancarPedidoPlanilha = () => {};
+  assert.throws(() => context.executarAcaoApi_("atualizarPedidoPdv", [JSON.stringify(anterior)], token),
+    e => e.code === "ORDER_CHANGED");
+  const editado = { ...anterior, itensOriginaisEdicao: JSON.stringify(anterior.itens),
+    itens: [{ ...item, pronto: false }, { ...item, nome: "Pizza", pronto: true }] };
+  const r = context.executarAcaoApi_("atualizarPedidoPdv", [JSON.stringify(editado)], token).data;
+  assert.equal(r.total, 28);
+  assert.equal(r.numero, anterior.numero);
+  assert.equal(r.origem, "Online");
+  assert.equal(r.codigoOnline, "ON001");
+  assert.equal(r.itens[0].pronto, true);
+  assert.equal(r.itens[1].pronto, false);
+  assert.throws(() => context.executarAcaoApi_("atualizarPedidoPdv", [JSON.stringify(editado)], token),
+    e => e.code === "ORDER_CHANGED");
+  context.substituirFilaPdvAtivos_([{ ...r, timestamp: Date.now() }]);
+  assert.throws(() => context.executarAcaoApi_("atualizarPedidoPdv", [JSON.stringify(editado)], token),
+    e => e.code === "ORDER_PAID");
+});
+
+test("fechamento consolida data nativa e data em texto sem repetir ou limpar outro dia", () => {
+  const { context, spreadsheet } = createContext();
+  context.Utilities.formatDate = (data, _fuso, formato) => {
+    const [ano, mes, dia] = data.toISOString().slice(0, 10).split("-");
+    const curto = dia + "/" + mes + "/" + ano;
+    return formato === "dd/MM/yyyy, HH:mm:ss" ? curto + ", 20:00:00" :
+      formato === "yyyyMMdd" ? ano + mes + dia : curto;
+  };
+  const vendas = context.garantirEstruturaVendasHojeCompleta_(spreadsheet);
+  vendas.appendRow([new Date("2026-07-28T20:00:00Z"), "#31@hml-a", 2, "Bauru", "PIX", 28, "TAPIOCA", 14]);
+  vendas.appendRow(["29/07/2026, 20:00:00", "#32@hml-b", 1, "Pizza", "Dinheiro", 13, "TAPIOCA", 13]);
+  const primeiro = JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL"));
+  assert.equal(primeiro.status, "CONCLUIDO");
+  assert.equal(primeiro.resumo.total, 28);
+  assert.equal(primeiro.resumo.qtdTapiocas, 2);
+  assert.equal(vendas.getLastRow(), 2);
+  assert.equal(vendas.get(2, 2), "#32@hml-b");
+  const segundo = JSON.parse(context.fecharDiaSeguro("29/07/2026", "MANUAL"));
+  assert.equal(segundo.status, "CONCLUIDO");
+  assert.equal(segundo.resumo.total, 13);
+  assert.equal(JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL")).status, "JA_FECHADO");
+  assert.equal(JSON.parse(context.fecharDiaSeguro("29/07/2026", "MANUAL")).status, "JA_FECHADO");
+  assert.equal(spreadsheet.getSheetByName("Historico_Diario").getLastRow(), 3);
+  assert.equal(spreadsheet.getSheetByName("Fechamentos_Diarios").getLastRow(), 3);
+  assert.equal(spreadsheet.getSheetByName("Tapiocas Diária").getLastRow(), 3);
+  assert.equal(vendas.getLastRow(), 1);
+});
+
+test("fechamento bloqueia divergência entre os pagamentos e o total e preserva as vendas", () => {
+  const { context, spreadsheet } = createContext();
+  const vendas = context.garantirEstruturaVendasHojeCompleta_(spreadsheet);
+  vendas.appendRow(["28/07/2026, 20:00:00", "#31@hml", 1, "Bauru", "Misto", 14, "TAPIOCA", 14, "", '[{"forma":"PIX","valor":10}]']);
+  assert.equal(JSON.parse(context.obterPreviaFechamentoDiario("28/07/2026")).status, "DIVERGENCIA_PAGAMENTOS");
+  assert.equal(JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL")).status, "DIVERGENCIA_PAGAMENTOS");
+  assert.equal(vendas.getLastRow(), 2);
+  assert.equal(spreadsheet.getSheetByName("Fechamentos_Diarios"), null);
+});
+
+test("falha na conferência do fechamento preserva os dados para nova tentativa", () => {
+  const { context, spreadsheet } = createContext();
+  const vendas = context.garantirEstruturaVendasHojeCompleta_(spreadsheet);
+  vendas.appendRow(["28/07/2026, 20:00:00", "#31@hml", 1, "Bauru", "PIX", 14, "TAPIOCA", 14]);
+  const conferir = context.validarPersistenciaFechamentoDiario_;
+  context.validarPersistenciaFechamentoDiario_ = () => { throw new Error("Confirmação rejeitada"); };
+  assert.throws(() => context.fecharDiaSeguro("28/07/2026", "MANUAL"), /Confirmação rejeitada/);
+  assert.equal(vendas.getLastRow(), 2);
+  assert.equal(spreadsheet.getSheetByName("Fechamentos_Diarios").getLastRow(), 1);
+  context.validarPersistenciaFechamentoDiario_ = conferir;
+  assert.equal(JSON.parse(context.fecharDiaSeguro("28/07/2026", "MANUAL")).status, "CONCLUIDO");
+  assert.equal(vendas.getLastRow(), 1);
+  assert.equal(spreadsheet.getSheetByName("Fechamentos_Diarios").getLastRow(), 2);
 });
 
 test("Produção atualiza somente o estado operacional do pedido existente", () => {

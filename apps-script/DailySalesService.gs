@@ -25,6 +25,16 @@ function dataHoraOperacaoAgora_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy, HH:mm:ss");
 }
 
+function dataHoraVendaHoje_(valor) {
+  return valor instanceof Date
+    ? formatarDataAplicacao_(valor, "dd/MM/yyyy, HH:mm:ss")
+    : String(valor || "").trim();
+}
+
+function linhaVendaDoDia_(linha, dataReferencia) {
+  return dataHoraVendaHoje_(linha[0]).substring(0, 10) === dataReferencia;
+}
+
 function obterLivroTransacoes_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let aba = ss.getSheetByName(ABA_LIVRO_TRANSACOES_);
@@ -82,7 +92,7 @@ function listarEventosLivroDaData_(dataReferencia) {
   const aba = obterLivroTransacoes_();
   if (aba.getLastRow() < 2) return [];
   return aba.getDataRange().getValues().slice(1).filter(function(linha) {
-    return String(linha[2] || "") === dataReferencia;
+    return dataHoraVendaHoje_(linha[2]).substring(0, 10) === dataReferencia;
   });
 }
 
@@ -120,7 +130,7 @@ function fechamentoJaExiste_(ss, dataReferencia) {
   if (!aba || aba.getLastRow() < 2) return false;
   const dados = aba.getDataRange().getValues();
   for (let i = 1; i < dados.length; i++) {
-    if (String(dados[i][0] || "").indexOf(dataReferencia) === 0) return true;
+    if (linhaVendaDoDia_(dados[i], dataReferencia)) return true;
   }
   return false;
 }
@@ -223,7 +233,7 @@ function garantirLivroAPartirVendasHojeSemLock_(dataReferencia) {
   if (aba.getLastRow() < 2) return 0;
 
   const dados = aba.getDataRange().getValues().slice(1).filter(function(linha) {
-    return String(linha[0] || "").indexOf(dataReferencia) === 0;
+    return linhaVendaDoDia_(linha, dataReferencia);
   });
   const grupos = {};
   dados.forEach(function(linha) {
@@ -233,8 +243,8 @@ function garantirLivroAPartirVendasHojeSemLock_(dataReferencia) {
       grupos[chave] = {
         numero: Number((chave.match(/^#?(\d+)/) || [0, 0])[1]) || 0,
         chavePedido: chave,
-        timestamp: timestampHistoricoHoje_(linha[0]),
-        dataExibicao: String(linha[0] || ""),
+        timestamp: linha[0] instanceof Date ? linha[0].getTime() : timestampHistoricoHoje_(linha[0]),
+        dataExibicao: dataHoraVendaHoje_(linha[0]),
         formaPagamento: String(linha[4] || ""),
         pagamentosMistos: [],
         total: 0,
@@ -372,7 +382,7 @@ function garantirAbaTapiocasDiaria_(ss) {
 function historicoContemLinhaVenda_(dadosHistorico, linhaVenda) {
   return dadosHistorico.some(function(linhaHist) {
     return String(linhaHist[0] || "") === String(linhaVenda[1] || "") &&
-      String(linhaHist[1] || "") === String(linhaVenda[0] || "") &&
+      dataHoraVendaHoje_(linhaHist[1]) === dataHoraVendaHoje_(linhaVenda[0]) &&
       String(linhaHist[2] || "") === String(linhaVenda[3] || "") &&
       Number(linhaHist[4] || 0) === Number(linhaVenda[2] || 0) &&
       Math.round(Number(linhaHist[6] || 0) * 100) === Math.round(Number(linhaVenda[5] || 0) * 100);
@@ -438,6 +448,10 @@ function obterResumoFechamentoDasVendas_(linhas) {
   return resumo;
 }
 
+function somaPagamentosFechamentoDiario_(resumo) {
+  return Math.round((resumo.dinheiro + resumo.pix + resumo.credito + resumo.debito + resumo.vr) * 100) / 100;
+}
+
 function obterStatusFluxoVendasHoje_(dataReferencia) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const data = (typeof normalizarDataFechamentoDiario_ === "function" && normalizarDataFechamentoDiario_(dataReferencia)) || dataReferencia || dataOperacaoHoje_();
@@ -447,7 +461,7 @@ function obterStatusFluxoVendasHoje_(dataReferencia) {
   if (abaVendas && abaVendas.getLastRow() >= 2) {
     const dados = abaVendas.getDataRange().getValues();
     linhas = dados.slice(1).filter(function(linha) {
-      return String(linha[0] || "").indexOf(data) === 0;
+      return linhaVendaDoDia_(linha, data);
     }).length;
   }
   return { data: data, fechado: fechado, linhasVendasHoje: linhas };
@@ -486,13 +500,16 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
     const abaVendas = garantirEstruturaVendasHojeCompleta_(ss);
     const dadosVendas = abaVendas.getDataRange().getValues();
     const linhasDia = dadosVendas.slice(1).filter(function(linha) {
-      return String(linha[0] || "").indexOf(data) === 0;
+      return linhaVendaDoDia_(linha, data);
     });
     if (!linhasDia.length) {
       return { ok: true, status: "SEM_MOVIMENTO", data: data, origem: tipoOrigem };
     }
 
     const resumo = obterResumoFechamentoDasVendas_(linhasDia);
+    if (Math.abs(somaPagamentosFechamentoDiario_(resumo) - resumo.total) > 0.005) {
+      return { ok: false, status: "DIVERGENCIA_PAGAMENTOS", data: data, resumo: resumo };
+    }
     const fechamentoId = "FECH-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd") + "-" + Utilities.getUuid().substring(0, 8);
 
     const abaHistorico = garantirAbaHistoricoDiario_(ss);
@@ -515,7 +532,7 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
         const precoUnit = normalizarNumeroVendaHoje_(linha[7]) || (qtd > 0 ? total / qtd : total);
         return [
           String(linha[1] || ""),
-          String(linha[0] || ""),
+          dataHoraVendaHoje_(linha[0]),
           valorSeguroPlanilha_(String(linha[3] || "")),
           String(linha[6] || "").toUpperCase(),
           qtd,
@@ -557,9 +574,16 @@ function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
         data
       );
 
+      SpreadsheetApp.flush();
+      validarPersistenciaFechamentoDiario_(Object.assign({ data: data }, resumo));
+      if (abaHistorico.getLastRow() !== historicoAntes + novasHist.length ||
+          !dataJaFechadaNoLivro_(data)) {
+        throw new Error("Não foi possível confirmar o histórico e o livro do fechamento.");
+      }
+
       const dadosAtuais = abaVendas.getDataRange().getValues();
       for (let i = dadosAtuais.length - 1; i >= 1; i--) {
-        if (String(dadosAtuais[i][0] || "").indexOf(data) === 0) {
+        if (linhaVendaDoDia_(dadosAtuais[i], data)) {
           abaVendas.deleteRow(i + 1);
         }
       }

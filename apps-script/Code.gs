@@ -491,8 +491,8 @@ function carregarVendasHojePersistidas() {
 
   for (let i = 1; i < dados.length; i++) {
     const linha = dados[i];
-    const dataHora = String(linha[0] || "");
-    if (dataHora.indexOf(hoje) !== 0) continue;
+    if (!linhaVendaDoDia_(linha, hoje)) continue;
+    const dataHora = dataHoraVendaHoje_(linha[0]);
 
     const idBruto = String(linha[1] || "").trim();
     const numeroMatch = idBruto.match(/^#?(\d+)/);
@@ -503,7 +503,7 @@ function carregarVendasHojePersistidas() {
       agrupados[chave] = {
         numero: Number(numeroMatch[1]),
         idHistorico: idBruto || chave,
-        timestamp: timestampHistoricoHoje_(dataHora),
+        timestamp: linha[0] instanceof Date ? linha[0].getTime() : timestampHistoricoHoje_(dataHora),
         dataExibicao: dataHora,
         formaPagamento: String(linha[4] || ""),
         pagamentosMistos: [],

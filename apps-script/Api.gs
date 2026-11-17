@@ -89,6 +89,7 @@ function executarAcaoApi_(action, args, token) {
     "carregarDadosNuvem",
     "carregarVendasHojePersistidas",
     "registrarPedidoPdv",
+    "atualizarPedidoPdv",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
     "cancelarPedidoProducao",
@@ -179,6 +180,9 @@ function executarAcaoApi_(action, args, token) {
     }
     if (sessao.perfil === "producao" && action === "salvarDisponibilidadeCardapio") {
       args[1] = NOME_PERFIL_PRODUCAO_;
+    }
+    if (action === "atualizarPedidoPdv") {
+      args[1] = sessao.perfil === "producao";
     }
   }
 
