@@ -303,19 +303,67 @@ function lerFilaDaAba_(nomeAba) {
   }, []);
 }
 
-function gravarFilaNaAba_(nomeAba, pedidos) {
-  const lista = Array.isArray(pedidos) ? pedidos : [];
-  const aba = obterOuCriarAbaFila_(nomeAba);
-  const ultimaLinha = aba.getLastRow();
-  if (ultimaLinha > 1) {
-    aba.getRange(
-      2,
-      1,
-      ultimaLinha - 1,
-      CABECALHO_STORAGE_PEDIDOS_.length
-    ).clearContent();
+function chaveCacheFilaOperacional_(planilha, nomeAba) {
+  return "tapimovel_fila_consulta_v1:" + planilha.getId() + ":" + nomeAba;
+}
+
+function lerCacheFilaOperacional_(cache, chave) {
+  try {
+    const salvo = cache.get(chave);
+    const fila = salvo ? JSON.parse(salvo) : null;
+    return Array.isArray(fila) ? fila : null;
+  } catch (_) {
+    return null;
   }
-  if (!lista.length) return;
+}
+
+function salvarCacheFilaOperacional_(cache, chave, fila) {
+  if (!cache || !chave) return;
+  try {
+    const serializada = JSON.stringify(fila);
+    // Limita a 90 KB mesmo para texto UTF-8 com três bytes por unidade UTF-16.
+    if (serializada.length <= 30000) cache.put(chave, serializada, 4);
+  } catch (_) {
+    // A planilha permanece como fonte da próxima consulta.
+  }
+}
+
+function consultarFilaOperacional_(nomeAba, carregarFila) {
+  const cache = CacheService.getScriptCache();
+  const chave = chaveCacheFilaOperacional_(SpreadsheetApp.getActiveSpreadsheet(), nomeAba);
+  const emCache = lerCacheFilaOperacional_(cache, chave);
+  if (emCache) return emCache;
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const cacheAposLock = lerCacheFilaOperacional_(cache, chave);
+    if (cacheAposLock) return cacheAposLock;
+
+    const fila = carregarFila();
+    salvarCacheFilaOperacional_(cache, chave, fila);
+    return fila;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function gravarFilaNaAba_(nomeAba, pedidos, atualizarConsulta) {
+  const lista = Array.isArray(pedidos) ? pedidos : [];
+  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = obterOuCriarAbaFila_(nomeAba);
+  let cache;
+  let chave;
+  try {
+    cache = CacheService.getScriptCache();
+    chave = chaveCacheFilaOperacional_(planilha, nomeAba);
+    cache.remove(chave);
+  } catch (_) {
+    // A cópia de consulta expira em poucos segundos.
+  }
+
+  const quantidadeLinhas = Math.max(aba.getLastRow() - 1, lista.length);
+  if (!quantidadeLinhas) return;
 
   const atualizadoEm = Date.now();
   const linhas = lista.map(function(pedido, indice) {
@@ -330,7 +378,12 @@ function gravarFilaNaAba_(nomeAba, pedidos) {
       JSON.stringify(p)
     ];
   });
-  aba.getRange(2, 1, linhas.length, CABECALHO_STORAGE_PEDIDOS_.length).setValues(linhas);
+  const colunas = CABECALHO_STORAGE_PEDIDOS_.length;
+  while (linhas.length < quantidadeLinhas) linhas.push(Array(colunas).fill(""));
+
+  aba.getRange(2, 1, quantidadeLinhas, colunas).setValues(linhas);
+  SpreadsheetApp.flush();
+  if (atualizarConsulta === true) salvarCacheFilaOperacional_(cache, chave, lista);
 }
 
 function mesclarFilasSemDuplicar_(atual, legado) {
@@ -388,8 +441,8 @@ function carregarFilaPdvAtivos_() {
   );
 }
 
-function substituirFilaPdvAtivos_(pedidos) {
-  gravarFilaNaAba_(ABA_STORAGE_PDV_ATIVOS_, pedidos);
+function substituirFilaPdvAtivos_(pedidos, atualizarConsulta) {
+  gravarFilaNaAba_(ABA_STORAGE_PDV_ATIVOS_, pedidos, atualizarConsulta);
   obterScriptProperties_().deleteProperty(CHAVE_LEGADA_PDV_ATIVOS_);
 }
 

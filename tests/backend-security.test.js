@@ -88,6 +88,7 @@ function createContext() {
   }
   const spreadsheet = {
     sheets: new Map(),
+    getId() { return "planilha-de-teste"; },
     getSheetByName(name) { return this.sheets.get(name) || null; },
     insertSheet(name) {
       const sheet = new MemorySheet(name);
@@ -161,7 +162,8 @@ function createContext() {
       getScriptTimeZone() { return "America/Sao_Paulo"; }
     },
     SpreadsheetApp: {
-      getActiveSpreadsheet() { return spreadsheet; }
+      getActiveSpreadsheet() { return spreadsheet; },
+      flush() {}
     },
     ContentService: {
       MimeType: { JSON: "JSON" },
