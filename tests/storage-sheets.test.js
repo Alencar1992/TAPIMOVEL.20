@@ -5,9 +5,6 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const appsScriptDir = path.join(__dirname, "..", "apps-script");
-const codeGs = fs.readFileSync(path.join(appsScriptDir, "Code.gs"), "utf8");
-const sheetsRepository = fs.readFileSync(path.join(appsScriptDir, "SheetsRepository.gs"), "utf8");
-const propertiesRepository = fs.readFileSync(path.join(appsScriptDir, "PropertiesRepository.gs"), "utf8");
 const code = fs.readdirSync(appsScriptDir)
   .filter(nome => nome.endsWith(".gs"))
   .sort()
@@ -26,13 +23,14 @@ test("filas operacionais não são mais escritas no PropertiesService", () => {
 });
 
 test("contratos públicos continuam iguais e usam storage em Sheets", () => {
-  assert.match(code, /function carregarDadosNuvem\(\)[\s\S]*?JSON\.stringify\(carregarFilaPdvAtivos_\(\)\)/);
   assert.match(code, /function salvarNuvemCompleta\(historicoJSON\)[\s\S]*?substituirFilaPdvAtivos_/);
-  assert.match(code, /function listarPedidosOnlinePendentes\(\)[\s\S]*?carregarFilaPedidosOnlinePendentes_/);
-  assert.match(code, /lock\.waitLock\(10000\);[\s\S]*?JSON\.stringify\(carregarFilaPdvAtivos_\(\)\)/);
 });
 
 function criarAmbiente() {
+  let outraExecucaoComTrava = false;
+  let falharGravacao = false;
+  const cache = new Map();
+
   class Range {
     constructor(sheet, row, col, rows, cols) {
       this.sheet = sheet;
@@ -42,6 +40,7 @@ function criarAmbiente() {
       this.cols = cols;
     }
     setValues(values) {
+      if (falharGravacao) throw new Error("Gravação rejeitada");
       for (let r = 0; r < this.rows; r++) {
         for (let c = 0; c < this.cols; c++) {
           this.sheet.set(this.row + r, this.col + c, values[r][c]);
@@ -97,6 +96,7 @@ function criarAmbiente() {
 
   class Spreadsheet {
     constructor() { this.sheets = new Map(); }
+    getId() { return "planilha-de-teste"; }
     getSheetByName(name) { return this.sheets.get(name) || null; }
     insertSheet(name) {
       const sheet = new Sheet(name);
@@ -113,22 +113,66 @@ function criarAmbiente() {
     deleteProperty: key => data.delete(key),
   };
   const context = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet },
+    SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet, flush() {} },
     PropertiesService: { getScriptProperties: () => props },
+    CacheService: {
+      getScriptCache: () => ({
+        get: key => cache.get(key) ?? null,
+        put: (key, value) => cache.set(key, value),
+        remove: key => cache.delete(key),
+      }),
+    },
+    LockService: {
+      getScriptLock: () => ({
+        waitLock() {
+          if (outraExecucaoComTrava) throw new Error("Tempo limite do bloqueio");
+        },
+        releaseLock() {},
+      }),
+    },
     console: { info() {}, error() {} },
   };
 
-  const inicio = codeGs.indexOf("// STORAGE RESILIENTE — FILAS NO GOOGLE SHEETS");
-  const fim = codeGs.indexOf("// 2. SISTEMA DE NUVEM (BLINDADO COM LOCKSERVICE)");
-  assert.ok(inicio >= 0 && fim > inicio, "constantes do storage devem existir");
-  const constantes = codeGs.slice(inicio, fim);
-  const bloco = constantes + "\n" + propertiesRepository + "\n" + sheetsRepository + `\nthis.__storage = {
+  const bloco = code + `\nthis.__storage = {
+    carregarDadosNuvem, listarPedidosOnlinePendentes,
     carregarFilaPdvAtivos_, substituirFilaPdvAtivos_,
     carregarFilaPedidosOnlinePendentes_, substituirFilaPedidosOnlinePendentes_
   };`;
   vm.runInNewContext(bloco, context);
-  return { spreadsheet, props, data, api: context.__storage };
+  return {
+    spreadsheet, props, data, api: context.__storage,
+    simularOutraExecucaoComTrava: valor => { outraExecucaoComTrava = valor; },
+    simularFalhaDeGravacao: valor => { falharGravacao = valor; },
+  };
 }
+
+test("leituras simultâneas exibem a última fila confirmada durante uma trava", () => {
+  const env = criarAmbiente();
+  env.api.substituirFilaPdvAtivos_([{ numero: 7, timestampCriacao: 111 }]);
+  env.api.substituirFilaPedidosOnlinePendentes_([{ codigoOnline: "ON003", timestampCriacao: 222 }]);
+  env.api.carregarDadosNuvem();
+  env.api.listarPedidosOnlinePendentes();
+
+  env.simularOutraExecucaoComTrava(true);
+  assert.deepEqual(JSON.parse(env.api.carregarDadosNuvem()), [{ numero: 7, timestampCriacao: 111 }]);
+  assert.deepEqual(Array.from(env.api.listarPedidosOnlinePendentes(), item => item.codigoOnline), ["ON003"]);
+
+  env.simularOutraExecucaoComTrava(false);
+  env.api.substituirFilaPdvAtivos_([{ numero: 8, timestampCriacao: 333 }]);
+  env.api.substituirFilaPedidosOnlinePendentes_([]);
+  assert.deepEqual(JSON.parse(env.api.carregarDadosNuvem()), [{ numero: 8, timestampCriacao: 333 }]);
+  assert.equal(env.api.listarPedidosOnlinePendentes().length, 0);
+});
+
+test("uma gravação rejeitada preserva a fila anterior", () => {
+  const env = criarAmbiente();
+  env.api.substituirFilaPdvAtivos_([{ numero: 7, timestampCriacao: 111 }]);
+  env.api.carregarDadosNuvem();
+
+  env.simularFalhaDeGravacao(true);
+  assert.throws(() => env.api.substituirFilaPdvAtivos_([{ numero: 8, timestampCriacao: 222 }]), /Gravação rejeitada/);
+  assert.deepEqual(JSON.parse(env.api.carregarDadosNuvem()), [{ numero: 7, timestampCriacao: 111 }]);
+});
 
 test("migração automática preserva filas e remove somente as duas chaves legadas", () => {
   const env = criarAmbiente();

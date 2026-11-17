@@ -445,16 +445,10 @@ function registrarPedidoOnline(pedidoJSON) {
 }
 
 function listarPedidosOnlinePendentes() {
-  const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-    const pendentes = carregarFilaPedidosOnlinePendentes_();
-    return pendentes.sort(function(a, b) {
-      return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
-    });
-  } finally {
-    lock.releaseLock();
-  }
+  const pendentes = consultarFilaOperacional_(ABA_STORAGE_ONLINE_PENDENTES_, carregarFilaPedidosOnlinePendentes_);
+  return pendentes.sort(function(a, b) {
+    return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
+  });
 }
 
 function aceitarPedidoOnline(codigoOnline) {
