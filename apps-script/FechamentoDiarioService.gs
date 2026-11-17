@@ -6,7 +6,8 @@
 const ABA_FECHAMENTOS_DIARIOS_SEGURA_ = "Fechamentos_Diarios";
 const ABA_TAPIOCAS_DIARIA_SEGURA_ = "Tapiocas Diária";
 const HANDLER_FECHAMENTO_DIARIO_AUTOMATICO_ = "executarFechamentoDiarioAutomatico";
-const HORA_MINIMA_FECHAMENTO_DIARIO_AUTOMATICO_ = 2;
+const COLUNA_PRINT_FECHAMENTO_DIARIO_ = 11;
+const CABECALHO_PRINT_FECHAMENTO_DIARIO_ = "Comprovante SVG";
 
 function formatarDataFechamentoDiario_(data) {
   return formatarDataAplicacao_(data, "dd/MM/yyyy");
@@ -316,8 +317,97 @@ function obterStatusFechamentoDiario(dataReferencia) {
 function fecharDiaSeguro_(dataReferencia, origem) {
   return fecharDiaPorVendasHojeSeguro_(dataReferencia, origem || "MANUAL");
 }
-function fecharDiaSeguro(dataReferencia, origem) {
-  return JSON.stringify(fecharDiaSeguro_(dataReferencia, origem || "MANUAL"));
+function fecharDiaSeguro(dataReferencia) {
+  return JSON.stringify(fecharDiaSeguro_(dataReferencia, "MANUAL"));
+}
+
+function linhasHistoricoFechamentosDiarios_() {
+  const aba = obterSpreadsheetAplicacao_().getSheetByName(ABA_FECHAMENTOS_DIARIOS_SEGURA_);
+  if (!aba || aba.getLastRow() < 2) return [];
+  return aba.getDataRange().getValues().slice(1).filter(function(linha) {
+    const status = String(linha[8] || "").trim();
+    return status === "" || status === "CONCLUIDO";
+  });
+}
+
+function listarFechamentosDiarios(mes) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes || ""))) {
+    throw erroApi_("INVALID_MONTH", "Selecione um mês válido.");
+  }
+  return linhasHistoricoFechamentosDiarios_().map(function(linha) {
+    return {
+      data: normalizarDataFechamentoDiario_(linha[0]),
+      total: numeroFechamentoDiario_(linha[1]),
+      automatico: String(linha[7] || "").endsWith("AUTOMATICO")
+    };
+  }).filter(function(registro) {
+    return chaveCronologicaFechamentoDiario_(registro.data).slice(0, 7) === mes;
+  }).sort(function(a, b) {
+    return chaveCronologicaFechamentoDiario_(b.data).localeCompare(chaveCronologicaFechamentoDiario_(a.data));
+  });
+}
+
+function obterPrintFechamentoDiario(dataReferencia) {
+  const data = normalizarDataFechamentoDiario_(dataReferencia);
+  if (!data) throw erroApi_("INVALID_DATE", "Selecione uma data válida.");
+  const linhas = linhasHistoricoFechamentosDiarios_().filter(function(linha) {
+    return normalizarDataFechamentoDiario_(linha[0]) === data;
+  });
+  if (linhas.length !== 1) {
+    throw erroApi_("INVALID_CLOSURE", linhas.length
+      ? "Há mais de um fechamento para essa data. Revise o histórico na planilha."
+      : "O fechamento dessa data não foi encontrado.");
+  }
+  const linha = linhas[0];
+  const salvo = linha[COLUNA_PRINT_FECHAMENTO_DIARIO_ - 1];
+  if (typeof salvo === "string" && salvo.startsWith("<svg xmlns=")) {
+    return { data: data, svg: salvo };
+  }
+
+  const abaTap = obterSpreadsheetAplicacao_().getSheetByName(ABA_TAPIOCAS_DIARIA_SEGURA_);
+  const contagens = abaTap ? linhasDaDataFechamentoDiario_(abaTap, data) : [];
+  if (contagens.length > 1) {
+    throw erroApi_("INVALID_CLOSURE", "Há mais de uma contagem de tapiocas para essa data.");
+  }
+  const campos = ["total", "dinheiro", "pix", "credito", "debito", "vr"];
+  const quantidade = contagens.length ? abaTap.getRange(contagens[0], 2, 1, 1).getValues()[0][0] : "";
+  const resumo = { qtdTapiocas: quantidade === "" ? null : numeroFechamentoDiario_(quantidade) };
+  campos.forEach(function(campo, indice) {
+    resumo[campo] = numeroFechamentoDiario_(linha[indice + 1]);
+  });
+  return { data: data, svg: gerarPrintFechamentoDiario_(data, resumo) };
+}
+
+function gerarPrintFechamentoDiario_(data, resumo) {
+  const moeda = function(valor) {
+    return numeroFechamentoDiario_(valor).toLocaleString("pt-BR", {
+      style: "currency", currency: "BRL"
+    });
+  };
+  const pagamentos = [
+    ["Dinheiro", resumo.dinheiro], ["PIX", resumo.pix], ["Crédito", resumo.credito],
+    ["Débito", resumo.debito], ["VR", resumo.vr]
+  ];
+  const linhas = pagamentos.map(function(pagamento, indice) {
+    const y = 187 + indice * 29;
+    return `<text x="42" y="${y}">${pagamento[0]}</text>
+<text x="478" y="${y}" text-anchor="end" font-weight="700">${moeda(pagamento[1])}</text>`;
+  }).join("\n");
+  const quantidade = resumo.qtdTapiocas == null
+    ? "Não registrada"
+    : numeroFechamentoDiario_(resumo.qtdTapiocas).toLocaleString("pt-BR") + " un";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="520" height="388" viewBox="0 0 520 388">
+<title>Fechamento do Dia — ${data}</title>
+<rect x="1" y="1" width="518" height="386" rx="20" fill="#141c22" stroke="#35424b"/>
+<g font-family="Arial, sans-serif" fill="#f2f5f7" font-size="17">
+<text x="260" y="53" text-anchor="middle" font-size="24" font-weight="700">Fechamento do Dia</text>
+<text x="260" y="86" text-anchor="middle" fill="#b7c5ce">Vendas registradas em ${data}</text>
+<text x="260" y="137" text-anchor="middle" fill="#57cb91" font-size="32" font-weight="700">${moeda(resumo.total)}</text>
+${linhas}
+<path d="M42 324H478" stroke="#35424b" stroke-dasharray="3 4"/>
+<text x="42" y="354" font-weight="700">Tapiocas</text>
+<text x="478" y="354" text-anchor="end" font-weight="700">${quantidade}</text>
+</g></svg>`;
 }
 
 function verificarTriggerFechamentoDiarioAutomatico_() {
@@ -344,35 +434,37 @@ function garantirTriggerFechamentoDiarioAutomatico_() {
 }
 
 function executarFechamentoDiarioAutomatico() {
-  const agora = new Date();
-  const fuso = Session.getScriptTimeZone();
-  const hora = Number(Utilities.formatDate(agora, fuso, "H"));
-  if (hora < HORA_MINIMA_FECHAMENTO_DIARIO_AUTOMATICO_) {
-    return JSON.stringify({ ok: true, status: "AGUARDANDO_JANELA", hora: hora });
-  }
+  return JSON.stringify(processarFechamentoDiarioAutomatico_(new Date()));
+}
 
+function chaveCronologicaFechamentoDiario_(data) {
+  return data.slice(6) + "-" + data.slice(3, 5) + "-" + data.slice(0, 2);
+}
+
+function processarFechamentoDiarioAutomatico_(agora) {
   const hoje = formatarDataFechamentoDiario_(agora);
-  const datas = {};
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const [dia, mes, ano] = hoje.split("/").map(Number);
+  const anterior = new Date(Date.UTC(ano, mes - 1, dia - 1)).toISOString().slice(0, 10);
+  const ontem = anterior.slice(8) + "/" + anterior.slice(5, 7) + "/" + anterior.slice(0, 4);
+  const chaveHoje = chaveCronologicaFechamentoDiario_(hoje);
+  const datas = new Set();
+  const ss = obterSpreadsheetAplicacao_();
+  if (!fechamentoJaExiste_(ss, ontem)) datas.add(ontem);
   const abaVendas = ss.getSheetByName("Vendas_hoje");
   if (abaVendas && abaVendas.getLastRow() > 1) {
     const valores = abaVendas.getDataRange().getValues();
     valores.slice(1).forEach(function(linha) {
       const data = normalizarDataFechamentoDiario_(linha[0]);
-      if (data && data !== hoje) datas[data] = true;
+      if (data && chaveCronologicaFechamentoDiario_(data) < chaveHoje) datas.add(data);
     });
   }
 
-  const referencias = Object.keys(datas).sort(function(a, b) {
-    const pa = a.split("/");
-    const pb = b.split("/");
-    const da = new Date(Number(pa[2]), Number(pa[1]) - 1, Number(pa[0])).getTime();
-    const db = new Date(Number(pb[2]), Number(pb[1]) - 1, Number(pb[0])).getTime();
-    return da - db;
+  const referencias = Array.from(datas).sort(function(a, b) {
+    return chaveCronologicaFechamentoDiario_(a).localeCompare(chaveCronologicaFechamentoDiario_(b));
   });
 
   if (!referencias.length) {
-    return JSON.stringify({ ok: true, status: "NADA_PENDENTE" });
+    return { ok: true, status: "NADA_PENDENTE" };
   }
 
   const resultados = referencias.map(function(data) {
@@ -383,5 +475,5 @@ function executarFechamentoDiarioAutomatico() {
       return { ok: false, status: "ERRO", data: data, erro: mensagemErroAplicacao_(erro, "Falha no fechamento diário automático.") };
     }
   });
-  return JSON.stringify({ ok: true, status: "PROCESSADO", resultados: resultados });
+  return { ok: resultados.every(function(resultado) { return resultado.ok; }), status: "PROCESSADO", resultados: resultados };
 }

@@ -487,6 +487,56 @@ test("fechamento bloqueia divergência entre os pagamentos e o total e preserva 
   assert.equal(spreadsheet.getSheetByName("Fechamentos_Diarios"), null);
 });
 
+test("a virada fecha a véspera, mantém pendências e preserva o comprovante", () => {
+  const { context, spreadsheet } = createContext();
+  context.Utilities.formatDate = (data, _fuso, formato) => {
+    const partes = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(data);
+    return formato === "dd/MM/yyyy, HH:mm:ss" ? partes + ", 20:00:00" : partes;
+  };
+  const vendas = context.garantirEstruturaVendasHojeCompleta_(spreadsheet);
+  vendas.appendRow(["31/07/2026, 20:00:00", "#31@ontem", 2, "Bauru", "PIX", 28, "TAPIOCA", 14]);
+  vendas.appendRow(["01/08/2026, 00:01:00", "#32@hoje", 1, "Pizza", "Dinheiro", 13, "TAPIOCA", 13]);
+  const pendente = { numero: 33, timestampCriacao: Date.parse("2026-07-31T22:30:00-03:00") };
+  context.carregarFilaPdvAtivos_ = () => [pendente];
+  const verificarVirada = () => context.processarFechamentoDiarioAutomatico_(new Date("2026-08-01T00:02:00-03:00"));
+  assert.equal(verificarVirada().resultados[0].status, "BLOQUEADO_PENDENCIAS");
+  assert.equal(vendas.getLastRow(), 3);
+  context.carregarFilaPdvAtivos_ = () => [];
+  assert.equal(verificarVirada().resultados[0].status, "CONCLUIDO");
+  assert.equal(vendas.getLastRow(), 2);
+  assert.equal(vendas.get(2, 2), "#32@hoje");
+  assert.equal(verificarVirada().status, "NADA_PENDENTE");
+  const fechamentos = spreadsheet.getSheetByName("Fechamentos_Diarios");
+  assert.equal(fechamentos.getLastRow(), 2);
+  assert.equal(fechamentos.get(2, 2), 28);
+  const salvo = fechamentos.get(2, 11);
+  assert.match(salvo, /R\$\s28,00/);
+  assert.match(salvo, />2 un</);
+  assert.equal(context.obterPrintFechamentoDiario("31/07/2026").svg, salvo);
+  assert.equal(context.listarFechamentosDiarios("2026-07")[0].automatico, true);
+  assert.equal(context.listarFechamentosDiarios("2026-08").length, 0);
+
+  const semVendas = context.processarFechamentoDiarioAutomatico_(new Date("2026-08-03T00:02:00-03:00"));
+  assert.equal(semVendas.resultados[1].data, "02/08/2026");
+  assert.equal(semVendas.resultados[1].resumo.total, 0);
+  assert.equal(fechamentos.get(4, 2), 0);
+});
+
+test("histórico diário aceita Admin e Eliel e recusa Produção e visitantes", () => {
+  const { context } = createContext();
+  const tokens = ["admin", "eliel", "producao"].map(perfil => context.criarSessaoAcesso_(perfil, perfil).token);
+  for (const [acao, argumentos] of [["listarFechamentosDiarios", ["2026-07"]], ["obterPrintFechamentoDiario", ["28/07/2026"]]]) {
+    assert.throws(() => context.executarAcaoApi_(acao, argumentos, ""), erro => erro.code === "AUTH_REQUIRED");
+    assert.throws(() => context.executarAcaoApi_(acao, argumentos, tokens[2]), erro => erro.code === "PERMISSION_DENIED");
+    for (const token of tokens.slice(0, 2)) {
+      if (acao === "listarFechamentosDiarios") assert.equal(context.executarAcaoApi_(acao, argumentos, token).ok, true);
+      else assert.throws(() => context.executarAcaoApi_(acao, argumentos, token), erro => erro.code === "INVALID_CLOSURE");
+    }
+  }
+});
+
 test("falha na conferência do fechamento preserva os dados para nova tentativa", () => {
   const { context, spreadsheet } = createContext();
   const vendas = context.garantirEstruturaVendasHojeCompleta_(spreadsheet);
