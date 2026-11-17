@@ -1100,6 +1100,7 @@
 
     <script>
         let historicoNuvem = []; let vendasHojePersistidas = []; let vendasHojeOcultas = new Set(); let ultimaSincronizacaoVendasHoje = 0; let carrinho = []; let contadorPedidos = 1; let pedidoEmEdicao = null; let pedidoAguardandoPagamento = null;
+        let itensOriginaisEdicao = null;
         let operacaoPedidoEmAndamento = null; let idRequisicaoPedidoAtual = null;
         let pedidosOnlinePendentes = []; let totalOnlineAnterior = 0; let campainhaOnlineAtiva = true; let codigosOnlineAlertados = new Set(); let contextoAudioOnline = null; let wakeLockOnline = null;
         let abaAtivaCatalogo = null; let baseSelecionadaMonte = null; let syncAtivo = null; let ultimoQtdHojeEnviado = -1;
@@ -1467,8 +1468,9 @@
                                 }
                                 historicoNuvem = novaNuvem;
                                 sincronizarContadorGlobal();
-                                atualizarTudo();
-                                if (novaNuvem.length < quantidadeAnterior) atualizarVendasHojePersistidas();
+                                const filaDiminuiu = novaNuvem.length < quantidadeAnterior;
+                                atualizarTudo(filaDiminuiu);
+                                if (filaDiminuiu) atualizarVendasHojePersistidas();
                             }
                         }
                         atualizarPedidosOnline();
@@ -2238,10 +2240,6 @@
         function removerItemCarrinho(index) { carrinho.splice(index, 1); atualizarCarrinho(); }
 
         function carregarParaEdicao(numero) {
-            if (acessoEhProducao()) {
-                mostrarAlerta("O perfil Produção não possui acesso à edição de pedidos.");
-                return;
-            }
             if (operacaoPedidoEmAndamento) {
                 mostrarAlerta("Aguarde o lançamento atual terminar antes de editar outro pedido.");
                 return;
@@ -2253,8 +2251,13 @@
                 mostrarAlerta("O pedido não está mais disponível. Atualize o Caixa e tente novamente.");
                 return;
             }
+            if (pedido.timestamp) {
+                mostrarAlerta("O pedido já foi pago e não pode ser editado.");
+                return;
+            }
 
-            carrinho = JSON.parse(JSON.stringify(pedido.itens));
+            itensOriginaisEdicao = JSON.stringify(pedido.itens);
+            carrinho = JSON.parse(itensOriginaisEdicao);
             pedidoEmEdicao = numeroNormalizado;
             idRequisicaoPedidoAtual = pedido.idRequisicao || null;
 
@@ -2359,6 +2362,7 @@
                     historicoNuvem[index],
                     {
                         numero: contexto.numeroPedido,
+                        itensOriginaisEdicao: itensOriginaisEdicao,
                         itens: JSON.parse(JSON.stringify(carrinho)),
                         total: totalCarrinho,
                         produzido: isPronto
@@ -2493,7 +2497,10 @@
                 if(htmlItens !== '') {
                     let badgePagamento = pedido.timestamp ? `<span class="badge-status-cozinha badge-pago">PAGO</span>` : `<span class="badge-status-cozinha badge-pendente">PENDENTE</span>`; let badgeOrigem = pedido.origem === 'Online' ? `<span class="badge-status-cozinha" style="background: #339af0; margin-right: 5px; font-size: 0.85rem; padding: 3px 8px;">📲 APP</span> ` : '';
                     const dadosClienteProducao = pedido.origem === 'Online' ? renderizarBlocoClienteOnline(pedido, 'pedido-producao-cliente') : '';
-                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}${dadosClienteProducao}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
+                    const acaoEditar = !pedido.timestamp && acessoEhProducao()
+                        ? `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar tapioca</button>`
+                        : '';
+                    htmlBuffer += `<div class="card-producao"><h3><span style="display:flex; align-items:center;">${badgeOrigem}Pedido #${pedido.numero} <small style="color:var(--text-muted); font-size:0.8rem; margin-left:5px;">(${pedido.hora})</small></span>${badgePagamento}</h3>${htmlItens}${dadosClienteProducao}${acaoEditar}<button class="btn-forcar-baixa" onclick="excluirPedidoDeVez('${pedido.numero}')">🗑️ Excluir Pedido Travado</button></div>`;
                 } else {
                     pedido.produzido = true; checarBaixaCache(pedido);
                 }
@@ -2521,15 +2528,25 @@
             }
 
             travarSyncTemporariamente();
+            const itensAlterados = itemAtual.pronto ? [] : [itemAtual];
             itemAtual.pronto = true;
             for (let i = indice + 1; i < p.itens.length; i++) {
-                if (p.itens[i].tipo === 'extra') { p.itens[i].pronto = true; } else if (p.itens[i].tipo !== 'bebida') { break; }
+                const item = p.itens[i];
+                if (item.tipo === 'extra') {
+                    if (!item.pronto) itensAlterados.push(item);
+                    item.pronto = true;
+                } else if (item.tipo !== 'bebida') break;
             }
             p.produzido = p.itens.filter(i => i.tipo !== 'bebida').every(i => i.pronto === true);
 
             if(typeof google !== 'undefined') {
                 google.script.run
                     .withFailureHandler(function(erro) {
+                        if (historicoNuvem.includes(p)) {
+                            itensAlterados.forEach(item => { item.pronto = false; });
+                            p.produzido = p.itens.filter(i => i.tipo !== 'bebida').every(i => i.pronto === true);
+                            atualizarTudo();
+                        }
                         mostrarAlerta((erro && erro.message) || 'Não foi possível atualizar o estado do pedido.');
                     })
                     .atualizarEstadoProducao(JSON.stringify(p));
@@ -2547,7 +2564,8 @@
             pendentesPainel.forEach(pedido => {
                 const statusHtml = pedido.produzido ? '<span class="status-badge status-pronto">✓ PRONTO</span>' : '<span class="status-badge status-preparo">⏳ COZINHA</span>';
                 const itensTxt = pedido.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
-                const acaoEditar = acessoEhProducao() ? '' : `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ Editar</button>`;
+                const rotuloEdicao = acessoEhProducao() ? 'Editar tapioca' : 'Editar';
+                const acaoEditar = `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ ${rotuloEdicao}</button>`;
                 htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel">${acaoEditar}<button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')">💳 Pagar</button></div></div>`;
             });
             lista.innerHTML = htmlBuffer;
@@ -2720,13 +2738,27 @@
                 .carregarVendasHojePersistidas();
         }
 
-        function atualizarTudo() {
-            let qtdHoje = 0;
-
-            vendasHojeCompletas().forEach(v => {
-                (v.itens || []).forEach(i => { if(i.tipo === 'tapioca' || i.tipo === 'extra') qtdHoje += Number(i.quantidade) || 0; });
+        function quantidadeTapiocasFeitasHoje() {
+            function somarItens(itens) {
+                return (itens || []).reduce(function(total, item) {
+                    return item.tipo === 'tapioca' || item.tipo === 'extra'
+                        ? total + (Number(item.quantidade) || 0)
+                        : total;
+                }, 0);
+            }
+            const porPedido = new Map();
+            vendasHojeCompletas().forEach(venda => {
+                porPedido.set(chaveVendaHoje(venda), somarItens(venda.itens));
             });
+            historicoNuvem.forEach(pedido => {
+                if (!pedido || !(ehHoje(pedido.timestampCriacao) || ehHoje(pedido.timestamp))) return;
+                const chave = chaveVendaHoje(pedido);
+                porPedido.set(chave, somarItens((pedido.itens || []).filter(item => item.pronto === true)));
+            });
+            return Array.from(porPedido.values()).reduce((total, quantidade) => total + quantidade, 0);
+        }
 
+        function atualizarTudo(preservarContador) {
             historicoNuvem.forEach(v => {
                 let itensCozinha = v.itens.filter(i => i.tipo !== 'bebida');
                 if (itensCozinha.length === 0 || itensCozinha.every(i => i.pronto === true)) {
@@ -2734,7 +2766,9 @@
                 }
             });
 
-            document.getElementById('btnTopoTapiocas').textContent = `🌮 ${qtdHoje}`;
+            if (preservarContador !== true) {
+                document.getElementById('btnTopoTapiocas').textContent = `🌮 ${quantidadeTapiocasFeitasHoje()}`;
+            }
 
             let pendentesCozinha = historicoNuvem.filter(p => !p.produzido && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))).length;
             let pendentesCaixa = historicoNuvem.filter(p => !p.timestamp && ehHoje(p.timestampCriacao)).length;
@@ -3101,6 +3135,7 @@
 
             carrinho = [];
             pedidoEmEdicao = null;
+            itensOriginaisEdicao = null;
             idRequisicaoPedidoAtual = null;
             if (forcarDuranteOperacao) {
                 operacaoPedidoEmAndamento = null;

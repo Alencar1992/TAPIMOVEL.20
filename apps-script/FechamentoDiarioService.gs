@@ -289,13 +289,7 @@ function obterPreviaFechamentoDiario(dataReferencia) {
   resumo.pedidosPendentes = pendentes.length;
   resumo.linhasVendasHoje = linhasDia.length;
 
-  const somaPagamentos = Math.round((
-    Number(resumo.dinheiro || 0) +
-    Number(resumo.pix || 0) +
-    Number(resumo.credito || 0) +
-    Number(resumo.debito || 0) +
-    Number(resumo.vr || 0)
-  ) * 100) / 100;
+  const somaPagamentos = somaPagamentosFechamentoDiario_(resumo);
   const divergenciaPagamentos = Math.abs(somaPagamentos - Number(resumo.total || 0)) > 0.005;
 
   let status = "PRONTO";

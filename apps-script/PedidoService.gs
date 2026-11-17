@@ -279,7 +279,16 @@ function registrarPedidoPdv(pedidoJSON) {
   }
 }
 
-function atualizarPedidoPdv(pedidoJSON) {
+function chaveItemEditadoPdv_(item) {
+  return JSON.stringify([
+    item.nome, item.tipo, Number(item.quantidade), Number(item.preco),
+    item.obs || "", item.categoriaAdicional || "",
+    Array.isArray(item.adicionais) ? item.adicionais : [],
+    Array.isArray(item.personalizacoes) ? item.personalizacoes : []
+  ]);
+}
+
+function atualizarPedidoPdv(pedidoJSON, exigirContextoEdicao) {
   const recebido = JSON.parse(pedidoJSON || "{}");
   const numero = Number(recebido.numero);
   if (!Number.isInteger(numero) || numero < 1) {
@@ -299,29 +308,54 @@ function atualizarPedidoPdv(pedidoJSON) {
     }
 
     const pedidoAnterior = ativos[indice];
-    const pedido = pedidoNormalizado;
-    pedido.numero = numero;
-    pedido.timestampCriacao = pedidoAnterior.timestampCriacao;
-    pedido.hora = pedidoAnterior.hora;
+    if (pedidoAnterior.timestamp) {
+      throw erroApi_("ORDER_PAID", "O pedido já foi pago e não pode ser editado.");
+    }
+    if ((exigirContextoEdicao === true && typeof recebido.itensOriginaisEdicao !== "string") ||
+        (recebido.timestampCriacao && Number(recebido.timestampCriacao) !== Number(pedidoAnterior.timestampCriacao)) ||
+        (recebido.idRequisicao && pedidoAnterior.idRequisicao && recebido.idRequisicao !== pedidoAnterior.idRequisicao) ||
+        (typeof recebido.itensOriginaisEdicao === "string" &&
+         recebido.itensOriginaisEdicao !== JSON.stringify(pedidoAnterior.itens))) {
+      throw erroApi_("ORDER_CHANGED", "O pedido mudou. Abra-o novamente no Caixa antes de editar.");
+    }
+
+    const prontos = new Map();
+    (pedidoAnterior.itens || []).forEach(function(item) {
+      if (item.pronto !== true) return;
+      const chave = chaveItemEditadoPdv_(item);
+      prontos.set(chave, (prontos.get(chave) || 0) + 1);
+    });
+    pedidoNormalizado.itens.forEach(function(item) {
+      const chave = chaveItemEditadoPdv_(item);
+      const quantidade = prontos.get(chave) || 0;
+      item.pronto = quantidade > 0;
+      if (item.pronto) prontos.set(chave, quantidade - 1);
+    });
+    const pedido = Object.assign({}, pedidoAnterior, {
+      itens: pedidoNormalizado.itens,
+      total: pedidoNormalizado.total,
+      produzido: pedidoNormalizado.itens.filter(item => item.tipo !== "bebida").every(item => item.pronto === true)
+    });
     pedido.idRequisicao = pedidoAnterior.idRequisicao ||
-      pedido.idRequisicao ||
+      pedidoNormalizado.idRequisicao ||
       "";
 
     try {
       removerDaBaseDeVendasBackend(numero);
       lancarPedidoPlanilha(JSON.stringify(pedido));
+      ativos[indice] = pedido;
+      substituirFilaPdvAtivos_(ativos, true);
     } catch (erro) {
       try {
+        const persistido = carregarFilaPdvAtivos_().find(item => Number(item.numero) === numero);
         removerDaBaseDeVendasBackend(numero);
-        lancarPedidoPlanilha(JSON.stringify(pedidoAnterior));
+        if (persistido) lancarPedidoPlanilha(JSON.stringify(persistido));
       } catch (erroRestauracao) {
         console.error("Falha ao restaurar pedido após erro de atualização:", erroRestauracao);
       }
       throw erro;
     }
 
-    ativos[indice] = pedido;
-    substituirFilaPdvAtivos_(ativos);
     return pedido;
   } finally {
     lock.releaseLock();
