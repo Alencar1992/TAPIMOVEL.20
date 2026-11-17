@@ -272,7 +272,7 @@ function registrarPedidoPdv(pedidoJSON) {
     pedido.hora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
     ativos.push(pedido);
     lancarPedidoPlanilha(JSON.stringify(pedido));
-    substituirFilaPdvAtivos_(ativos);
+    substituirFilaPdvAtivos_(ativos, true);
     return pedido;
   } finally {
     lock.releaseLock();

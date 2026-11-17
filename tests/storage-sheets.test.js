@@ -29,6 +29,7 @@ test("contratos públicos continuam iguais e usam storage em Sheets", () => {
 function criarAmbiente() {
   let outraExecucaoComTrava = false;
   let falharGravacao = false;
+  let naConfirmacao = null;
   const cache = new Map();
 
   class Range {
@@ -113,7 +114,14 @@ function criarAmbiente() {
     deleteProperty: key => data.delete(key),
   };
   const context = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet, flush() {} },
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => spreadsheet,
+      flush() { if (naConfirmacao) naConfirmacao(); },
+    },
+    Utilities: {
+      formatDate(_data, _fuso, formato) { return formato === "HH:mm" ? "15:30" : "2026-11-17"; },
+    },
+    Session: { getScriptTimeZone: () => "America/Sao_Paulo" },
     PropertiesService: { getScriptProperties: () => props },
     CacheService: {
       getScriptCache: () => ({
@@ -134,17 +142,41 @@ function criarAmbiente() {
   };
 
   const bloco = code + `\nthis.__storage = {
-    carregarDadosNuvem, listarPedidosOnlinePendentes,
+    registrarPedidoPdv, carregarDadosNuvem, listarPedidosOnlinePendentes,
     carregarFilaPdvAtivos_, substituirFilaPdvAtivos_,
     carregarFilaPedidosOnlinePendentes_, substituirFilaPedidosOnlinePendentes_
   };`;
   vm.runInNewContext(bloco, context);
+  context.obterConfiguracaoOperacional = () => "{}";
+  context.lancarPedidoPlanilha = () => {};
   return {
     spreadsheet, props, data, api: context.__storage,
     simularOutraExecucaoComTrava: valor => { outraExecucaoComTrava = valor; },
     simularFalhaDeGravacao: valor => { falharGravacao = valor; },
+    duranteConfirmacao: executar => { naConfirmacao = executar; },
   };
 }
+
+test("lançamento confirmado fica imediatamente disponível durante a próxima trava", () => {
+  const env = criarAmbiente();
+  assert.deepEqual(JSON.parse(env.api.carregarDadosNuvem()), []);
+  const novo = JSON.stringify({
+    idRequisicao: "pdv-20261117-abcdefghijkl",
+    itens: [{ nome: "Tapioca teste", tipo: "tapioca", quantidade: 1, preco: 10 }]
+  });
+  env.duranteConfirmacao(() => {
+    env.simularOutraExecucaoComTrava(true);
+    assert.throws(() => env.api.carregarDadosNuvem(), /Tempo limite do bloqueio/);
+    env.simularOutraExecucaoComTrava(false);
+  });
+  const registrado = env.api.registrarPedidoPdv(novo);
+  env.simularOutraExecucaoComTrava(true);
+  const fila = JSON.parse(env.api.carregarDadosNuvem());
+  assert.equal(fila.length, 1);
+  assert.equal(fila[0].idRequisicao, registrado.idRequisicao);
+  assert.equal(fila[0].itens[0].nome, "Tapioca teste");
+  assert.equal(fila[0].total, 10);
+});
 
 test("leituras simultâneas exibem a última fila confirmada durante uma trava", () => {
   const env = criarAmbiente();

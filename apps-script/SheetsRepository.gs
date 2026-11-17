@@ -317,6 +317,17 @@ function lerCacheFilaOperacional_(cache, chave) {
   }
 }
 
+function salvarCacheFilaOperacional_(cache, chave, fila) {
+  if (!cache || !chave) return;
+  try {
+    const serializada = JSON.stringify(fila);
+    // Limita a 90 KB mesmo para texto UTF-8 com três bytes por unidade UTF-16.
+    if (serializada.length <= 30000) cache.put(chave, serializada, 4);
+  } catch (_) {
+    // A planilha permanece como fonte da próxima consulta.
+  }
+}
+
 function consultarFilaOperacional_(nomeAba, carregarFila) {
   const cache = CacheService.getScriptCache();
   const chave = chaveCacheFilaOperacional_(SpreadsheetApp.getActiveSpreadsheet(), nomeAba);
@@ -330,27 +341,23 @@ function consultarFilaOperacional_(nomeAba, carregarFila) {
     if (cacheAposLock) return cacheAposLock;
 
     const fila = carregarFila();
-    const serializada = JSON.stringify(fila);
-    // Limita a 90 KB mesmo para texto UTF-8 com três bytes por unidade UTF-16.
-    if (serializada.length <= 30000) {
-      try {
-        cache.put(chave, serializada, 4);
-      } catch (_) {
-        // A consulta já foi respondida pela fonte oficial.
-      }
-    }
+    salvarCacheFilaOperacional_(cache, chave, fila);
     return fila;
   } finally {
     lock.releaseLock();
   }
 }
 
-function gravarFilaNaAba_(nomeAba, pedidos) {
+function gravarFilaNaAba_(nomeAba, pedidos, atualizarConsulta) {
   const lista = Array.isArray(pedidos) ? pedidos : [];
   const planilha = SpreadsheetApp.getActiveSpreadsheet();
   const aba = obterOuCriarAbaFila_(nomeAba);
+  let cache;
+  let chave;
   try {
-    CacheService.getScriptCache().remove(chaveCacheFilaOperacional_(planilha, nomeAba));
+    cache = CacheService.getScriptCache();
+    chave = chaveCacheFilaOperacional_(planilha, nomeAba);
+    cache.remove(chave);
   } catch (_) {
     // A cópia de consulta expira em poucos segundos.
   }
@@ -376,6 +383,7 @@ function gravarFilaNaAba_(nomeAba, pedidos) {
 
   aba.getRange(2, 1, quantidadeLinhas, colunas).setValues(linhas);
   SpreadsheetApp.flush();
+  if (atualizarConsulta === true) salvarCacheFilaOperacional_(cache, chave, lista);
 }
 
 function mesclarFilasSemDuplicar_(atual, legado) {
@@ -433,8 +441,8 @@ function carregarFilaPdvAtivos_() {
   );
 }
 
-function substituirFilaPdvAtivos_(pedidos) {
-  gravarFilaNaAba_(ABA_STORAGE_PDV_ATIVOS_, pedidos);
+function substituirFilaPdvAtivos_(pedidos, atualizarConsulta) {
+  gravarFilaNaAba_(ABA_STORAGE_PDV_ATIVOS_, pedidos, atualizarConsulta);
   obterScriptProperties_().deleteProperty(CHAVE_LEGADA_PDV_ATIVOS_);
 }
 
