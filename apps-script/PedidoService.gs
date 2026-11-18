@@ -479,7 +479,7 @@ function registrarPedidoOnline(pedidoJSON) {
 }
 
 function listarPedidosOnlinePendentes() {
-  const pendentes = consultarFilaOperacional_(ABA_STORAGE_ONLINE_PENDENTES_, carregarFilaPedidosOnlinePendentes_);
+  const pendentes = consultarFilaOperacional_(ABA_STORAGE_ONLINE_PENDENTES_, CHAVE_LEGADA_ONLINE_PENDENTES_, carregarFilaPedidosOnlinePendentes_);
   return pendentes.sort(function(a, b) {
     return Number(a.timestampCriacao || 0) - Number(b.timestampCriacao || 0);
   });

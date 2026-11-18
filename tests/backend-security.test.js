@@ -1233,3 +1233,63 @@ test("configuração operacional migra legado e persiste no Google Sheets", () =
   assert.ok(recarregada.rotas["2"].includes("ROTA TESTE"));
   assert.equal(properties.has("tapimovel_config_operacional_v1"), false);
 });
+
+test("reenvio após baixa usa a identidade original e não paga outro pedido com o mesmo número", () => {
+  const { context, spreadsheet } = createContext();
+  const pedido = {
+    numero: 4, timestampCriacao: 1111, produzido: true, total: 14,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: true }]
+  };
+  const pagamento = JSON.stringify({ ...pedido, formaPagamento: "PIX" });
+  context.substituirFilaPdvAtivos_([pedido]);
+  const confirmado = context.finalizarPagamentoProducao(pagamento);
+  assert.equal(context.consultarPagamentoProducao(pagamento).estado, "confirmado");
+
+  context.substituirFilaPdvAtivos_([{ ...pedido, timestampCriacao: 2222 }]);
+  const repetido = context.finalizarPagamentoProducao(pagamento);
+  assert.equal(repetido.timestamp, confirmado.timestamp);
+  const ativos = JSON.parse(context.carregarDadosNuvem());
+  assert.equal(ativos.length, 1);
+  assert.equal(ativos[0].timestampCriacao, 2222);
+  assert.equal(ativos[0].timestamp, undefined);
+  assert.equal(spreadsheet.getSheetByName("Livro_Transacoes").getLastRow(), 2);
+  assert.equal(spreadsheet.getSheetByName("Vendas_hoje").getLastRow(), 2);
+});
+
+test("pagamento parcial é retomado pela informação já gravada no livro", () => {
+  const { context, spreadsheet } = createContext();
+  const pedido = {
+    numero: 5, timestampCriacao: 3333, produzido: true, total: 14,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: true }]
+  };
+  const pagamento = JSON.stringify({ ...pedido, formaPagamento: "Dinheiro", troco: 6 });
+  context.substituirFilaPdvAtivos_([pedido]);
+  const substituirFila = context.substituirFilaPdvAtivos_;
+  context.substituirFilaPdvAtivos_ = () => { throw new Error("Falha na fila"); };
+  assert.throws(() => context.finalizarPagamentoProducao(pagamento), /Falha na fila/);
+  assert.equal(context.consultarPagamentoProducao(pagamento).estado, "retomar");
+
+  context.substituirFilaPdvAtivos_ = substituirFila;
+  const recuperado = context.finalizarPagamentoProducao(JSON.stringify({ ...pedido, formaPagamento: "PIX" }));
+  assert.equal(recuperado.formaPagamento, "Dinheiro");
+  assert.equal(recuperado.troco, 6);
+  assert.equal(context.consultarPagamentoProducao(pagamento).estado, "confirmado");
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+  assert.equal(spreadsheet.getSheetByName("Livro_Transacoes").getLastRow(), 2);
+  assert.equal(spreadsheet.getSheetByName("Vendas_hoje").getLastRow(), 2);
+});
+
+test("cancelamento aceita um segundo pedido válido e rejeita número inválido sem remover a fila", () => {
+  const { context, spreadsheet } = createContext();
+  const criar = numero => ({
+    numero, timestampCriacao: 1000 + numero, produzido: true, total: 14,
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14, pronto: true }]
+  });
+  context.substituirFilaPdvAtivos_([criar(1), criar(2)]);
+  context.cancelarPedidoProducao(1, JSON.stringify(criar(1)));
+  assert.throws(() => context.cancelarPedidoProducao(""), erro => erro.code === "INVALID_ORDER");
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 1);
+  context.cancelarPedidoProducao(2, JSON.stringify(criar(2)));
+  assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
+  assert.equal(spreadsheet.getSheetByName("Pedidos Cancelados").getLastRow(), 3);
+});

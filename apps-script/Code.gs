@@ -322,7 +322,7 @@ const CABECALHO_STORAGE_PEDIDOS_ = [
 // 2. SISTEMA DE NUVEM (BLINDADO COM LOCKSERVICE)
 // =========================================================
 function carregarDadosNuvem() {
-  return JSON.stringify(consultarFilaOperacional_(ABA_STORAGE_PDV_ATIVOS_, carregarFilaPdvAtivos_));
+  return JSON.stringify(consultarFilaOperacional_(ABA_STORAGE_PDV_ATIVOS_, CHAVE_LEGADA_PDV_ATIVOS_, carregarFilaPdvAtivos_));
 }
 
 function salvarNuvemCompleta(historicoJSON) {

@@ -166,7 +166,7 @@ test("lançamento confirmado fica imediatamente disponível durante a próxima t
   });
   env.duranteConfirmacao(() => {
     env.simularOutraExecucaoComTrava(true);
-    assert.throws(() => env.api.carregarDadosNuvem(), /Tempo limite do bloqueio/);
+    assert.ok(Array.isArray(JSON.parse(env.api.carregarDadosNuvem())));
     env.simularOutraExecucaoComTrava(false);
   });
   const registrado = env.api.registrarPedidoPdv(novo);
@@ -194,6 +194,19 @@ test("leituras simultâneas exibem a última fila confirmada durante uma trava",
   env.api.substituirFilaPedidosOnlinePendentes_([]);
   assert.deepEqual(JSON.parse(env.api.carregarDadosNuvem()), [{ numero: 8, timestampCriacao: 333 }]);
   assert.equal(env.api.listarPedidosOnlinePendentes().length, 0);
+});
+
+test("fila inicializada continua legível sem cache durante uma trava", () => {
+  const env = criarAmbiente();
+  env.api.substituirFilaPdvAtivos_([{ numero: 7, timestampCriacao: 111 }]);
+  env.api.substituirFilaPedidosOnlinePendentes_([{ codigoOnline: "ON003", timestampCriacao: 222 }]);
+
+  env.simularOutraExecucaoComTrava(true);
+  assert.equal(JSON.parse(env.api.carregarDadosNuvem())[0].numero, 7);
+  assert.equal(env.api.listarPedidosOnlinePendentes()[0].codigoOnline, "ON003");
+
+  env.props.setProperty("pdv_vendas_ativas", "[]");
+  assert.throws(() => env.api.carregarDadosNuvem(), /Tempo limite do bloqueio/);
 });
 
 test("uma gravação rejeitada preserva a fila anterior", () => {

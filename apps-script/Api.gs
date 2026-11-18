@@ -94,6 +94,7 @@ function executarAcaoApi_(action, args, token) {
     "atualizarPedidoPdv",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
+    "consultarPagamentoProducao",
     "cancelarPedidoProducao",
     "excluirPedidoTravadoProducao",
     "salvarDisponibilidadeCardapio"
@@ -149,6 +150,7 @@ function executarAcaoApi_(action, args, token) {
     "configurarPinProducao",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
+    "consultarPagamentoProducao",
     "cancelarPedidoProducao",
     "excluirPedidoTravadoProducao"
   ];

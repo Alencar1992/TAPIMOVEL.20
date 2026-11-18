@@ -251,6 +251,12 @@
            <div class="tapioca-loading-bar" aria-hidden="true"></div>
        </div>
    </div>
+   <div id="falhaAberturaPdv" class="modal-overlay" style="z-index: 8000;" role="alertdialog" aria-labelledby="mensagemFalhaAberturaPdv">
+       <div class="modal-content">
+           <p id="mensagemFalhaAberturaPdv">Não foi possível carregar os pedidos. Tente novamente.</p>
+           <button type="button" class="btn-acao" onclick="iniciarAplicacaoAdmin()">Tentar novamente</button>
+       </div>
+   </div>
    <div id="toast-container"></div>
 
     <div id="modalAlerta" class="modal-overlay" style="z-index: 4000;">
@@ -1473,6 +1479,9 @@
 
         function sincronizarContadorGlobal() { let maxNum = 0; historicoNuvem.forEach(p => { if(p.numero > maxNum && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))) maxNum = parseInt(p.numero); }); if (maxNum >= contadorPedidos) contadorPedidos = maxNum + 1; }
 
+        let versaoPagamento = 0;
+        const pagamentosEmConferencia = new Map();
+
         function iniciarSyncEmTempoReal() {
             if (syncAtivo) clearTimeout(syncAtivo);
 
@@ -1482,10 +1491,11 @@
                     return;
                 }
                 syncEmAndamento = true;
+                const versaoSolicitada = versaoPagamento;
                 if(typeof google !== 'undefined') {
                     google.script.run.withSuccessHandler(function(resposta) {
                         syncEmAndamento = false;
-                        if (!pausarSync) {
+                        if (!pausarSync && versaoSolicitada === versaoPagamento) {
                             let novaNuvem = normalizarRespostaApi(resposta) || [];
                             if(JSON.stringify(historicoNuvem) !== JSON.stringify(novaNuvem)) {
                                 const quantidadeAnterior = historicoNuvem.length;
@@ -1531,6 +1541,7 @@
             syncAtivo = null;
             pausarSync = true;
             document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('falhaAberturaPdv').style.display = 'none';
             document.getElementById('loginAdmin').style.display = 'flex';
             document.getElementById('loginAdminErro').textContent = mensagem || '';
             const eliel = modoAcessoEsperado === 'eliel';
@@ -1644,6 +1655,18 @@
         }
 
         function iniciarAplicacaoAdmin() {
+            const carregamento = document.getElementById('loadingScreen');
+            const falhaAbertura = document.getElementById('falhaAberturaPdv');
+            falhaAbertura.style.display = 'none';
+            carregamento.style.display = 'flex';
+            document.getElementById('loadingText').textContent = 'Carregando pedidos...';
+            function mostrarFalhaAbertura(erro) {
+                carregamento.style.display = 'none';
+                if (erro && erro.code === 'AUTH_REQUIRED') return;
+                falhaAbertura.style.display = 'flex';
+                falhaAbertura.querySelector('button').focus();
+            }
+
             try {
                 let dataHoje = new Date();
                 carregarDisponibilidadeCardapio();
@@ -1688,16 +1711,15 @@
                             btnMenuCombustivel.value = `${dataHoje.getFullYear()}-${("0" + (dataHoje.getMonth() + 1)).slice(-2)}-${("0" + dataHoje.getDate()).slice(-2)}`;
                         }
 
-                    }).withFailureHandler(function(erro) {
-                        document.getElementById('loadingText').innerHTML = "Falha de Conexão. Recarregue a página.<br><small style='color:var(--danger);'>" + erro.message + "</small>";
-                    }).carregarDadosNuvem();
+                    }).withFailureHandler(mostrarFalhaAbertura).carregarDadosNuvem();
                 } else {
                     document.getElementById('loadingScreen').style.display = 'none';
                     atualizarTudo();
                     if (acessoEhProducao()) mudarTela('view-producao');
                 }
             } catch (fatalError) {
-                document.getElementById('loadingText').innerHTML = "Erro Crítico de Tela. Recarregue.<br><small style='color:var(--danger);'>" + fatalError.message + "</small>";
+                console.error(fatalError);
+                mostrarFalhaAbertura(fatalError);
             }
         }
 
@@ -2598,51 +2620,75 @@
             pendentesPainel.forEach(pedido => {
                 const statusHtml = pedido.produzido ? '<span class="status-badge status-pronto">✓ PRONTO</span>' : '<span class="status-badge status-preparo">⏳ COZINHA</span>';
                 const itensTxt = pedido.itens.map(i => `${Number(i.quantidade) || 0}x ${escaparHtml(i.nome)}`).join(', ');
+                const conferencia = pagamentosEmConferencia.get(chaveVendaHoje(pedido));
+                const rotuloPagamento = conferencia ? (conferencia.ocupado ? 'Conferindo pagamento…' : 'Conferir pagamento') : '💳 Pagar';
                 const rotuloEdicao = acessoEhProducao() ? 'Editar tapioca' : 'Editar';
                 const acaoEditar = `<button class="btn-painel btn-p-editar" onclick="carregarParaEdicao('${pedido.numero}')">✏️ ${rotuloEdicao}</button>`;
-                htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel">${acaoEditar}<button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')">💳 Pagar</button></div></div>`;
+                htmlBuffer += `<div class="card-painel"><div class="card-painel-header"><span>#${pedido.numero} - ${statusHtml}</span><span>${formatarMoeda(pedido.total)}</span></div><div style="font-size:0.9rem; color:var(--text-muted);">${itensTxt}</div><div class="acoes-painel">${acaoEditar}<button class="btn-painel btn-p-cancelar" onclick="cancelarPedido('${pedido.numero}')">🗑️ Cancelar</button><button class="btn-painel btn-p-pagar" onclick="abrirModalPagamento('${pedido.numero}')" ${conferencia && conferencia.ocupado ? 'disabled' : ''}>${rotuloPagamento}</button></div></div>`;
             });
             lista.innerHTML = htmlBuffer;
         }
 
         function cancelarPedido(numero) {
             mostrarConfirmacao("Deseja CANCELAR o pedido #" + numero + "?", function() {
-                travarSyncTemporariamente();
-                const index = historicoNuvem.findIndex(p => p.numero == numero);
-                if(index === -1) return;
-                const pedido = historicoNuvem[index];
-                pedido.status = "Cancelado";
-                pedido.dataExibicao = new Date().toLocaleString('pt-BR');
-                historicoNuvem.splice(index, 1);
-                atualizarTudo();
-                if(typeof google !== 'undefined') {
-                    if (acessoEhProducao()) {
-                        google.script.run
-                            .withFailureHandler(function(erro) {
-                                mostrarAlerta(erro.message || 'Não foi possível cancelar o pedido.');
-                            })
-                            .cancelarPedidoProducao(pedido.numero);
-                    } else {
-                        google.script.run.moverParaCancelados(JSON.stringify(pedido));
-                        google.script.run.excluirVendaRealTime(pedido.numero);
-                        google.script.run.removerDaBaseDeVendasBackend(pedido.numero);
-                    }
+                const pedido = historicoNuvem.find(p => p.numero == numero && !p.timestamp && ehHoje(p.timestampCriacao));
+                if (!pedido) {
+                    mostrarAlerta('O pedido mudou. Confira a lista atualizada no Caixa.');
+                    return;
                 }
+                function removerConfirmado() {
+                    historicoNuvem = historicoNuvem.filter(p => chaveVendaHoje(p) !== chaveVendaHoje(pedido));
+                    versaoPagamento++;
+                    atualizarTudo();
+                }
+                if (typeof google === 'undefined') {
+                    removerConfirmado();
+                    return;
+                }
+                google.script.run.withSuccessHandler(removerConfirmado).withFailureHandler(function(erro) {
+                    mostrarAlerta(escaparHtml(erro.message || 'Não foi possível cancelar o pedido.'));
+                }).cancelarPedidoProducao(pedido.numero, JSON.stringify(pedido));
             });
         }
 
-        function abrirModalPagamento(numero) { pedidoAguardandoPagamento = numero; document.getElementById('numeroPedidoPagamento').textContent = numero; document.getElementById('modalPagamento').style.display = 'flex'; }
+        function pedidoSelecionadoParaPagamento() {
+            return historicoNuvem.find(pedido => !pedido.timestamp && chaveVendaHoje(pedido) === pedidoAguardandoPagamento);
+        }
 
-        function processarPagamento(forma) { const num = pedidoAguardandoPagamento; const ped = historicoNuvem.find(p => p.numero == num); if (!ped) return; if (forma === 'Dinheiro') { fecharModais(); pedidoAguardandoPagamento = num; document.getElementById('trocoTotalPedido').textContent = formatarMoeda(ped.total); document.getElementById('inputValorRecebido').value = ''; document.getElementById('valorDoTroco').textContent = 'R$ 0,00'; document.getElementById('btnConfirmarDinheiro').disabled = true; document.getElementById('modalTroco').style.display = 'flex'; } else { finalizarVenda(forma); } }
+        function abrirModalPagamento(numero) {
+            const pedido = historicoNuvem.find(p => p.numero == numero && !p.timestamp && ehHoje(p.timestampCriacao));
+            if (!pedido) {
+                mostrarAlerta('O pedido mudou. Confira a lista atualizada no Caixa.');
+                atualizarTudo();
+                return;
+            }
+            const chave = chaveVendaHoje(pedido);
+            const conferencia = pagamentosEmConferencia.get(chave);
+            if (conferencia) {
+                if (!conferencia.ocupado) conferencia.consultar();
+                return;
+            }
+            pedidoAguardandoPagamento = chave;
+            document.getElementById('numeroPedidoPagamento').textContent = numero;
+            document.getElementById('modalPagamento').style.display = 'flex';
+        }
+
+        function processarPagamento(forma) { const num = pedidoAguardandoPagamento; const ped = pedidoSelecionadoParaPagamento(); if (!ped) return; if (forma === 'Dinheiro') { fecharModais(); pedidoAguardandoPagamento = num; document.getElementById('trocoTotalPedido').textContent = formatarMoeda(ped.total); document.getElementById('inputValorRecebido').value = ''; document.getElementById('valorDoTroco').textContent = 'R$ 0,00'; document.getElementById('btnConfirmarDinheiro').disabled = true; document.getElementById('modalTroco').style.display = 'flex'; } else { finalizarVenda(forma); } }
 
         function finalizarVenda(forma) {
-            travarSyncTemporariamente();
-            const index = historicoNuvem.findIndex(p => p.numero == pedidoAguardandoPagamento);
-            if (index === -1) return;
+            const selecionado = pedidoSelecionadoParaPagamento();
+            if (!selecionado) {
+                fecharModais();
+                mostrarAlerta('O pedido mudou. Confira a lista atualizada no Caixa.');
+                atualizarTudo();
+                return;
+            }
 
-            const pedido = historicoNuvem[index];
+            const chave = chaveVendaHoje(selecionado);
+            if (pagamentosEmConferencia.has(chave)) return;
+            const pedido = JSON.parse(JSON.stringify(selecionado));
             const numeroSalvo = pedido.numero;
-            const estadoAnterior = JSON.parse(JSON.stringify(pedido));
+            const conferencia = { ocupado: true, consultar: consultarPersistencia };
 
             pedido.formaPagamento = forma;
             pedido.timestamp = new Date().getTime();
@@ -2654,9 +2700,18 @@
             }
 
             fecharModais();
+            pagamentosEmConferencia.set(chave, conferencia);
             atualizarTudo();
 
             function confirmarPersistencia(pedidoPersistido) {
+                pagamentosEmConferencia.delete(chave);
+                versaoPagamento++;
+                const indice = historicoNuvem.findIndex(item => chaveVendaHoje(item) === chave);
+                if (indice !== -1) {
+                    if (pedidoPersistido.produzido) historicoNuvem.splice(indice, 1);
+                    else historicoNuvem[indice] = pedidoPersistido;
+                }
+
                 let audioCaixa = document.getElementById('somCaixa');
                 if(audioCaixa) audioCaixa.play().catch(e => console.log(e));
 
@@ -2683,10 +2738,35 @@
                 mostrarConfirmacaoPagamento(numeroSalvo);
             }
 
-            function restaurarAposFalha(erro) {
-                historicoNuvem[index] = estadoAnterior;
+            function resultadoIndeterminado() {
+                conferencia.ocupado = false;
                 atualizarTudo();
-                mostrarAlerta((erro && erro.message) || 'Não foi possível finalizar o pagamento.');
+                mostrarAlerta('Ainda não foi possível confirmar o pagamento. Use “Conferir pagamento” no Caixa antes de registrar novamente.');
+            }
+
+            function consultarPersistencia() {
+                conferencia.ocupado = true;
+                atualizarTudo();
+                // A consulta usa a mesma identidade da operação, mesmo se o número já foi reutilizado.
+                google.script.run.withSuccessHandler(function(resultado) {
+                    if (resultado.estado === 'confirmado') {
+                        confirmarPersistencia(resultado.pedido);
+                    } else if (resultado.estado === 'pendente' || resultado.estado === 'retomar') {
+                        pagamentosEmConferencia.delete(chave);
+                        atualizarTudo();
+                        mostrarAlerta(resultado.estado === 'retomar'
+                            ? 'A baixa começou. Tente concluir o pagamento novamente. O registro será reaproveitado.'
+                            : 'O pagamento ainda está pendente. Confira o recebimento antes de tentar novamente.');
+                    } else {
+                        resultadoIndeterminado();
+                    }
+                }).withFailureHandler(function(erro) {
+                    if (erro && erro.code === 'AUTH_REQUIRED') {
+                        pagamentosEmConferencia.delete(chave);
+                        return;
+                    }
+                    resultadoIndeterminado();
+                }).consultarPagamentoProducao(JSON.stringify(selecionado));
             }
 
             if(typeof google !== 'undefined') {
@@ -2694,24 +2774,27 @@
                     .withSuccessHandler(function(pedidoPersistido) {
                         confirmarPersistencia(pedidoPersistido);
                     })
-                    .withFailureHandler(restaurarAposFalha)
+                    .withFailureHandler(function(erro) {
+                        if (erro && erro.code === 'AUTH_REQUIRED') pagamentosEmConferencia.delete(chave);
+                        else consultarPersistencia();
+                    })
                     .finalizarPagamentoProducao(JSON.stringify(pedido));
             } else {
-                confirmarPersistencia();
+                confirmarPersistencia(pedido);
             }
         }
 
         function maskCurrency(e) { let value = e.target.value.replace(/\D/g, ''); if (value === '') { e.target.value = ''; if(e.target.id === 'inputValorRecebido') calcularTroco(); else calcularTotalMisto(); return; } value = (parseInt(value, 10) / 100).toFixed(2); value = value.replace('.', ','); value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.'); e.target.value = value; if(e.target.id === 'inputValorRecebido') calcularTroco(); else calcularTotalMisto(); }
         function parseDinheiro(val) { if (!val) return 0; return parseFloat(String(val).replace(/\./g, '').replace(',', '.')) || 0; }
-        function preencherValorExato() { const pedido = historicoNuvem.find(p => p.numero == pedidoAguardandoPagamento); if (!pedido) return; document.getElementById('inputValorRecebido').value = pedido.total.toFixed(2).replace('.', ','); calcularTroco(); }
+        function preencherValorExato() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; document.getElementById('inputValorRecebido').value = pedido.total.toFixed(2).replace('.', ','); calcularTroco(); }
 
-        function calcularTroco() { const pedido = historicoNuvem.find(p => p.numero == pedidoAguardandoPagamento); if (!pedido) return; let recebido = parseDinheiro(document.getElementById('inputValorRecebido').value); const spanTroco = document.getElementById('valorDoTroco'); const btn = document.getElementById('btnConfirmarDinheiro'); let troco = recebido - pedido.total; troco = Math.round(troco * 100) / 100; if (recebido === 0) { spanTroco.textContent = 'R$ 0,00'; spanTroco.parentElement.style.background = 'var(--troco-bg)'; btn.disabled = true; return; } if (troco >= 0) { spanTroco.textContent = formatarMoeda(troco); spanTroco.parentElement.style.background = 'var(--troco-bg)'; btn.disabled = false; } else { spanTroco.textContent = "Faltam " + formatarMoeda(Math.abs(troco)); spanTroco.parentElement.style.background = 'var(--danger)'; btn.disabled = true; } }
+        function calcularTroco() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; let recebido = parseDinheiro(document.getElementById('inputValorRecebido').value); const spanTroco = document.getElementById('valorDoTroco'); const btn = document.getElementById('btnConfirmarDinheiro'); let troco = recebido - pedido.total; troco = Math.round(troco * 100) / 100; if (recebido === 0) { spanTroco.textContent = 'R$ 0,00'; spanTroco.parentElement.style.background = 'var(--troco-bg)'; btn.disabled = true; return; } if (troco >= 0) { spanTroco.textContent = formatarMoeda(troco); spanTroco.parentElement.style.background = 'var(--troco-bg)'; btn.disabled = false; } else { spanTroco.textContent = "Faltam " + formatarMoeda(Math.abs(troco)); spanTroco.parentElement.style.background = 'var(--danger)'; btn.disabled = true; } }
 
-        function abrirModalMisto() { const numBackup = pedidoAguardandoPagamento; fecharModais(); pedidoAguardandoPagamento = numBackup; const pedido = historicoNuvem.find(p => p.numero == pedidoAguardandoPagamento); if (!pedido) return; document.getElementById('totalMistoSpan').textContent = formatarMoeda(pedido.total); document.getElementById('mistoPix').value = ''; document.getElementById('mistoDinheiro').value = ''; document.getElementById('mistoDebito').value = ''; document.getElementById('mistoCredito').value = ''; document.getElementById('mistoVR').value = ''; calcularTotalMisto(); document.getElementById('modalMisto').style.display = 'flex'; }
+        function abrirModalMisto() { const numBackup = pedidoAguardandoPagamento; fecharModais(); pedidoAguardandoPagamento = numBackup; const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; document.getElementById('totalMistoSpan').textContent = formatarMoeda(pedido.total); document.getElementById('mistoPix').value = ''; document.getElementById('mistoDinheiro').value = ''; document.getElementById('mistoDebito').value = ''; document.getElementById('mistoCredito').value = ''; document.getElementById('mistoVR').value = ''; calcularTotalMisto(); document.getElementById('modalMisto').style.display = 'flex'; }
 
-        function calcularTotalMisto() { const pedido = historicoNuvem.find(p => p.numero == pedidoAguardandoPagamento); if (!pedido) return; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); let soma = vPix + vDin + vDeb + vCred + vVR; let falta = pedido.total - soma; falta = Math.round(falta * 100) / 100; let spanFalta = document.getElementById('faltaMistoSpan'); let btnConfirmar = document.getElementById('btnConfirmarMisto'); if (falta === 0) { spanFalta.textContent = "OK! Tudo pago."; spanFalta.style.color = "var(--success)"; btnConfirmar.disabled = false; } else if (falta > 0) { spanFalta.textContent = "Faltam " + formatarMoeda(falta); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } else { spanFalta.textContent = "Passou " + formatarMoeda(Math.abs(falta)); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } }
+        function calcularTotalMisto() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); let soma = vPix + vDin + vDeb + vCred + vVR; let falta = pedido.total - soma; falta = Math.round(falta * 100) / 100; let spanFalta = document.getElementById('faltaMistoSpan'); let btnConfirmar = document.getElementById('btnConfirmarMisto'); if (falta === 0) { spanFalta.textContent = "OK! Tudo pago."; spanFalta.style.color = "var(--success)"; btnConfirmar.disabled = false; } else if (falta > 0) { spanFalta.textContent = "Faltam " + formatarMoeda(falta); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } else { spanFalta.textContent = "Passou " + formatarMoeda(Math.abs(falta)); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } }
 
-        function finalizarPagamentoMisto() { const index = historicoNuvem.findIndex(p => p.numero == pedidoAguardandoPagamento); if (index === -1) return; const pedido = historicoNuvem[index]; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); pedido.pagamentosMistos = []; if(vPix > 0) pedido.pagamentosMistos.push({forma: 'PIX', valor: vPix}); if(vDin > 0) pedido.pagamentosMistos.push({forma: 'Dinheiro', valor: vDin}); if(vDeb > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Débito', valor: vDeb}); if(vCred > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Crédito', valor: vCred}); if(vVR > 0) pedido.pagamentosMistos.push({forma: 'VR', valor: vVR}); finalizarVenda('Misto'); }
+        function finalizarPagamentoMisto() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); pedido.pagamentosMistos = []; if(vPix > 0) pedido.pagamentosMistos.push({forma: 'PIX', valor: vPix}); if(vDin > 0) pedido.pagamentosMistos.push({forma: 'Dinheiro', valor: vDin}); if(vDeb > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Débito', valor: vDeb}); if(vCred > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Crédito', valor: vCred}); if(vVR > 0) pedido.pagamentosMistos.push({forma: 'VR', valor: vVR}); finalizarVenda('Misto'); }
 
 
         function checarBaixaCache(pedido) {
@@ -2746,8 +2829,13 @@
                 if (callback) callback();
                 return;
             }
+            const versaoSolicitada = versaoPagamento;
             google.script.run
                 .withSuccessHandler(function(resposta) {
+                    if (versaoSolicitada !== versaoPagamento) {
+                        if (callback) callback();
+                        return;
+                    }
                     const recebidas = normalizarRespostaApi(resposta, null);
                     const vendasAtuaisDoDia = vendasHojePersistidas.filter(function(venda) {
                         return venda && venda.timestamp && ehHoje(venda.timestamp);
@@ -2845,7 +2933,7 @@
         }
 
         function zerarContadorPlanilha() { mostrarConfirmacao("Deseja excluir do histórico a linha de hoje da aba 'Tapiocas Diária'?", function() { let dataHojeStr = new Date().toLocaleDateString('pt-BR'); if(typeof google !== 'undefined') google.script.run.excluirContadorTapiocasHoje(dataHojeStr); ultimoQtdHojeEnviado = -1; mostrarAlerta("Linha de contagem excluída da planilha!"); }); }
-        function limparHistoricoVendasHoje() { mostrarConfirmacao("Limpar tela de Vendas Hoje?", function() { vendasHojeCompletas().forEach(function(v) { vendasHojeOcultas.add(chaveVendaHoje(v)); }); historicoNuvem.forEach(v => { if(v.timestamp && ehHoje(v.timestamp) && !v.ocultoVisualmente) { v.ocultoVisualmente = true; } }); renderizarHistorico(); if(typeof google !== 'undefined') google.script.run.salvarNuvemCompleta(JSON.stringify(historicoNuvem)); }); }
+        function limparHistoricoVendasHoje() { mostrarConfirmacao("Limpar tela de Vendas Hoje?", function() { vendasHojeCompletas().forEach(function(v) { vendasHojeOcultas.add(chaveVendaHoje(v)); }); renderizarHistorico(); }); }
 
         function abrirModalRelatorio() {
             if (typeof window.carregarPreviaFechamentoDiarioNoModal === 'function') {
@@ -2875,7 +2963,6 @@
                         historicoNuvem = [];
                         vendasHojePersistidas = [];
                         carrinho = [];
-                        google.script.run.salvarNuvemCompleta("[]");
 
                         atualizarTudo();
                         fecharModais();

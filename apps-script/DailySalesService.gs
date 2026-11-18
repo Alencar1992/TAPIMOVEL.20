@@ -67,6 +67,7 @@ function sanitizarPedidoLivro_(pedido) {
     timestamp: Number(pedido && pedido.timestamp) || Date.now(),
     dataExibicao: String(pedido && pedido.dataExibicao || dataHoraOperacaoAgora_()),
     formaPagamento: String(pedido && pedido.formaPagamento || ""),
+    troco: Math.max(0, Number(pedido && pedido.troco) || 0),
     pagamentosMistos: Array.isArray(pedido && pedido.pagamentosMistos)
       ? pedido.pagamentosMistos.map(function(pagamento) {
           return {
@@ -119,10 +120,11 @@ function registrarEventoLivroSemLock_(tipo, chavePedido, payload, fechamentoId, 
 }
 
 function eventoPagamentoJaExiste_(dataReferencia, chavePedido) {
-  return listarEventosLivroDaData_(dataReferencia).some(function(linha) {
-    return String(linha[3] || "") === "PAGAMENTO" &&
-      String(linha[4] || "") === String(chavePedido || "");
+  const evento = listarEventosLivroDaData_(dataReferencia).reverse().find(function(linha) {
+    return String(linha[4] || "") === chavePedido &&
+      (linha[3] === "PAGAMENTO" || linha[3] === "ESTORNO");
   });
+  return Boolean(evento && evento[3] === "PAGAMENTO");
 }
 
 function fechamentoJaExiste_(ss, dataReferencia) {
@@ -284,17 +286,17 @@ function reconciliarVendasHojeComLivroSemLock_(dataReferencia) {
     return { data: dataReferencia, inseridas: 0, fechado: true };
   }
 
-  const eventos = listarEventosLivroDaData_(dataReferencia);
-  const estornados = {};
-  eventos.forEach(function(linha) {
-    if (String(linha[3] || "") === "ESTORNO") estornados[String(linha[4] || "")] = true;
+  const pagamentosAtivos = new Map();
+  listarEventosLivroDaData_(dataReferencia).forEach(function(linha) {
+    const chave = String(linha[4] || "");
+    if (!chave) return;
+    if (linha[3] === "ESTORNO") pagamentosAtivos.delete(chave);
+    if (linha[3] === "PAGAMENTO") pagamentosAtivos.set(chave, linha);
   });
 
   let inseridas = 0;
-  eventos.forEach(function(linha) {
-    if (String(linha[3] || "") !== "PAGAMENTO") return;
-    const chave = String(linha[4] || "");
-    if (!chave || estornados[chave] || vendaHojeContemChave_(abaVendas, chave)) return;
+  pagamentosAtivos.forEach(function(linha, chave) {
+    if (vendaHojeContemChave_(abaVendas, chave)) return;
     try {
       const payload = JSON.parse(String(linha[5] || "{}"));
       if (escreverPedidoEmVendasHojeSemLock_(payload)) inseridas++;

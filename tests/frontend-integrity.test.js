@@ -325,7 +325,7 @@ test("perfil Produção usa transições seguras e assets sem cache legado", () 
   assert.match(index, /\.btn-top\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
   assert.match(index, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
   assert.match(index, /\.finalizarPagamentoProducao\(JSON\.stringify\(pedido\)\)/);
-  assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}cancelarPedidoProducao/);
+  assert.match(index, /\.cancelarPedidoProducao\(pedido\.numero, JSON\.stringify\(pedido\)\)/);
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}excluirPedidoTravadoProducao/);
 });
 
