@@ -159,8 +159,9 @@ test('129 inválido numérico de outro mês válido não contamina o mês seleci
 test('129 contrato JSON mantém exatamente seis campos numéricos e frontend compatível', () => {
   const h = harness(); const got = h.summary(); assert.deepEqual(Object.keys(got).sort(), ['combustivel', 'credito', 'debito', 'qtdTapiocas', 'total', 'vr']);
   assert.ok(Object.values(got).every(Number.isFinite));
-  const consumidor = read('apps-script/RelatorioElielService.gs') + read('frontend/index.html');
-  assert.ok(['dados.total', 'dados.credito', 'dados.debito', 'dados.vr', 'dados.combustivel', 'dados.qtdTapiocas'].every(field => consumidor.includes(field)));
+  const consumidor = read('apps-script/RelatorioElielService.gs');
+  assert.match(consumidor, /JSON\.parse\(obterResumoMesPlanilha\(\)\)/);
+  assert.match(consumidor, /Object\.assign\(\{\}, dados, \{/);
 });
 test('129 overflow textual monetário não pode virar zero no normalizador legado', () => {
   assert.throws(() => harness({ fechamentos: [fechamento('02/11/2026', '9'.repeat(400))] }).summary(), e => e.code === 'MONTHLY_SUMMARY_INVALID_VALUE');

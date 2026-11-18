@@ -1352,3 +1352,43 @@ test("Vendas Hoje continua legível quando outra operação mantém a trava fina
   assert.equal(vendas.length, 1);
   assert.equal(vendas[0].numero, 55);
 });
+
+test("Liquidez mensal edita bases, percentuais e custos mantendo as origens da planilha", () => {
+  const { context } = createContext();
+  const agora = new Date();
+  const mes = agora.getMonth() + 1;
+  const ano = agora.getFullYear();
+  const registro = { total: 2000, debito: 100, credito: 100, vr: 30, combustivel: 200, qtdTapiocas: 40 };
+  context.obterResumoMesPlanilha = () => JSON.stringify(registro);
+  const salvar = config => context.salvarConfiguracoesRelatorioEliel(JSON.stringify(config), mes, ano);
+  const ler = () => JSON.parse(context.obterLiquidezMensalPdv());
+  const cfg = {
+    combustivelEditado: 1250.50, salarioCozinha: 1000, salarioAuxCarro: 300, manutencaoCarro: 125, salarioMotorista: 75,
+    planoAssinatura: "PRO", assinaturaTapimovel: 94.50, custosVariaveis: 15.25,
+    ajustesPdv: {
+      total: 3456.78, qtdTapiocas: 70, debito: 1000, credito: 500, vr: 250,
+      taxaDebito: 1.5, taxaCredito: 4, taxaVr: 3, percentualCombustivelCarro: 60
+    }
+  };
+  salvar(cfg);
+  const editado = ler();
+  assert.equal(editado.qtdTapiocas, 70);
+  assert.equal(editado.taxas, 42.5);
+  assert.equal(editado.custos.combustivelCarro, 750.3);
+  assert.equal(editado.totalCustos, 2360.05);
+  assert.equal(editado.liquido, 1054.23);
+  assert.equal(editado.originais.total, 2000);
+  assert.equal(editado.configuracoes.taxaDebito, 2);
+  assert.equal(JSON.parse(context.obterConfiguracoesRelatorioEliel(mes, ano - 1)).ajustesPdv, undefined);
+
+  assert.throws(() => salvar({ ajustesPdv: { taxaVr: 100.01 } }), erro => erro.code === "INVALID_LIQUIDEZ_INPUT");
+  assert.throws(() => salvar({ ajustesPdv: { qtdTapiocas: 2.5 } }), erro => erro.code === "INVALID_LIQUIDEZ_INPUT");
+  assert.equal(ler().liquido, 1054.23);
+  salvar({ ajustesPdv: { total: 0 } });
+  assert.equal(ler().total, 0);
+  salvar({ combustivelEditado: null, ajustesPdv: {} });
+  assert.equal(ler().total, 2000);
+  assert.equal(ler().qtdTapiocas, 40);
+  assert.equal(ler().custos.combustivelCarro, 160);
+  assert.equal(ler().custos.salarioMotorista, 75);
+});

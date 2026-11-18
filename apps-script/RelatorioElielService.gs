@@ -5,6 +5,10 @@
 // =========================================================
 
 const PLANOS_ASSINATURA_TAPIMOVEL_ = { BASIC: 50, Plus: 80, PRO: 100 };
+const CAMPOS_AJUSTES_LIQUIDEZ_PDV_ = [
+  "total", "qtdTapiocas", "debito", "credito", "vr",
+  "taxaDebito", "taxaCredito", "taxaVr", "percentualCombustivelCarro"
+];
 
 function configLegadaRelatorioEliel_() {
   const padrao = {
@@ -54,15 +58,15 @@ function arredondarLiquidez_(valor) {
   return Math.round((valor + Math.sign(valor) * Number.EPSILON) * 100) / 100;
 }
 
-function dividirCombustivelRelatorioEliel_(valor) {
+function dividirCombustivelRelatorioEliel_(valor, percentualCarro = 80) {
   const total = Math.max(0, normalizarNumero_(valor));
-  const carro = arredondarLiquidez_(total * 0.8);
+  const carro = arredondarLiquidez_(total * percentualCarro / 100);
   return { total: total, carro: carro, trailer: arredondarLiquidez_(total - carro) };
 }
 
-function calcularCustosLiquidez_(combustivel, config) {
+function calcularCustosLiquidez_(combustivel, config, percentualCarro = 80) {
   const total = config.combustivelEditado ?? (combustivel || config.combustivelTotal);
-  const combustivelDividido = dividirCombustivelRelatorioEliel_(total);
+  const combustivelDividido = dividirCombustivelRelatorioEliel_(total, percentualCarro);
   const custos = {
     combustivelTotal: combustivelDividido.total,
     combustivelCarro: combustivelDividido.carro,
@@ -121,11 +125,34 @@ function salvarConfiguracoesRelatorioEliel(configJSON, mes, ano) {
     if (registro.planoAssinatura && registro.assinaturaTapimovel == null) {
       registro.assinaturaTapimovel = PLANOS_ASSINATURA_TAPIMOVEL_[registro.planoAssinatura];
     }
+    if (Object.prototype.hasOwnProperty.call(config, "ajustesPdv")) {
+      registro.ajustesPdv = validarAjustesLiquidezPdv_(config.ajustesPdv);
+    }
     props.setProperty(chave, JSON.stringify(registro));
     return obterConfiguracoesRelatorioEliel(mes, ano);
   } finally {
     lock.releaseLock();
   }
+}
+
+function validarAjustesLiquidezPdv_(valores) {
+  if (!valores || typeof valores !== "object" || Array.isArray(valores)) {
+    throw erroApi_("INVALID_LIQUIDEZ_INPUT", "Informe os ajustes da Liquidez Mensal.");
+  }
+  const ajustes = {};
+  CAMPOS_AJUSTES_LIQUIDEZ_PDV_.forEach(function(campo) {
+    const valor = valores[campo];
+    if (valor == null) return;
+
+    const percentual = campo.indexOf("taxa") === 0 || campo === "percentualCombustivelCarro";
+    const unidades = campo === "qtdTapiocas";
+    if (typeof valor !== "number" || !Number.isSafeInteger(Math.round(valor * 100)) || valor < 0 ||
+        (percentual && valor > 100) || (unidades && !Number.isInteger(valor))) {
+      throw erroApi_("INVALID_LIQUIDEZ_INPUT", "Use valores em reais, quantidades inteiras e percentuais de 0 a 100.");
+    }
+    ajustes[campo] = arredondarLiquidez_(valor);
+  });
+  return ajustes;
 }
 
 function obterLiquidezMensalPdv() {
@@ -134,13 +161,21 @@ function obterLiquidezMensalPdv() {
   const ano = Number(competencia[0]), mes = Number(competencia[1]);
   const dados = JSON.parse(obterResumoMesPlanilha());
   const configuracoes = JSON.parse(obterConfiguracoesRelatorioEliel(mes, ano));
-  const taxas = arredondarLiquidez_((dados.debito * normalizarNumero_(configuracoes.taxaDebito) +
-    dados.credito * normalizarNumero_(configuracoes.taxaCredito) +
-    dados.vr * normalizarNumero_(configuracoes.taxaVr)) / 100);
-  const subtotal = arredondarLiquidez_(dados.total - taxas);
-  const despesas = calcularCustosLiquidez_(dados.combustivel, configuracoes);
-  return JSON.stringify(Object.assign(dados, despesas, {
-    mes: mes, ano: ano, taxas: taxas, subtotal: subtotal,
+  const originais = Object.assign({}, dados, {
+    taxaDebito: normalizarNumero_(configuracoes.taxaDebito),
+    taxaCredito: normalizarNumero_(configuracoes.taxaCredito),
+    taxaVr: normalizarNumero_(configuracoes.taxaVr),
+    percentualCombustivelCarro: 80,
+    combustivel: Math.max(0, normalizarNumero_(dados.combustivel || configuracoes.combustivelTotal))
+  });
+  const entradas = Object.assign({}, originais, configuracoes.ajustesPdv);
+  const centavos = valor => Math.round(valor * 100);
+  const taxas = Math.round((centavos(entradas.debito) * entradas.taxaDebito +
+    centavos(entradas.credito) * entradas.taxaCredito + centavos(entradas.vr) * entradas.taxaVr) / 100) / 100;
+  const subtotal = arredondarLiquidez_(entradas.total - taxas);
+  const despesas = calcularCustosLiquidez_(dados.combustivel, configuracoes, entradas.percentualCombustivelCarro);
+  return JSON.stringify(Object.assign(entradas, despesas, {
+    mes: mes, ano: ano, taxas: taxas, subtotal: subtotal, originais: originais,
     liquido: arredondarLiquidez_(subtotal - despesas.totalCustos), configuracoes: configuracoes
   }));
 }
