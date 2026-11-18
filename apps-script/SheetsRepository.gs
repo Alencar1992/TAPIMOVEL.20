@@ -231,7 +231,7 @@ function gravarConfiguracaoOperacionalSheets_(config) {
 }
 
 function obterOuCriarAbaFila_(nomeAba) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(nomeAba);
   if (!aba) {
     aba = ss.insertSheet(nomeAba);
@@ -264,8 +264,8 @@ function chavePersistenciaPedido_(pedido, indice) {
   return "SEM_ID:" + String(indice || 0) + ":" + JSON.stringify(p);
 }
 
-function lerFilaDaAba_(nomeAba) {
-  const aba = obterOuCriarAbaFila_(nomeAba);
+function lerFilaDaAba_(nomeAba, aba) {
+  aba = aba || obterOuCriarAbaFila_(nomeAba);
   const ultimaLinha = aba.getLastRow();
   if (ultimaLinha <= 1) return [];
 
@@ -328,11 +328,19 @@ function salvarCacheFilaOperacional_(cache, chave, fila) {
   }
 }
 
-function consultarFilaOperacional_(nomeAba, carregarFila) {
+function consultarFilaOperacional_(nomeAba, chaveLegada, carregarFila) {
+  const planilha = obterSpreadsheetAplicacao_();
   const cache = CacheService.getScriptCache();
-  const chave = chaveCacheFilaOperacional_(SpreadsheetApp.getActiveSpreadsheet(), nomeAba);
+  const chave = chaveCacheFilaOperacional_(planilha, nomeAba);
   const emCache = lerCacheFilaOperacional_(cache, chave);
   if (emCache) return emCache;
+
+  // Filas inicializadas são substituídas em uma única gravação.
+  // Não preenche o cache aqui, pois uma gravação concorrente pode publicar uma cópia mais nova.
+  const aba = planilha.getSheetByName(nomeAba);
+  if (aba && aba.getLastRow() > 0 && obterScriptProperties_().getProperty(chaveLegada) == null) {
+    return lerFilaDaAba_(nomeAba, aba);
+  }
 
   const lock = LockService.getScriptLock();
   try {
@@ -350,7 +358,7 @@ function consultarFilaOperacional_(nomeAba, carregarFila) {
 
 function gravarFilaNaAba_(nomeAba, pedidos, atualizarConsulta) {
   const lista = Array.isArray(pedidos) ? pedidos : [];
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const planilha = obterSpreadsheetAplicacao_();
   const aba = obterOuCriarAbaFila_(nomeAba);
   let cache;
   let chave;

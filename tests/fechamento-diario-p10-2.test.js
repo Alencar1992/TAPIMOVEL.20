@@ -14,7 +14,7 @@ test('P10.2 centraliza o fechamento diário em serviço próprio', () => {
   assert.match(service, /function obterPreviaFechamentoDiario\(/);
   assert.match(service, /function executarFechamentoDiarioAutomatico\(/);
   assert.match(service, /fecharDiaPorVendasHojeSeguro_/);
-  assert.match(vendas, /LockService\.getDocumentLock\(\)/);
+  assert.match(vendas, /LockService\.getUserLock\(\)/);
   assert.match(vendas, /Vendas_hoje/);
   assert.match(vendas, /Livro_Transacoes/);
 });

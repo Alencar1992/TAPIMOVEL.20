@@ -177,7 +177,8 @@ function createContext(options = {}) {
       }
     },
     CacheService: { getScriptCache() { return { get() { return null; }, put() {}, remove() {} }; } },
-    LockService: { getDocumentLock() { return lock; }, getScriptLock() { return lock; } },
+    LockService: { getDocumentLock() { return lock; },
+      getUserLock() { return lock; }, getScriptLock() { return lock; } },
     SpreadsheetApp: { getActiveSpreadsheet() { return spreadsheet; } },
     ContentService: {
       MimeType: { JSON: "JSON" },

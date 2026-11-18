@@ -36,7 +36,7 @@ function linhaVendaDoDia_(linha, dataReferencia) {
 }
 
 function obterLivroTransacoes_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(ABA_LIVRO_TRANSACOES_);
   if (!aba) {
     aba = ss.insertSheet(ABA_LIVRO_TRANSACOES_);
@@ -67,6 +67,7 @@ function sanitizarPedidoLivro_(pedido) {
     timestamp: Number(pedido && pedido.timestamp) || Date.now(),
     dataExibicao: String(pedido && pedido.dataExibicao || dataHoraOperacaoAgora_()),
     formaPagamento: String(pedido && pedido.formaPagamento || ""),
+    troco: Math.max(0, Number(pedido && pedido.troco) || 0),
     pagamentosMistos: Array.isArray(pedido && pedido.pagamentosMistos)
       ? pedido.pagamentosMistos.map(function(pagamento) {
           return {
@@ -119,10 +120,11 @@ function registrarEventoLivroSemLock_(tipo, chavePedido, payload, fechamentoId, 
 }
 
 function eventoPagamentoJaExiste_(dataReferencia, chavePedido) {
-  return listarEventosLivroDaData_(dataReferencia).some(function(linha) {
-    return String(linha[3] || "") === "PAGAMENTO" &&
-      String(linha[4] || "") === String(chavePedido || "");
+  const evento = listarEventosLivroDaData_(dataReferencia).reverse().find(function(linha) {
+    return String(linha[4] || "") === chavePedido &&
+      (linha[3] === "PAGAMENTO" || linha[3] === "ESTORNO");
   });
+  return Boolean(evento && evento[3] === "PAGAMENTO");
 }
 
 function fechamentoJaExiste_(ss, dataReferencia) {
@@ -172,7 +174,7 @@ function vendaHojeContemChave_(aba, chavePedido) {
 }
 
 function escreverPedidoEmVendasHojeSemLock_(pedidoSeguro) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const aba = garantirEstruturaVendasHojeCompleta_(ss);
   if (vendaHojeContemChave_(aba, pedidoSeguro.chavePedido)) return false;
 
@@ -206,7 +208,7 @@ function registrarVendaHojePedidoSemLock_(pedido) {
     throw erroApi_("INVALID_ORDER", "Venda inválida para registro diário.");
   }
   const dataReferencia = String(seguro.dataExibicao || "").substring(0, 10) || dataOperacaoHoje_();
-  if (dataJaFechadaNoLivro_(dataReferencia) || fechamentoJaExiste_(SpreadsheetApp.getActiveSpreadsheet(), dataReferencia)) {
+  if (dataJaFechadaNoLivro_(dataReferencia) || fechamentoJaExiste_(obterSpreadsheetAplicacao_(), dataReferencia)) {
     throw erroApi_("DAY_CLOSED", "O expediente desta data já foi fechado.");
   }
 
@@ -217,8 +219,9 @@ function registrarVendaHojePedidoSemLock_(pedido) {
   return seguro;
 }
 
+// O Web App executa como o proprietário. A trava de usuário também coordena o fechamento acionado por essa conta.
 function registrarVendaHojeAdmin(pedidoJSON) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
     return registrarVendaHojePedidoSemLock_(JSON.parse(pedidoJSON || "{}"));
@@ -228,7 +231,7 @@ function registrarVendaHojeAdmin(pedidoJSON) {
 }
 
 function garantirLivroAPartirVendasHojeSemLock_(dataReferencia) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const aba = garantirEstruturaVendasHojeCompleta_(ss);
   if (aba.getLastRow() < 2) return 0;
 
@@ -278,23 +281,23 @@ function garantirLivroAPartirVendasHojeSemLock_(dataReferencia) {
 }
 
 function reconciliarVendasHojeComLivroSemLock_(dataReferencia) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const abaVendas = garantirEstruturaVendasHojeCompleta_(ss);
   if (dataJaFechadaNoLivro_(dataReferencia) || fechamentoJaExiste_(ss, dataReferencia)) {
     return { data: dataReferencia, inseridas: 0, fechado: true };
   }
 
-  const eventos = listarEventosLivroDaData_(dataReferencia);
-  const estornados = {};
-  eventos.forEach(function(linha) {
-    if (String(linha[3] || "") === "ESTORNO") estornados[String(linha[4] || "")] = true;
+  const pagamentosAtivos = new Map();
+  listarEventosLivroDaData_(dataReferencia).forEach(function(linha) {
+    const chave = String(linha[4] || "");
+    if (!chave) return;
+    if (linha[3] === "ESTORNO") pagamentosAtivos.delete(chave);
+    if (linha[3] === "PAGAMENTO") pagamentosAtivos.set(chave, linha);
   });
 
   let inseridas = 0;
-  eventos.forEach(function(linha) {
-    if (String(linha[3] || "") !== "PAGAMENTO") return;
-    const chave = String(linha[4] || "");
-    if (!chave || estornados[chave] || vendaHojeContemChave_(abaVendas, chave)) return;
+  pagamentosAtivos.forEach(function(linha, chave) {
+    if (vendaHojeContemChave_(abaVendas, chave)) return;
     try {
       const payload = JSON.parse(String(linha[5] || "{}"));
       if (escreverPedidoEmVendasHojeSemLock_(payload)) inseridas++;
@@ -306,7 +309,7 @@ function reconciliarVendasHojeComLivroSemLock_(dataReferencia) {
 }
 
 function reconciliarVendasHojeComLivro() {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
     return reconciliarVendasHojeComLivroSemLock_(dataOperacaoHoje_());
@@ -316,7 +319,7 @@ function reconciliarVendasHojeComLivro() {
 }
 
 function removerPedidoVendasHojeSemLock_(pedido) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const aba = ss.getSheetByName("Vendas_hoje");
   if (!aba || aba.getLastRow() < 2) return 0;
   const chave = chavePedidoVendaHoje_(pedido);
@@ -332,7 +335,7 @@ function removerPedidoVendasHojeSemLock_(pedido) {
 }
 
 function estornarVendaHojePedido_(pedido) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
     const seguro = sanitizarPedidoLivro_(pedido);
@@ -465,7 +468,7 @@ function somaPagamentosFechamentoDiario_(resumo) {
 }
 
 function obterStatusFluxoVendasHoje_(dataReferencia) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const data = (typeof normalizarDataFechamentoDiario_ === "function" && normalizarDataFechamentoDiario_(dataReferencia)) || dataReferencia || dataOperacaoHoje_();
   const fechado = fechamentoJaExiste_(ss, data) || dataJaFechadaNoLivro_(data);
   const abaVendas = ss.getSheetByName("Vendas_hoje");
@@ -480,10 +483,10 @@ function obterStatusFluxoVendasHoje_(dataReferencia) {
 }
 
 function fecharDiaPorVendasHojeSeguro_(dataReferencia, origem) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(15000);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = obterSpreadsheetAplicacao_();
     const data = (typeof normalizarDataFechamentoDiario_ === "function" && normalizarDataFechamentoDiario_(dataReferencia)) || String(dataReferencia || dataOperacaoHoje_());
     const tipoOrigem = String(origem || "MANUAL").toUpperCase() === "AUTOMATICO" ? "AUTOMATICO" : "MANUAL";
 

@@ -41,6 +41,7 @@ function criarAmbiente(options = {}) {
     console: { error() {}, info() {}, log() {} },
     obterScriptProperties_: () => ({}),
     carregarFilaPdvAtivos_: () => ativos.slice(),
+    pagamentoRegistradoProducao_: () => null,
     substituirFilaPdvAtivos_: lista => { ativos = lista.slice(); },
     lancarPedidoPlanilha: () => { gravacoesPlanilha += 1; },
     removerDaBaseDeVendasBackend() {},
