@@ -231,7 +231,7 @@ function gravarConfiguracaoOperacionalSheets_(config) {
 }
 
 function obterOuCriarAbaFila_(nomeAba) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(nomeAba);
   if (!aba) {
     aba = ss.insertSheet(nomeAba);
@@ -329,7 +329,7 @@ function salvarCacheFilaOperacional_(cache, chave, fila) {
 }
 
 function consultarFilaOperacional_(nomeAba, chaveLegada, carregarFila) {
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const planilha = obterSpreadsheetAplicacao_();
   const cache = CacheService.getScriptCache();
   const chave = chaveCacheFilaOperacional_(planilha, nomeAba);
   const emCache = lerCacheFilaOperacional_(cache, chave);
@@ -358,7 +358,7 @@ function consultarFilaOperacional_(nomeAba, chaveLegada, carregarFila) {
 
 function gravarFilaNaAba_(nomeAba, pedidos, atualizarConsulta) {
   const lista = Array.isArray(pedidos) ? pedidos : [];
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const planilha = obterSpreadsheetAplicacao_();
   const aba = obterOuCriarAbaFila_(nomeAba);
   let cache;
   let chave;

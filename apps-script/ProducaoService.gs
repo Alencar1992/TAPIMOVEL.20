@@ -61,7 +61,7 @@ function buscarPedidoPagamento_(ativos, recebido) {
 }
 
 function pagamentoRegistradoProducao_(pedido) {
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const planilha = obterSpreadsheetAplicacao_();
   const chave = chavePedidoVendaHoje_(pedido);
   const aba = planilha.getSheetByName(ABA_LIVRO_TRANSACOES_);
   if (!aba || aba.getLastRow() < 2) return null;
@@ -76,7 +76,7 @@ function pagamentoRegistradoProducao_(pedido) {
 }
 
 function vendaPagamentoConfirmada_(chave) {
-  return vendaHojeContemChave_(SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Vendas_hoje"), chave);
+  return vendaHojeContemChave_(obterSpreadsheetAplicacao_().getSheetByName("Vendas_hoje"), chave);
 }
 
 function consultarPagamentoProducao(pedidoJSON) {
@@ -101,7 +101,7 @@ function consultarPagamentoProducao(pedidoJSON) {
 }
 
 function persistirPagamentoProducao_(recebido, pedido) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   lock.waitLock(10000);
   try {
     if (!pedido.timestamp) {
@@ -126,10 +126,10 @@ function persistirPagamentoProducao_(recebido, pedido) {
 }
 
 function registrarCancelamentoProducao_(pedido) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
-    const planilha = SpreadsheetApp.getActiveSpreadsheet();
+    const planilha = obterSpreadsheetAplicacao_();
     let aba = planilha.getSheetByName("Pedidos Cancelados");
     if (!aba) {
       aba = planilha.insertSheet("Pedidos Cancelados");
@@ -264,7 +264,7 @@ function cancelarPedidoProducao(numeroPedido, pedidoJSON) {
     const ativos = carregarFilaPdvAtivos_();
     const indice = buscarPedidoPagamento_(ativos, recebido);
     if (indice === -1) {
-      const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pedidos Cancelados");
+      const aba = obterSpreadsheetAplicacao_().getSheetByName("Pedidos Cancelados");
       const jaCancelado = temIdentidade
         ? abaContemPedidoProducao_(aba, recebido)
         : abaContemNumeroPedidoProducao_(aba, numero);
@@ -275,8 +275,8 @@ function cancelarPedidoProducao(numeroPedido, pedidoJSON) {
     }
 
     pedido = clonarPedidoProducao_(ativos[indice]);
-    if (pedido.timestamp) {
-      throw erroApi_("INVALID_TRANSITION", "Um pedido pago não pode ser cancelado.");
+    if (pedido.timestamp || pagamentoRegistradoProducao_(pedido)) {
+      throw erroApi_("INVALID_TRANSITION", "Um pedido com pagamento registrado não pode ser cancelado.");
     }
 
     pedido.status = "Cancelado";

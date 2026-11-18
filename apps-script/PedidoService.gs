@@ -308,8 +308,8 @@ function atualizarPedidoPdv(pedidoJSON, exigirContextoEdicao) {
     }
 
     const pedidoAnterior = ativos[indice];
-    if (pedidoAnterior.timestamp) {
-      throw erroApi_("ORDER_PAID", "O pedido já foi pago e não pode ser editado.");
+    if (pedidoAnterior.timestamp || pagamentoRegistradoProducao_(pedidoAnterior)) {
+      throw erroApi_("ORDER_PAID", "O pedido tem pagamento registrado e não pode ser editado.");
     }
     if ((exigirContextoEdicao === true && typeof recebido.itensOriginaisEdicao !== "string") ||
         (recebido.timestampCriacao && Number(recebido.timestampCriacao) !== Number(pedidoAnterior.timestampCriacao)) ||

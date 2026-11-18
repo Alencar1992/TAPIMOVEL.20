@@ -111,7 +111,7 @@ function consolidarFechamentoDiario_(pedidos, dataReferencia) {
 }
 
 function obterOuCriarAbaFechamentosDiariosSegura_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(ABA_FECHAMENTOS_DIARIOS_SEGURA_);
   if (!aba) aba = ss.insertSheet(ABA_FECHAMENTOS_DIARIOS_SEGURA_);
 
@@ -130,7 +130,7 @@ function obterOuCriarAbaFechamentosDiariosSegura_() {
 }
 
 function obterOuCriarAbaTapiocasDiariaSegura_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(ABA_TAPIOCAS_DIARIA_SEGURA_);
   if (!aba) aba = ss.insertSheet(ABA_TAPIOCAS_DIARIA_SEGURA_);
   if (aba.getLastRow() === 0) {
@@ -264,7 +264,7 @@ function removerSomentePedidosDoDiaFechado_(fila, dataReferencia) {
 
 function obterPreviaFechamentoDiario(dataReferencia) {
   const data = normalizarDataFechamentoDiario_(dataReferencia) || formatarDataFechamentoDiario_(new Date());
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const jaFechado = fechamentoJaExiste_(ss, data) || dataJaFechadaNoLivro_(data);
 
   const abaVendas = ss.getSheetByName("Vendas_hoje");

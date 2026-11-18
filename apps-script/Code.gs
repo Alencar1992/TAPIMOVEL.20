@@ -359,10 +359,10 @@ function excluirVendaRealTime(num) {
 // 3. MOTOR DE CACHE DAS PLANILHAS (BLINDADO COM LOCK)
 // =========================================================
 function removerDaBaseDeVendasBackend(idPedido) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
-    const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Base de Vendas");
+    const aba = obterSpreadsheetAplicacao_().getSheetByName("Base de Vendas");
     if (!aba) return;
     const d = aba.getDataRange().getValues();
     for (let i = d.length - 1; i >= 1; i--) {
@@ -379,13 +379,13 @@ function removerDaBaseDeVendasBackend(idPedido) {
 }
 
 function lancarPedidoPlanilha(pedidoJSON) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
     const p = JSON.parse(pedidoJSON);
-    let aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Base de Vendas");
+    let aba = obterSpreadsheetAplicacao_().getSheetByName("Base de Vendas");
     if(!aba) {
-      aba = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Base de Vendas");
+      aba = obterSpreadsheetAplicacao_().insertSheet("Base de Vendas");
       aba.appendRow(["ID Pedido", "Hora Lançamento", "Produto", "Tipo", "Qtd", "Preço Unit.", "Total Item", "Status", "Observações"]);
       aba.getRange("A1:I1").setFontWeight("bold").setBackground("#fff2cc");
     }
@@ -481,7 +481,7 @@ function sincronizarVendasHojeComHistorico() {
 function carregarVendasHojePersistidas() {
   reconciliarVendasHojeComLivro();
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const aba = garantirEstruturaVendasHojeCompleta_(ss);
   if (aba.getLastRow() < 2) return JSON.stringify([]);
 
@@ -552,13 +552,13 @@ function moverParaHistorico(pedidoJSON) {
 
 
 function moverParaCancelados(pedidoJSON) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   try {
     lock.waitLock(10000);
     const p = JSON.parse(pedidoJSON);
-    let aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Pedidos Cancelados");
+    let aba = obterSpreadsheetAplicacao_().getSheetByName("Pedidos Cancelados");
     if(!aba) {
-      aba = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Pedidos Cancelados");
+      aba = obterSpreadsheetAplicacao_().insertSheet("Pedidos Cancelados");
       aba.appendRow(["ID Pedido", "Data Cancelamento", "Produto", "Qtd", "Total Perdido"]);
       aba.getRange("A1:E1").setFontWeight("bold").setBackground("#f4cccc");
     }

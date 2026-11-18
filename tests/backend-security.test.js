@@ -156,7 +156,8 @@ function createContext() {
     },
     LockService: {
       getScriptLock() { return lock; },
-      getDocumentLock() { return lock; }
+      getDocumentLock() { return lock; },
+      getUserLock() { return lock; }
     },
     Session: {
       getScriptTimeZone() { return "America/Sao_Paulo"; }
@@ -1268,6 +1269,7 @@ test("pagamento parcial é retomado pela informação já gravada no livro", () 
   context.substituirFilaPdvAtivos_ = () => { throw new Error("Falha na fila"); };
   assert.throws(() => context.finalizarPagamentoProducao(pagamento), /Falha na fila/);
   assert.equal(context.consultarPagamentoProducao(pagamento).estado, "retomar");
+  assert.throws(() => context.cancelarPedidoProducao(5, pagamento), erro => erro.code === "INVALID_TRANSITION");
 
   context.substituirFilaPdvAtivos_ = substituirFila;
   const recuperado = context.finalizarPagamentoProducao(JSON.stringify({ ...pedido, formaPagamento: "PIX" }));
