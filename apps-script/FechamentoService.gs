@@ -12,7 +12,7 @@ const STATUS_OPERACAO_CONCLUIDO_ = "CONCLUIDO";
 const STATUS_OPERACAO_ERRO_ = "ERRO";
 
 function obterAbaFechamentosMensaisV2_(criar) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(ABA_FECHAMENTOS_MENSAIS_V2_);
   if (!aba && criar !== false) {
     aba = ss.insertSheet(ABA_FECHAMENTOS_MENSAIS_V2_);
@@ -27,7 +27,7 @@ function obterAbaFechamentosMensaisV2_(criar) {
   return aba;
 }
 function obterAbaControleOperacoes_(criar) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName(ABA_CONTROLE_OPERACOES_);
   if (!aba && criar !== false) {
     aba = ss.insertSheet(ABA_CONTROLE_OPERACOES_);
@@ -179,7 +179,7 @@ function obterPedidosPendentesFechamentoEliel_(mes, ano) {
   }
 }
 function obterChavesFechamentosExistentes_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const abas = [
     ss.getSheetByName("Relatorio Eliel"),
     ss.getSheetByName("Fechamentos_Mensais"),
@@ -196,7 +196,7 @@ function obterChavesFechamentosExistentes_() {
   return chaves;
 }
 function obterPersistenciaFechamento_(chave) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   return {
     relatorio: Boolean(localizarLinhaPorChave_(ss.getSheetByName("Relatorio Eliel"), 1, chave)),
     legado: Boolean(localizarLinhaPorChave_(ss.getSheetByName("Fechamentos_Mensais"), 1, chave)),
@@ -247,6 +247,7 @@ function obterPreviaFechamentoRelatorioEliel(mes, ano, catalogoJSON) {
 function garantirRegistroRelatorioEliel_(dados, responsavel) {
   const aba = obterAbaRelatorioEliel_();
   if (localizarLinhaPorChave_(aba, 1, dados.chave)) return false;
+  const rateioLegado = dados.distribuicao || { compra: 0, lucas: 0, eliel: dados.liquido };
   aba.appendRow([
     dados.chave,
     new Date(),
@@ -258,9 +259,9 @@ function garantirRegistroRelatorioEliel_(dados, responsavel) {
     dados.custos.salarioAuxCarro,
     dados.custos.manutencaoCarro,
     dados.liquido,
-    dados.distribuicao.compra,
-    dados.distribuicao.lucas,
-    dados.distribuicao.eliel,
+    rateioLegado.compra,
+    rateioLegado.lucas,
+    rateioLegado.eliel,
     dados.totalTapiocas,
     dados.melhorRota ? dados.melhorRota.rota : "-",
     (dados.top3 || []).map(function(item) {
@@ -277,20 +278,21 @@ function garantirRegistroRelatorioEliel_(dados, responsavel) {
 function garantirRegistroFechamentoMensalV2_(dados, idOperacao) {
   const aba = obterAbaFechamentosMensaisV2_(true);
   if (localizarLinhaPorChave_(aba, 1, dados.chave)) return false;
+  const rateioLegado = dados.distribuicao || { compra: 0, lucas: 0, eliel: dados.liquido };
   aba.appendRow([
     dados.chave,
     dados.faturamento,
     dados.totalTapiocas,
-    dados.distribuicao.compra,
-    dados.distribuicao.lucas,
-    dados.distribuicao.eliel,
+    rateioLegado.compra,
+    rateioLegado.lucas,
+    rateioLegado.eliel,
     idOperacao,
     new Date()
   ]);
   return true;
 }
 function garantirLogFechamentoEliel_(chave, responsavel) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let log = ss.getSheetByName("Log Relatorio Eliel");
   if (!log) {
     log = ss.insertSheet("Log Relatorio Eliel");
@@ -310,7 +312,7 @@ function garantirLogFechamentoEliel_(chave, responsavel) {
   return true;
 }
 function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
-  const lock = LockService.getDocumentLock();
+  const lock = LockService.getUserLock();
   let chaveOperacao = "";
   try {
     lock.waitLock(15000);

@@ -74,13 +74,13 @@
         });
     }
 
-    function numeroCampo(id) {
-        const valor = document.getElementById(id).value || "0";
-        return Number(String(valor).replace(/\./g, "").replace(",", ".")) || 0;
+    function preencherCampo(id, valor) {
+        preencherCampoCustoLiquidez(document.getElementById(id), valor);
     }
 
-    function preencherCampo(id, valor) {
-        document.getElementById(id).value = Number(valor || 0).toFixed(2).replace(".", ",");
+    function statusLiquido(valor) {
+        if (valor === 0) return "Resultado zerado";
+        return valor > 0 ? "Resultado positivo" : "Resultado negativo";
     }
 
     function catalogoCompleto() {
@@ -152,7 +152,9 @@
         document.getElementById("elielAvisoMesPendente").hidden = true;
     };
 
+    let consultaRelatorioEliel = 0;
     window.carregarRelatorioEliel = function () {
+        const consulta = ++consultaRelatorioEliel;
         const mes = Number(document.getElementById("elielMes").value);
         const ano = Number(document.getElementById("elielAno").value);
         document.getElementById("elielLoading").hidden = false;
@@ -160,12 +162,14 @@
 
         google.script.run
             .withSuccessHandler(function (resposta) {
+                if (consulta !== consultaRelatorioEliel) return;
                 relatorioElielAtual = JSON.parse(resposta || "{}");
                 document.getElementById("elielLoading").hidden = true;
                 document.getElementById("elielConteudo").hidden = false;
                 desenharRelatorioEliel();
             })
             .withFailureHandler(function (erro) {
+                if (consulta !== consultaRelatorioEliel) return;
                 document.getElementById("elielLoading").hidden = true;
                 mostrarAlerta("Não foi possível preparar o Relatório Eliel.<br><small>" + escapar(erro.message) + "</small>");
             })
@@ -329,7 +333,7 @@
         document.getElementById("elielResumoTaxas").textContent = moeda(d.taxas);
         document.getElementById("elielResumoCustos").textContent = moeda(d.totalCustos);
         document.getElementById("elielResumoLiquido").textContent = moeda(d.liquido);
-        document.getElementById("elielResumoStatus").textContent = d.liquido >= 0 ? "Resultado positivo" : "Resultado negativo";
+        document.getElementById("elielResumoStatus").textContent = statusLiquido(d.liquido);
         document.getElementById("elielResumoStatus").classList.toggle("negativo", d.liquido < 0);
         document.getElementById("elielCombustivelTotal").textContent = moeda(d.custos.combustivelTotal);
         document.getElementById("elielCombustivelCarro").textContent = moeda(d.custos.combustivelCarro);
@@ -346,12 +350,14 @@
         desenharRotas(d.rotas || []);
 
         preencherCampo("elielCustoCombustivel", d.custos.combustivelTotal);
+        d.combustivelExibidoInicial = d.custos.combustivelTotal;
         preencherCampo("elielCustoCozinha", d.custos.salarioCozinha);
         preencherCampo("elielCustoAux", d.custos.salarioAuxCarro);
         preencherCampo("elielCustoManutencao", d.custos.manutencaoCarro);
-        document.getElementById("elielPercCompra").value = d.configuracoes.percentualCompra;
-        document.getElementById("elielPercLucas").value = d.configuracoes.percentualLucas;
-        document.getElementById("elielPercEliel").value = d.configuracoes.percentualEliel;
+        preencherCampo("elielSalarioMotorista", d.configuracoes.salarioMotorista);
+        preencherCampo("elielAssinatura", d.configuracoes.assinaturaTapimovel);
+        preencherCampo("elielCustosVariaveis", d.configuracoes.custosVariaveis);
+        document.getElementById("elielPlanoAssinatura").value = d.configuracoes.planoAssinatura || "";
         recalcularRelatorioElielLocal();
     }
 
@@ -385,7 +391,7 @@
             subtotal: `<div class="eliel-detalhe-cabecalho"><div><h3>Cálculo após taxas</h3><p>Faturamento bruto menos os descontos financeiros.</p></div><strong>${moeda(d.subtotal)}</strong></div>
                 <div class="eliel-calculo-detalhe"><span>${moeda(d.faturamento)} <small>faturamento</small></span><b>−</b><span>${moeda(d.taxas)} <small>taxas</small></span><b>=</b><span>${moeda(d.subtotal)} <small>após taxas</small></span></div>`,
             liquido: `<div class="eliel-detalhe-cabecalho"><div><h3>Custos descontados</h3><p>O combustível considera somente os 80% atribuídos ao carro.</p></div><strong>${moeda(d.totalCustos)}</strong></div>
-                <div class="eliel-detalhe-grid"><div><span>Combustível carro · 80%</span><strong>${moeda(d.custos.combustivelCarro)}</strong></div><div><span>Salário cozinha</span><strong>${moeda(d.custos.salarioCozinha)}</strong></div><div><span>Salário aux. carro</span><strong>${moeda(d.custos.salarioAuxCarro)}</strong></div><div><span>Manutenção carro</span><strong>${moeda(d.custos.manutencaoCarro)}</strong></div></div>`
+                <div class="eliel-detalhe-grid"><div><span>Combustível carro · 80%</span><strong>${moeda(d.custos.combustivelCarro)}</strong></div><div><span>Salário cozinha</span><strong>${moeda(d.custos.salarioCozinha)}</strong></div><div><span>Salário aux. carro</span><strong>${moeda(d.custos.salarioAuxCarro)}</strong></div><div><span>Manutenção carro</span><strong>${moeda(d.custos.manutencaoCarro)}</strong></div><div><span>Assinatura Tapimóvel</span><strong>${moeda(d.custos.assinaturaTapimovel)}</strong></div><div><span>Custos variáveis</span><strong>${moeda(d.custos.custosVariaveis)}</strong></div><div><span>Salário do motorista</span><strong>${moeda(d.custos.salarioMotorista)}</strong></div></div>`
         };
         painel.innerHTML = conteudos[tipo] || "";
         painel.hidden = false;
@@ -395,88 +401,85 @@
     };
 
     function configuracaoDaTela() {
-        return {
-            combustivelTotal: numeroCampo("elielCustoCombustivel"),
-            salarioCozinha: numeroCampo("elielCustoCozinha"),
-            salarioAuxCarro: numeroCampo("elielCustoAux"),
-            manutencaoCarro: numeroCampo("elielCustoManutencao"),
-            percentualCompra: numeroCampo("elielPercCompra"),
-            percentualLucas: numeroCampo("elielPercLucas"),
-            percentualEliel: numeroCampo("elielPercEliel"),
-            taxaDebito: relatorioElielAtual.configuracoes.taxaDebito,
-            taxaCredito: relatorioElielAtual.configuracoes.taxaCredito,
-            taxaVr: relatorioElielAtual.configuracoes.taxaVr
+        const campos = {
+            combustivelEditado: "elielCustoCombustivel",
+            salarioCozinha: "elielCustoCozinha",
+            salarioAuxCarro: "elielCustoAux",
+            manutencaoCarro: "elielCustoManutencao",
+            salarioMotorista: "elielSalarioMotorista",
+            assinaturaTapimovel: "elielAssinatura",
+            custosVariaveis: "elielCustosVariaveis"
         };
+        const config = { planoAssinatura: document.getElementById("elielPlanoAssinatura").value };
+        Object.entries(campos).forEach(([chave, id]) => {
+            config[chave] = valorCustoLiquidez(document.getElementById(id));
+        });
+        return config;
     }
 
     window.recalcularRelatorioElielLocal = function () {
         if (!relatorioElielAtual) return;
-        const config = configuracaoDaTela();
-        const combustivelCarro = config.combustivelTotal * 0.80;
-        const combustivelTrailer = config.combustivelTotal * 0.20;
-        const totalCustos = combustivelCarro + config.salarioCozinha +
-            config.salarioAuxCarro + config.manutencaoCarro;
-        const liquido = relatorioElielAtual.subtotal - totalCustos;
-        const base = Math.max(0, liquido);
-        relatorioElielAtual.configuracoes = config;
-        relatorioElielAtual.custos = {
-            combustivelTotal: config.combustivelTotal,
-            combustivelCarro: combustivelCarro,
-            combustivelTrailer: combustivelTrailer,
-            salarioCozinha: config.salarioCozinha,
-            salarioAuxCarro: config.salarioAuxCarro,
-            manutencaoCarro: config.manutencaoCarro
+        let config;
+        try {
+            config = configuracaoDaTela();
+        } catch (_) {
+            return;
+        }
+        const centavos = valor => Math.round((valor || 0) * 100);
+        const combustivel = centavos(config.combustivelEditado);
+        const carro = Math.round(combustivel * 0.8);
+        const custos = {
+            combustivelTotal: combustivel / 100,
+            combustivelCarro: carro / 100,
+            combustivelTrailer: (combustivel - carro) / 100,
+            salarioCozinha: config.salarioCozinha || 0,
+            salarioAuxCarro: config.salarioAuxCarro || 0,
+            manutencaoCarro: config.manutencaoCarro || 0,
+            salarioMotorista: config.salarioMotorista || 0,
+            assinaturaTapimovel: config.assinaturaTapimovel || 0,
+            custosVariaveis: config.custosVariaveis || 0
         };
-        relatorioElielAtual.totalCustos = totalCustos;
-        relatorioElielAtual.liquido = liquido;
-        relatorioElielAtual.distribuicao = {
-            compra: base * config.percentualCompra / 100,
-            lucas: base * config.percentualLucas / 100,
-            eliel: base * config.percentualEliel / 100
-        };
+        const despesas = carro + ["salarioCozinha", "salarioAuxCarro", "manutencaoCarro",
+            "salarioMotorista", "assinaturaTapimovel", "custosVariaveis"]
+            .reduce((total, chave) => total + centavos(custos[chave]), 0);
+        const totalCustos = despesas / 100;
+        const liquido = (centavos(relatorioElielAtual.subtotal) - despesas) / 100;
+        Object.assign(relatorioElielAtual, { custos, totalCustos, liquido });
 
-        document.getElementById("elielTotalCustos").textContent = moeda(totalCustos);
-        document.getElementById("elielLiquido").textContent = moeda(liquido);
-        document.getElementById("elielResumoCustos").textContent = moeda(totalCustos);
-        document.getElementById("elielResumoLiquido").textContent = moeda(liquido);
-        document.getElementById("elielCombustivelTotal").textContent = moeda(config.combustivelTotal);
-        document.getElementById("elielCombustivelCarro").textContent = moeda(combustivelCarro);
-        document.getElementById("elielCombustivelTrailer").textContent = moeda(combustivelTrailer);
-        document.getElementById("elielResumoStatus").textContent = liquido >= 0 ? "Resultado positivo" : "Resultado negativo";
+        Object.entries({
+            elielTotalCustos: totalCustos, elielLiquido: liquido, elielResumoCustos: totalCustos,
+            elielResumoLiquido: liquido, elielCombustivelTotal: custos.combustivelTotal,
+            elielCombustivelCarro: custos.combustivelCarro, elielCombustivelTrailer: custos.combustivelTrailer
+        }).forEach(([id, valor]) => { document.getElementById(id).textContent = moeda(valor); });
+        document.getElementById("elielResumoStatus").textContent = statusLiquido(liquido);
         document.getElementById("elielResumoStatus").classList.toggle("negativo", liquido < 0);
-        document.getElementById("elielDistribuicao").innerHTML = [
-            ["Compra", config.percentualCompra, relatorioElielAtual.distribuicao.compra],
-            ["Lucas", config.percentualLucas, relatorioElielAtual.distribuicao.lucas],
-            ["Eliel", config.percentualEliel, relatorioElielAtual.distribuicao.eliel]
-        ].map(item => `
-            <div>
-                <span>${item[0]}</span>
-                <span class="eliel-barra"><i style="width:${Math.min(100, item[1])}%"></i></span>
-                <strong>${moeda(item[2])}</strong>
-            </div>`).join("");
-
-        const sinal = liquido >= 0 ? "lucro líquido" : "resultado negativo";
         document.getElementById("elielResumoLucro").textContent =
             `O mês registrou ${relatorioElielAtual.totalTapiocas || 0} tapiocas e ${moeda(relatorioElielAtual.faturamento)} de faturamento. ` +
-            `Após ${moeda(relatorioElielAtual.taxas)} em taxas e ${moeda(totalCustos)} em custos, o ${sinal} foi de ${moeda(liquido)}.`;
+            `Após ${moeda(relatorioElielAtual.taxas)} em taxas e ${moeda(totalCustos)} em custos, o líquido real do Eliel foi de ${moeda(liquido)}.`;
     };
 
     window.salvarConfiguracoesEliel = function () {
-        const config = configuracaoDaTela();
-        const soma = config.percentualCompra + config.percentualLucas + config.percentualEliel;
-        if (Math.abs(soma - 100) > 0.01) {
-            mostrarAlerta(`Os percentuais precisam somar 100%. Hoje somam ${soma.toFixed(2)}%.`);
+        const relatorio = relatorioElielAtual;
+        const botao = document.getElementById("elielSalvarCustos");
+        if (!relatorio || botao.disabled) return;
+        let config;
+        try {
+            config = configuracaoDaTela();
+            if (config.combustivelEditado === relatorio.combustivelExibidoInicial) delete config.combustivelEditado;
+        } catch (erro) {
+            mostrarAlerta(escapar(erro.message));
             return;
         }
-        google.script.run
-            .withSuccessHandler(function () {
-                recalcularRelatorioElielLocal();
-                mostrarToast("Configurações do Relatório Eliel salvas.");
-            })
-            .withFailureHandler(function (erro) {
-                mostrarAlerta("Não foi possível salvar as configurações.<br><small>" + escapar(erro.message) + "</small>");
-            })
-            .salvarConfiguracoesRelatorioEliel(JSON.stringify(config));
+        botao.disabled = true;
+        google.script.run.withSuccessHandler(function () {
+            botao.disabled = false;
+            if (Number(document.getElementById("elielMes").value) === relatorio.mes &&
+                Number(document.getElementById("elielAno").value) === relatorio.ano) carregarRelatorioEliel();
+            mostrarToast("Custos do mês salvos.");
+        }).withFailureHandler(function (erro) {
+            botao.disabled = false;
+            mostrarAlerta("Não foi possível salvar os custos.<br><small>" + escapar(erro.message) + "</small>");
+        }).salvarConfiguracoesRelatorioEliel(JSON.stringify(config), relatorio.mes, relatorio.ano);
     };
 
     function linhasExportacao(d) {
@@ -486,10 +489,11 @@
             ["Taxas", d.taxas],
             ["Subtotal após taxas", d.subtotal],
             ["Custos", d.totalCustos],
-            ["Líquido", d.liquido],
-            ["Compra", d.distribuicao.compra],
-            ["Lucas", d.distribuicao.lucas],
-            ["Eliel", d.distribuicao.eliel],
+            ["Líquido real do Eliel", d.liquido],
+            ["Assinatura Tapimóvel", d.custos.assinaturaTapimovel],
+            ["Custos variáveis", d.custos.custosVariaveis],
+            ["Salário do motorista", d.custos.salarioMotorista],
+
             ["Tapiocas", d.totalTapiocas],
             [],
             ["Três mais vendidas", "Quantidade", "Melhor dia"]
@@ -618,13 +622,11 @@
             ["Taxas", moeda(dados.taxas)],
             ["Após taxas", moeda(dados.subtotal)],
             ["Custos", moeda(dados.totalCustos)],
-            ["Líquido", moeda(dados.liquido)],
+            ["Líquido do Eliel", moeda(dados.liquido)],
             ["Tapiocas", String(dados.totalTapiocas || 0)],
             ["Melhor rota", dados.melhorRota ? dados.melhorRota.rota : "-"],
             ["Mais vendida", dados.top3 && dados.top3[0] ? dados.top3[0].produto : "-"],
-            ["Compra", moeda(dados.distribuicao.compra)],
-            ["Lucas", moeda(dados.distribuicao.lucas)],
-            ["Eliel", moeda(dados.distribuicao.eliel)]
+
         ];
         let y = 51;
         linhas.forEach(linha => {
@@ -704,7 +706,6 @@
     function desenharPreviaFechamentoEliel(previa) {
         const d = previa.relatorio || {};
         const custos = d.custos || {};
-        const distribuicao = d.distribuicao || {};
         document.getElementById("elielPreviaPeriodo").textContent =
             `${meses[Number(d.mes || 1) - 1]} de ${d.ano || ""} · referência ${escapar(previa.chave || "")}`;
         document.getElementById("previaElielFaturamento").textContent = moeda(d.faturamento);
@@ -715,12 +716,12 @@
         document.getElementById("previaElielCombustivelTotal").textContent = moeda(custos.combustivelTotal);
         document.getElementById("previaElielCombustivelCarro").textContent = moeda(custos.combustivelCarro);
         document.getElementById("previaElielCombustivelTrailer").textContent = moeda(custos.combustivelTrailer);
+        document.getElementById("previaElielAssinatura").textContent = moeda(custos.assinaturaTapimovel);
+        document.getElementById("previaElielCustosVariaveis").textContent = moeda(custos.custosVariaveis);
+        document.getElementById("previaElielMotorista").textContent = moeda(custos.salarioMotorista);
         document.getElementById("previaElielCozinha").textContent = moeda(custos.salarioCozinha);
         document.getElementById("previaElielAux").textContent = moeda(custos.salarioAuxCarro);
         document.getElementById("previaElielManutencao").textContent = moeda(custos.manutencaoCarro);
-        document.getElementById("previaElielCompra").textContent = moeda(distribuicao.compra);
-        document.getElementById("previaElielLucas").textContent = moeda(distribuicao.lucas);
-        document.getElementById("previaElielEliel").textContent = moeda(distribuicao.eliel);
         document.getElementById("previaElielTapiocas").textContent =
             `${Number(d.totalTapiocas || 0)} tapiocas`;
 
@@ -1079,9 +1080,13 @@
     function conectarRecalculo() {
         [
             "elielCustoCombustivel", "elielCustoCozinha", "elielCustoAux",
-            "elielCustoManutencao", "elielPercCompra", "elielPercLucas", "elielPercEliel"
+            "elielCustoManutencao", "elielAssinatura", "elielCustosVariaveis", "elielSalarioMotorista"
         ].forEach(id => {
             document.getElementById(id).addEventListener("input", recalcularRelatorioElielLocal);
+        });
+        document.getElementById("elielPlanoAssinatura").addEventListener("change", function() {
+            preencherValorPlanoLiquidez(this, "elielAssinatura");
+            recalcularRelatorioElielLocal();
         });
     }
 

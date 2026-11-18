@@ -479,11 +479,19 @@ function sincronizarVendasHojeComHistorico() {
 }
 
 function carregarVendasHojePersistidas() {
-  reconciliarVendasHojeComLivro();
-
   const ss = obterSpreadsheetAplicacao_();
-  const aba = garantirEstruturaVendasHojeCompleta_(ss);
-  if (aba.getLastRow() < 2) return JSON.stringify([]);
+  const lock = LockService.getUserLock();
+  if (lock.tryLock(0)) {
+    try {
+      reconciliarVendasHojeComLivroSemLock_(dataOperacaoHoje_());
+      SpreadsheetApp.flush();
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  const aba = ss.getSheetByName("Vendas_hoje");
+  if (!aba || aba.getLastRow() < 2) return JSON.stringify([]);
 
   const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
   const dados = aba.getDataRange().getValues();
