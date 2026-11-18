@@ -21,7 +21,6 @@
         :root {
             --primary: #ff6b6b; --primary-hover: #fa5252; --edit: #339af0; --edit-hover: #228be6;
             --success: #40c057; --success-hover: #2f9e44; --danger: #dc3545; --danger-hover: #c82333;
-            --tab-active: #39ff14;
             --bg: #121212; --panel-bg: #1e1e1e; --text: #e0e0e0;
             --text-muted: #aaaaaa; --border: #333333; --pending-bg: #2a2510; --card-bg: #2d2d2d;
             --troco-bg: #162b16; --troco-neg-bg: #4a1c1c; --stat-bg: #252525; --input-bg: #2d2d2d;
@@ -65,8 +64,47 @@
         .fechamentos-diarios img { display: block; width: 100%; max-width: 520px; margin: 0 auto 12px; }
         .fechamentos-diarios a { text-align: center; text-decoration: none; display: block; }
         .tabs-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; }
-        .tab-btn { background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 20px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 0.95rem; flex-grow: 1; text-align: center; transition: 0.2s;}
-        .tab-btn.active { background: var(--tab-active); color: #000; border-color: var(--tab-active); box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);}
+        #containerAbas .tab-btn {
+            flex: 1 0 auto;
+            min-height: 42px;
+            padding: 9px 13px;
+            border: 1px solid #686c72;
+            border-bottom-color: #303238;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #4a4d53, #24262b 72%);
+            box-shadow: inset 0 1px 0 #ffffff44, 0 4px 0 #141519, 0 7px 10px #0007;
+            color: #f4f6f9;
+            font: inherit;
+            font-size: .95rem;
+            font-weight: 700;
+            line-height: 1.2;
+            text-align: center;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: transform .14s ease, box-shadow .14s ease;
+        }
+        #containerAbas .tab-btn.active {
+            border-color: #b7ff99;
+            border-bottom-color: #388020;
+            background: linear-gradient(180deg, #e0ffcf, #89f451 47%, #60d62c);
+            box-shadow: inset 0 1px 0 #ffffffe0, 0 4px 0 #378717, 0 0 16px #78ee5066;
+            color: #142409;
+        }
+        #containerAbas .tab-btn:active {
+            transform: translateY(3px);
+            box-shadow: inset 0 1px 2px #0004, 0 1px 0 #141519;
+        }
+        #containerAbas .tab-btn.active:active {
+            box-shadow: inset 0 1px 2px #1d4e2166, 0 1px 0 #378717, 0 0 13px #78ee5066;
+        }
+        #containerAbas .tab-btn:focus-visible {
+            outline: 2px solid #f1f6fa;
+            outline-offset: 3px;
+        }
+        #containerAbas { row-gap: 11px; padding-bottom: 5px; }
+        @media (prefers-reduced-motion: reduce) {
+            #containerAbas .tab-btn { transition: none; }
+        }
 
         .barra-pesquisa { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); box-sizing: border-box; margin-bottom: 15px; transition: 0.2s; }
         .barra-pesquisa:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 8px rgba(255,107,107,0.3); }
@@ -400,11 +438,11 @@
             <button id="btnLimparPesquisa" onclick="limparPesquisa()" style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 5px;">✖ Limpar</button>
         </div>
         <div class="tabs-container" id="containerAbas">
-            <button class="tab-btn" onclick="trocarAba('salgadas', this)">Salgadas</button>
-            <button class="tab-btn" onclick="trocarAba('especiais', this)">Especiais</button>
-            <button class="tab-btn" onclick="trocarAba('doces', this)">Doces</button>
-            <button class="tab-btn" onclick="trocarAba('monte', this)">Monte Sua</button>
-            <button class="tab-btn" onclick="trocarAba('bebidas', this)">Bebidas</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('salgadas', this)">Salgadas</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('especiais', this)">Especiais</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('doces', this)">Doces</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('monte', this)">Monte Sua</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('bebidas', this)">Bebidas</button>
         </div>
         <div class="grid-produtos" id="gridProdutos"></div>
         <div class="painel-carrinho" id="boxCarrinho" style="display: none;">
@@ -2084,7 +2122,24 @@
             input.focus();
         }
 
-        function trocarAba(categoria, elementoBtn) { document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); if(elementoBtn) elementoBtn.classList.add('active'); abaAtivaCatalogo = categoria; baseSelecionadaMonte = null; let inputPesq = document.getElementById('inputPesquisa'); if(inputPesq.value !== '') { inputPesq.value = ''; termoPesquisa = ''; document.getElementById('containerAbas').style.display = 'flex'; } renderizarCatalogo(categoria); }
+        function trocarAba(categoria, elementoBtn) {
+            const desmarcar = abaAtivaCatalogo === categoria;
+            abaAtivaCatalogo = desmarcar ? null : categoria;
+            baseSelecionadaMonte = null;
+            document.querySelectorAll('#containerAbas .tab-btn').forEach(botao => {
+                const selecionado = !desmarcar && botao === elementoBtn;
+                botao.classList.toggle('active', selecionado);
+                botao.setAttribute('aria-pressed', String(selecionado));
+            });
+
+            const pesquisa = document.getElementById('inputPesquisa');
+            if (pesquisa.value !== '') {
+                pesquisa.value = '';
+                termoPesquisa = '';
+                document.getElementById('containerAbas').style.display = 'flex';
+            }
+            renderizarCatalogo(abaAtivaCatalogo);
+        }
 
         function renderizarCatalogo(categoria) {
             if (termoPesquisa.length > 0) return;
