@@ -56,12 +56,19 @@ test("topo soma a quantidade concluída e mantém o total durante e depois do pa
   assert.equal(criarTela([], tela.vendasHojePersistidas).total(), "🌮 3");
 });
 
-test("pagamento antecipado respeita o preparo e pedidos de outro dia não entram no contador", () => {
+test("baixa antecipada conta uma vez e pedidos de outro dia ficam fora do contador", () => {
   const pago = { numero: 8, idRequisicao: "pdv-outro-123456", timestampCriacao: hoje, timestamp: hoje + 1000,
     itens: [item(2, true), item(1, false)] };
   const venda = { numero: 8, idHistorico: "#8@pdv-outro-123456", timestamp: hoje + 1000,
     itens: [item(2, true), item(1, true)] };
   const ontem = { numero: 9, timestampCriacao: hoje - 86400000, itens: [item(4, true)] };
-  assert.equal(criarTela([pago, ontem], [venda]).total(), "🌮 2");
+  assert.equal(criarTela([pago, ontem], [venda]).total(), "🌮 3");
   assert.equal(criarTela([ontem], [venda]).total(), "🌮 3");
+});
+
+test("ocultar uma venda no histórico não diminui o contador", () => {
+  const venda = { numero: 8, idHistorico: "#8@teste-140", timestamp: hoje, itens: [item(2, true)] };
+  const { tela, total } = criarTela([], [venda]);
+  tela.vendasHojeOcultas.add("8@teste-140");
+  assert.equal(total(), "🌮 2");
 });

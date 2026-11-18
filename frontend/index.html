@@ -341,7 +341,7 @@
             <button class="btn-top" id="btnTopoProd" onclick="mudarTela('view-producao')">👨‍🍳 Prod.</button>
             <button class="btn-top btn-online-alerta" id="btnTopoOnline" onclick="mudarTela('view-pedidos-online')">📲 Online</button>
             <button class="btn-top" id="btnTopoCaixa" onclick="mudarTela('view-painel')">📝 Caixa</button>
-            <button class="btn-top btn-tapioca" id="btnTopoTapiocas" onclick="mudarTela('view-historico')">🌮 0</button>
+            <button class="btn-top btn-tapioca" id="btnTopoTapiocas" aria-label="Tapiocas de hoje" aria-live="polite" onclick="mudarTela('view-historico')">🌮 0</button>
         </div>
     </header>
 
@@ -372,14 +372,13 @@
             <button class="btn-categoria" onclick="toggleSubmenu('sub-fechamentos')">💰 Fechamentos <span class="seta">▼</span></button>
             <div id="sub-fechamentos" class="submenu">
                 <button onclick="abrirModalRelatorio(); fecharMenuLateral();">📊 Fechar o Dia</button>
-                <button onclick="abrirRestrito('liquidez')">💧 Liquidez Mensal · consulta</button>
+                <button onclick="abrirRestrito('liquidez')">💧 Liquidez Mensal</button>
             </div>
         </div>
 
         <div class="menu-grupo">
             <button class="btn-categoria" onclick="toggleSubmenu('sub-gestao')">🚀 Gestão O.P <span class="seta">▼</span></button>
             <div id="sub-gestao" class="submenu">
-                <button onclick="abrirRestrito('estimativa')">💵 Projeção Salário</button>
                 <button onclick="abrirRestrito('dias')">💤 Dias não Trabalho</button>
                 <button onclick="abrirRestrito('combustivel')">⛽ Controle Combustível</button>
             </div>
@@ -504,7 +503,7 @@
                     <div><span>Faturamento bruto</span><strong id="elielResumoFaturamento">R$ 0,00</strong></div><b>−</b>
                     <div><span>Taxas</span><strong id="elielResumoTaxas">R$ 0,00</strong></div><b>−</b>
                     <div><span>Custos operacionais</span><strong id="elielResumoCustos">R$ 0,00</strong></div><b>=</b>
-                    <div class="resultado"><span>Lucro líquido</span><strong id="elielResumoLiquido">R$ 0,00</strong></div>
+                    <div class="resultado"><span>Líquido real do Eliel</span><strong id="elielResumoLiquido">R$ 0,00</strong></div>
                 </div>
                 <div class="eliel-combustivel-resumo">
                     <div><span>Combustível total</span><strong id="elielCombustivelTotal">R$ 0,00</strong></div>
@@ -517,7 +516,7 @@
                 <button type="button" data-detalhe="faturamento" onclick="alternarDetalheMetricaEliel('faturamento', this)" aria-expanded="false"><span>Faturamento</span><strong id="elielFaturamento">R$ 0,00</strong><small>Ver composição</small></button>
                 <button type="button" data-detalhe="taxas" onclick="alternarDetalheMetricaEliel('taxas', this)" aria-expanded="false"><span>Taxas</span><strong id="elielTaxas">R$ 0,00</strong><small>Crédito, débito e VR</small></button>
                 <button type="button" data-detalhe="subtotal" onclick="alternarDetalheMetricaEliel('subtotal', this)" aria-expanded="false"><span>Após taxas</span><strong id="elielSubtotal">R$ 0,00</strong><small>Ver cálculo</small></button>
-                <button type="button" class="destaque" data-detalhe="liquido" onclick="alternarDetalheMetricaEliel('liquido', this)" aria-expanded="false"><span>Líquido após custos</span><strong id="elielLiquido">R$ 0,00</strong><small>Ver custos</small></button>
+                <button type="button" class="destaque" data-detalhe="liquido" onclick="alternarDetalheMetricaEliel('liquido', this)" aria-expanded="false"><span>Líquido real do Eliel</span><strong id="elielLiquido">R$ 0,00</strong><small>Ver custos</small></button>
             </section>
             <section id="elielDetalheMetrica" class="eliel-painel eliel-detalhe-metrica" hidden aria-live="polite"></section>
 
@@ -548,26 +547,26 @@
                 <div id="elielRotas" class="eliel-rotas"></div>
             </section>
 
-            <section class="eliel-duas-colunas">
+            <section>
                 <article class="eliel-painel">
-                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link eliel-admin-only" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
+                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link eliel-admin-only" id="elielSalvarCustos" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
                     <div class="eliel-form-grid">
                         <label>Combustível total<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
+                        <label>Assinatura do app Tapimóvel<select id="elielPlanoAssinatura" class="input-obs">
+                            <option value="">Selecione o plano</option>
+                            <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
+                            <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
+                            <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
+                        </select></label>
+                        <label>Valor da assinatura (R$)<input id="elielAssinatura" class="input-obs" inputmode="decimal"></label>
+                        <label>Custos variáveis (R$)<input id="elielCustosVariaveis" class="input-obs" inputmode="decimal"></label>
+                        <label>Salário do motorista de tapiocas (R$)<input id="elielSalarioMotorista" class="input-obs" inputmode="decimal"></label>
                         <label>Salário cozinha<input id="elielCustoCozinha" class="input-obs" inputmode="decimal"></label>
                         <label>Salário aux. carro<input id="elielCustoAux" class="input-obs" inputmode="decimal"></label>
                         <label>Manutenção carro<input id="elielCustoManutencao" class="input-obs" inputmode="decimal"></label>
                     </div>
                     <p class="eliel-regra-combustivel">O carro assume 80% do combustível e esse valor é descontado do resultado. Os 20% do trailer ficam demonstrados separadamente.</p>
                     <div class="eliel-total-linha"><span>Total de custos descontados</span><strong id="elielTotalCustos">R$ 0,00</strong></div>
-                </article>
-                <article class="eliel-painel">
-                    <h3>Distribuição do líquido</h3>
-                    <div class="eliel-form-grid eliel-percentuais">
-                        <label>Compra (%)<input id="elielPercCompra" class="input-obs" type="number" min="0" max="100" value="70"></label>
-                        <label>Lucas (%)<input id="elielPercLucas" class="input-obs" type="number" min="0" max="100" value="25"></label>
-                        <label>Eliel (%)<input id="elielPercEliel" class="input-obs" type="number" min="0" max="100" value="5"></label>
-                    </div>
-                    <div id="elielDistribuicao" class="eliel-distribuicao"></div>
                 </article>
             </section>
 
@@ -621,7 +620,7 @@
                     <div><span>Faturamento bruto</span><strong id="previaElielFaturamento">R$ 0,00</strong></div>
                     <div><span>Taxas</span><strong id="previaElielTaxas">R$ 0,00</strong></div>
                     <div><span>Após taxas</span><strong id="previaElielSubtotal">R$ 0,00</strong></div>
-                    <div class="resultado"><span>Lucro líquido</span><strong id="previaElielLiquido">R$ 0,00</strong></div>
+                    <div class="resultado"><span>Líquido real do Eliel</span><strong id="previaElielLiquido">R$ 0,00</strong></div>
                 </section>
 
                 <section class="eliel-previa-secao">
@@ -630,6 +629,9 @@
                         <div><span>Combustível total · 100%</span><strong id="previaElielCombustivelTotal">R$ 0,00</strong></div>
                         <div><span>Combustível carro · 80%</span><strong id="previaElielCombustivelCarro">R$ 0,00</strong></div>
                         <div><span>Combustível trailer · 20%</span><strong id="previaElielCombustivelTrailer">R$ 0,00</strong></div>
+                        <div><span>Assinatura Tapimóvel</span><strong id="previaElielAssinatura">R$ 0,00</strong></div>
+                        <div><span>Custos variáveis</span><strong id="previaElielCustosVariaveis">R$ 0,00</strong></div>
+                        <div><span>Salário do motorista de tapiocas</span><strong id="previaElielMotorista">R$ 0,00</strong></div>
                         <div><span>Salário cozinha</span><strong id="previaElielCozinha">R$ 0,00</strong></div>
                         <div><span>Salário aux. carro</span><strong id="previaElielAux">R$ 0,00</strong></div>
                         <div><span>Manutenção carro</span><strong id="previaElielManutencao">R$ 0,00</strong></div>
@@ -637,12 +639,7 @@
                 </section>
 
                 <section class="eliel-previa-secao">
-                    <div class="eliel-titulo-linha"><div><h3>Distribuição e volume</h3><p>Valores que serão preservados no histórico mensal.</p></div><strong id="previaElielTapiocas">0 tapiocas</strong></div>
-                    <div class="eliel-previa-lista tres-colunas">
-                        <div><span>Compra</span><strong id="previaElielCompra">R$ 0,00</strong></div>
-                        <div><span>Lucas</span><strong id="previaElielLucas">R$ 0,00</strong></div>
-                        <div><span>Eliel</span><strong id="previaElielEliel">R$ 0,00</strong></div>
-                    </div>
+                    <div class="eliel-titulo-linha"><h3>Volume do mês</h3><strong id="previaElielTapiocas">0 tapiocas</strong></div>
                 </section>
 
                 <p class="eliel-previa-aviso">Ao confirmar, será registrada uma fotografia imutável desta competência, com data, horário e responsável. Pedidos e dados de outros meses não serão apagados ou alterados.</p>
@@ -942,7 +939,7 @@
             <div id="conteudoLiquidez">
                 <h3 style="text-align:center; color: var(--primary); margin-top:0;">📊 Liquidez Mensal</h3>
                 <p id="mesReferenciaPDF" style="text-align:center; color: var(--text-muted); margin-top: -10px; font-weight: bold;"></p>
-                <p style="text-align:center; color:var(--text-muted); font-size:.82rem; line-height:1.45;">Consulta financeira do PDV. O fechamento oficial é realizado exclusivamente no Relatório Eliel.</p>
+                <p style="text-align:center; color:var(--text-muted); font-size:.82rem; line-height:1.45;">O fechamento oficial é realizado no Relatório Eliel.</p>
 
                 <div class="liq-box" style="border-color: var(--primary); background: rgba(255,107,107,0.05);">
                     <div class="liq-row" style="border:none;">
@@ -988,6 +985,19 @@
                         (Restante pago pelo Trailer: R$ 0,00)
                     </div>
 
+                    <label for="liqPlanoAssinatura">Assinatura do app Tapimóvel</label>
+                    <select id="liqPlanoAssinatura" class="input-obs" onchange="preencherValorPlanoLiquidez(this, 'liqAssinatura')">
+                        <option value="">Selecione o plano</option>
+                        <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
+                        <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
+                        <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
+                    </select>
+                    <label for="liqAssinatura">Valor da assinatura (R$)</label>
+                    <input id="liqAssinatura" class="input-obs" inputmode="decimal" placeholder="0,00" style="margin-bottom:8px">
+                    <label for="liqCustosVariaveis">Custos variáveis (R$)</label>
+                    <input id="liqCustosVariaveis" class="input-obs" inputmode="decimal" style="margin-bottom:8px">
+                    <label for="liqSalarioMotorista">Salário do motorista de tapiocas (R$)</label>
+                    <input id="liqSalarioMotorista" class="input-obs" inputmode="decimal" placeholder="0,00" style="margin-bottom:8px">
                     <label style="font-size:0.85rem;">Salário Cozinha (R$):</label>
                     <input type="text" id="inpSalCozinha" class="input-obs" placeholder="750,00" value="750,00" style="margin-bottom:8px;" disabled>
 
@@ -998,87 +1008,15 @@
                     <input type="text" id="inpManutCarro" class="input-obs" placeholder="200,00" value="200,00" disabled>
                 </div>
 
-                <div style="text-align:center; margin: 15px 0;">
-                    <span style="font-size:0.85rem; color:var(--text-muted);">Base para Divisão (Sobra)</span>
-                    <div id="liqBaseDivisao" style="font-size:1.8rem; font-weight:bold; color:var(--success);">R$ 0,00</div>
+                <div class="liq-box">
+                    <div class="liq-row"><span>Custos operacionais</span><strong id="liqTotalCustos">R$ 0,00</strong></div>
+                    <div class="liq-row" style="border:none"><span>Líquido real do Eliel</span><strong id="liqEliel">R$ 0,00</strong></div>
                 </div>
-
-                <div class="liq-box" style="border-color: #339af0;">
-                    <p style="margin:0 0 10px 0; font-size:0.8rem; color:#339af0; font-weight:bold;">🔪 RATEIO DA SOBRA (%)</p>
-
-                    <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-                        <div style="flex: 1;">
-                            <label style="font-size:0.75rem;">Compra</label>
-                            <input type="number" id="inpPercMaterial" class="input-obs" value="70" style="padding:5px; width: 100%; box-sizing: border-box; text-align:center;" disabled>
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="font-size:0.75rem;">Lucas</label>
-                            <input type="number" id="inpPercLucas" class="input-obs" value="25" style="padding:5px; width: 100%; box-sizing: border-box; text-align:center;" disabled>
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="font-size:0.75rem;">Eliel</label>
-                            <input type="number" id="inpPercEliel" class="input-obs" value="5" style="padding:5px; width: 100%; box-sizing: border-box; text-align:center;" disabled>
-                        </div>
-                    </div>
-
-                    <div class="liq-row" style="color: var(--primary);">
-                        <span>📦 Compra / Material</span>
-                        <strong id="liqMaterialTxt">R$ 0,00</strong>
-                    </div>
-                    <div class="liq-row" style="border:none;">
-                        <span>👤 Lucas <span style="font-size:0.8rem; cursor:pointer;" onclick="toggleVis('liqLucas')"> <span id="icon-liqLucas">👁️</span></span></span>
-                        <strong id="liqLucas" class="ocultavel" data-valor="0" style="color: #339af0;">R$ ****</strong>
-                    </div>
-                    <div class="liq-row" style="border:none;">
-                        <span>👤 Eliel <span style="font-size:0.8rem; cursor:pointer;" onclick="toggleVis('liqEliel')"> <span id="icon-liqEliel">👁️</span></span></span>
-                        <strong id="liqEliel" class="ocultavel" data-valor="0" style="color: var(--edit);">R$ ****</strong>
-                    </div>
-                </div>
+                <button id="liqSalvar" type="button" class="btn-acao" onclick="salvarLiquidezMensal()">Salvar custos do mês</button>
+                <p id="liqStatusSalvamento" role="status"></p>
             </div>
 
             <button class="btn-acao btn-limpar" onclick="fecharModais()">Voltar</button>
-        </div>
-    </div>
-
-    <div id="modalEstimativa" class="modal-overlay">
-        <div class="modal-content" style="max-width: 450px;">
-            <h3 style="color: #339af0; margin-top:0; text-align:center;">💰 Inteligência Salarial</h3>
-
-            <div id="loadingEstimativa" style="text-align:center; padding: 20px; display: none;">
-                <div class="tapioca-inline-loader" role="status" aria-live="polite">
-                    <div class="taco-prep-animation" aria-hidden="true"><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-ingredient"></span><span class="taco-emoji">🌮</span></div>
-                    <p>Processando dias reais de trabalho...</p>
-                    <div class="tapioca-loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-                </div>
-            </div>
-
-            <div id="conteudoEstimativa" style="display: none;">
-                <p style="text-align:center; color: var(--text-muted); margin-bottom: 20px;">Projeção para <b><span id="estMes"></span></b> baseada nas vendas reais.</p>
-
-                <div class="liq-box" style="border-color: #339af0;">
-                    <div class="liq-row" style="font-size: 0.95rem; color: var(--text-muted);">
-                        <span>Dias Úteis no Mês (Seg-Sex)</span><strong id="estTotalDias">0</strong>
-                    </div>
-                    <div class="liq-row" style="font-size: 0.95rem; color: var(--text-muted);">
-                        <span>Dias Reais Trabalhados / Restantes</span><strong><span id="estPassados">0</span> / <span id="estRestantes">0</span></strong>
-                    </div>
-                    <div class="liq-row" style="border:none;">
-                        <span>Média Real por Dia Trabalhado</span><strong id="estMedia" style="color: var(--edit);">R$ 0,00</strong>
-                    </div>
-                </div>
-
-                <div style="background: var(--stat-bg); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid var(--border);">
-                    <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">Salário Lucas (Acumulado Real até hoje)</div>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--text);" id="estLucasAtual">R$ 0,00</div>
-                </div>
-
-                <div style="background: rgba(51, 154, 240, 0.1); padding: 15px; border-radius: 8px; text-align: center; border: 2px dashed #339af0;">
-                    <div style="font-size: 0.9rem; color: #339af0; margin-bottom: 5px; font-weight: bold;">Projeção de Salário Final (Taxas Dinâmicas)</div>
-                    <div style="font-size: 2rem; font-weight: bold; color: var(--success);" id="estLucasProjetado">R$ 0,00</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">*Se a média atual se mantiver nos dias restantes.</div>
-                </div>
-            </div>
-            <button class="btn-acao btn-limpar" style="margin-top: 20px;" onclick="fecharModais()">Voltar</button>
         </div>
     </div>
 
@@ -1106,8 +1044,8 @@
             <button class="btn-acao" style="background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 10px; margin-top: 10px; font-size: 1rem;" onclick="preencherValorExato()">Exato (Sem Troco)</button>
             <div class="valor-troco" id="caixaTroco" style="padding:15px; font-size:1.3rem; margin: 15px 0; background: var(--troco-bg); border-radius: 6px; text-align:center;">Troco: <strong id="valorDoTroco">R$ 0,00</strong></div>
             <div style="display:flex; gap:10px;">
-                <button class="btn-acao btn-limpar" style="margin:0;" onclick="fecharModais()">Voltar</button>
-                <button id="btnConfirmarDinheiro" class="btn-acao" style="background: var(--success);" onclick="finalizarVenda('Dinheiro')" disabled>✓ Finalizar</button>
+                <button class="btn-acao btn-limpar" style="margin:0;" onclick="voltarParaFormasPagamento()">Voltar</button>
+                <button id="btnConfirmarDinheiro" class="btn-acao" style="background: var(--success);" onclick="processarPagamento('Dinheiro', true)" disabled>Revisar pagamento</button>
             </div>
         </div>
     </div>
@@ -1124,8 +1062,8 @@
                 <label>VR (Vale Refeição):</label> <input type="text" inputmode="numeric" id="mistoVR" class="input-obs" placeholder="0,00" oninput="maskCurrency(event)">
             </div>
             <div style="margin-top: 15px; font-size: 1.1rem; text-align: center;">Falta: <strong id="faltaMistoSpan" style="color:var(--danger);">R$ 0,00</strong></div>
-            <button id="btnConfirmarMisto" class="btn-acao" style="background: var(--success); margin-top: 15px;" onclick="finalizarPagamentoMisto()" disabled>✓ Finalizar Misto</button>
-            <button class="btn-acao btn-limpar" onclick="fecharModais()">Cancelar</button>
+            <button id="btnConfirmarMisto" class="btn-acao" style="background: var(--success); margin-top: 15px;" onclick="finalizarPagamentoMisto()" disabled>Revisar pagamento</button>
+            <button class="btn-acao btn-limpar" onclick="voltarParaFormasPagamento()">Voltar</button>
         </div>
     </div>
 
@@ -1175,7 +1113,7 @@
             document.body.classList.toggle('perfil-eliel', eliel);
             document.body.classList.toggle('perfil-producao', producao);
             document.querySelector('.top-counters').hidden = eliel;
-            document.getElementById('btnTopoTapiocas').hidden = producao;
+            document.getElementById('btnTopoTapiocas').disabled = producao;
             document.getElementById('btnTopoCatalogo').hidden = !producao;
             document.querySelectorAll('#sidebar .menu-grupo').forEach(function(grupo) {
                 grupo.hidden = eliel
@@ -1201,11 +1139,12 @@
             });
             [
                 'elielCustoCombustivel', 'elielCustoCozinha', 'elielCustoAux',
-                'elielCustoManutencao', 'elielPercCompra', 'elielPercLucas', 'elielPercEliel'
+                'elielCustoManutencao', 'elielAssinatura', 'elielCustosVariaveis', 'elielSalarioMotorista'
             ].forEach(function(id) {
                 const campo = document.getElementById(id);
                 if (campo) campo.readOnly = eliel;
             });
+            document.getElementById('elielPlanoAssinatura').disabled = eliel;
         }
 
         function voltarInicioAcesso() {
@@ -1270,7 +1209,6 @@
             else if(acao === 'espelho') mudarTela('view-espelho');
             else if(acao === 'rankings') mudarTela('view-rankings');
             else if(acao === 'liquidez') abrirModalLiquidez();
-            else if(acao === 'estimativa') abrirModalEstimativa();
             else if(acao === 'dias') abrirModalDiaSemTrabalho();
             else if(acao === 'combustivel') mudarTela('view-combustivel');
         }
@@ -1377,28 +1315,6 @@
             setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease-out forwards'; setTimeout(() => toast.remove(), 300); }, 2000);
         }
 
-        function abrirModalEstimativa() {
-            document.getElementById('modalEstimativa').style.display = 'flex';
-            document.getElementById('conteudoEstimativa').style.display = 'none';
-            document.getElementById('loadingEstimativa').style.display = 'block';
-
-            if(typeof google !== 'undefined') {
-                google.script.run.withSuccessHandler(function(res) {
-                    let d = normalizarRespostaApi(res);
-                    document.getElementById('loadingEstimativa').style.display = 'none';
-                    document.getElementById('conteudoEstimativa').style.display = 'block';
-
-                    document.getElementById('estMes').textContent = d.mes;
-                    document.getElementById('estTotalDias').textContent = d.diasUteisTotal;
-                    document.getElementById('estPassados').textContent = d.diasUteisPassados;
-                    document.getElementById('estRestantes').textContent = d.diasUteisRestantes;
-                    document.getElementById('estMedia').textContent = formatarMoeda(d.mediaDiaria);
-                    document.getElementById('estLucasAtual').textContent = formatarMoeda(d.lucasAtual);
-                    document.getElementById('estLucasProjetado').textContent = formatarMoeda(d.lucasProjetado);
-                }).calcularEstimativaSalarioLucas();
-            }
-        }
-
         function mudarAbaFolga(aba) {
             let btnReg = document.getElementById('btnAbaRegFolga');
             let btnHist = document.getElementById('btnAbaHistFolga');
@@ -1475,7 +1391,7 @@
             }
         }
 
-        function toggleVis(id) { var el = document.getElementById(id); var icon = document.getElementById('icon-' + id); if(el.textContent.includes('****')) { el.textContent = formatarMoeda(parseFloat(el.getAttribute('data-valor'))); icon.textContent = '🙈'; } else { el.textContent = 'R$ ****'; icon.textContent = '👁️'; } }
+
 
         function sincronizarContadorGlobal() { let maxNum = 0; historicoNuvem.forEach(p => { if(p.numero > maxNum && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))) maxNum = parseInt(p.numero); }); if (maxNum >= contadorPedidos) contadorPedidos = maxNum + 1; }
 
@@ -2673,9 +2589,60 @@
             document.getElementById('modalPagamento').style.display = 'flex';
         }
 
-        function processarPagamento(forma) { const num = pedidoAguardandoPagamento; const ped = pedidoSelecionadoParaPagamento(); if (!ped) return; if (forma === 'Dinheiro') { fecharModais(); pedidoAguardandoPagamento = num; document.getElementById('trocoTotalPedido').textContent = formatarMoeda(ped.total); document.getElementById('inputValorRecebido').value = ''; document.getElementById('valorDoTroco').textContent = 'R$ 0,00'; document.getElementById('btnConfirmarDinheiro').disabled = true; document.getElementById('modalTroco').style.display = 'flex'; } else { finalizarVenda(forma); } }
+        function voltarParaFormasPagamento() {
+            const pedido = pedidoSelecionadoParaPagamento();
+            fecharModais();
+            if (pedido) abrirModalPagamento(pedido.numero);
+        }
 
-        function finalizarVenda(forma) {
+        function confirmarFormaPagamento(forma, detalhes = {}) {
+            const pedido = pedidoSelecionadoParaPagamento();
+            if (!pedido) return;
+            const chave = chaveVendaHoje(pedido);
+            const total = Number(pedido.total);
+            const rotulo = forma === 'Misto' ? 'Pagamento dividido' : forma;
+            const divisao = (detalhes.pagamentosMistos || [])
+                .map(item => item.forma + ' ' + formatarMoeda(item.valor)).join(' + ');
+            mostrarConfirmacao(
+                `Confirmar ${formatarMoeda(total)} no pedido #${pedido.numero} por ${rotulo}?${divisao ? ' ' + divisao : ''}`,
+                function() {
+                    const atual = pedidoSelecionadoParaPagamento();
+                    if (!atual || chaveVendaHoje(atual) !== chave || Number(atual.total) !== total) {
+                        fecharModais();
+                        mostrarAlerta('O pedido mudou. Abra o pagamento novamente no Caixa.');
+                        return;
+                    }
+                    finalizarVenda(forma, detalhes);
+                },
+                { titulo: 'Confirmar pagamento', textoConfirmar: 'Confirmar pagamento', textoCancelar: 'Voltar' }
+            );
+        }
+
+        function processarPagamento(forma, dinheiroConferido) {
+            const pedido = pedidoSelecionadoParaPagamento();
+            if (!pedido) return;
+            if (forma !== 'Dinheiro') {
+                confirmarFormaPagamento(forma);
+                return;
+            }
+            if (dinheiroConferido) {
+                const recebido = parseDinheiro(document.getElementById('inputValorRecebido').value);
+                if (recebido < pedido.total || recebido <= 0) return;
+                confirmarFormaPagamento(forma, { troco: Math.round((recebido - pedido.total) * 100) / 100 });
+                return;
+            }
+
+            const chave = pedidoAguardandoPagamento;
+            fecharModais();
+            pedidoAguardandoPagamento = chave;
+            document.getElementById('trocoTotalPedido').textContent = formatarMoeda(pedido.total);
+            document.getElementById('inputValorRecebido').value = '';
+            document.getElementById('valorDoTroco').textContent = 'R$ 0,00';
+            document.getElementById('btnConfirmarDinheiro').disabled = true;
+            document.getElementById('modalTroco').style.display = 'flex';
+        }
+
+        function finalizarVenda(forma, detalhes = {}) {
             const selecionado = pedidoSelecionadoParaPagamento();
             if (!selecionado) {
                 fecharModais();
@@ -2694,10 +2661,8 @@
             pedido.timestamp = new Date().getTime();
             pedido.dataExibicao = new Date().toLocaleString('pt-BR');
 
-            if (forma === 'Dinheiro') {
-                let recebido = parseDinheiro(document.getElementById('inputValorRecebido').value);
-                pedido.troco = (recebido || pedido.total) - pedido.total;
-            }
+            pedido.troco = detalhes.troco || 0;
+            pedido.pagamentosMistos = detalhes.pagamentosMistos || [];
 
             fecharModais();
             pagamentosEmConferencia.set(chave, conferencia);
@@ -2794,7 +2759,19 @@
 
         function calcularTotalMisto() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); let soma = vPix + vDin + vDeb + vCred + vVR; let falta = pedido.total - soma; falta = Math.round(falta * 100) / 100; let spanFalta = document.getElementById('faltaMistoSpan'); let btnConfirmar = document.getElementById('btnConfirmarMisto'); if (falta === 0) { spanFalta.textContent = "OK! Tudo pago."; spanFalta.style.color = "var(--success)"; btnConfirmar.disabled = false; } else if (falta > 0) { spanFalta.textContent = "Faltam " + formatarMoeda(falta); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } else { spanFalta.textContent = "Passou " + formatarMoeda(Math.abs(falta)); spanFalta.style.color = "var(--danger)"; btnConfirmar.disabled = true; } }
 
-        function finalizarPagamentoMisto() { const pedido = pedidoSelecionadoParaPagamento(); if (!pedido) return; let vPix = parseDinheiro(document.getElementById('mistoPix').value); let vDin = parseDinheiro(document.getElementById('mistoDinheiro').value); let vDeb = parseDinheiro(document.getElementById('mistoDebito').value); let vCred = parseDinheiro(document.getElementById('mistoCredito').value); let vVR = parseDinheiro(document.getElementById('mistoVR').value); pedido.pagamentosMistos = []; if(vPix > 0) pedido.pagamentosMistos.push({forma: 'PIX', valor: vPix}); if(vDin > 0) pedido.pagamentosMistos.push({forma: 'Dinheiro', valor: vDin}); if(vDeb > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Débito', valor: vDeb}); if(vCred > 0) pedido.pagamentosMistos.push({forma: 'Cartão de Crédito', valor: vCred}); if(vVR > 0) pedido.pagamentosMistos.push({forma: 'VR', valor: vVR}); finalizarVenda('Misto'); }
+        function finalizarPagamentoMisto() {
+            const pedido = pedidoSelecionadoParaPagamento();
+            if (!pedido) return;
+
+            const pagamentosMistos = [
+                ['PIX', 'mistoPix'], ['Dinheiro', 'mistoDinheiro'],
+                ['Cartão de Débito', 'mistoDebito'], ['Cartão de Crédito', 'mistoCredito'], ['VR', 'mistoVR']
+            ].map(([forma, id]) => ({ forma, valor: parseDinheiro(document.getElementById(id).value) }))
+                .filter(pagamento => pagamento.valor > 0);
+            const totalCentavos = pagamentosMistos.reduce((soma, pagamento) => soma + Math.round(pagamento.valor * 100), 0);
+            if (totalCentavos !== Math.round(pedido.total * 100)) return;
+            confirmarFormaPagamento('Misto', { pagamentosMistos });
+        }
 
 
         function checarBaixaCache(pedido) {
@@ -2869,13 +2846,17 @@
                 }, 0);
             }
             const porPedido = new Map();
-            vendasHojeCompletas().forEach(venda => {
-                porPedido.set(chaveVendaHoje(venda), somarItens(venda.itens));
+            vendasHojePersistidas.forEach(venda => {
+                if (venda && ehHoje(venda.timestamp)) {
+                    porPedido.set(chaveVendaHoje(venda), somarItens(venda.itens));
+                }
             });
             historicoNuvem.forEach(pedido => {
                 if (!pedido || !(ehHoje(pedido.timestampCriacao) || ehHoje(pedido.timestamp))) return;
                 const chave = chaveVendaHoje(pedido);
-                porPedido.set(chave, somarItens((pedido.itens || []).filter(item => item.pronto === true)));
+                if (porPedido.has(chave)) return;
+                const itensContados = (pedido.itens || []).filter(item => pedido.timestamp || item.pronto === true);
+                porPedido.set(chave, somarItens(itensContados));
             });
             return Array.from(porPedido.values()).reduce((total, quantidade) => total + quantidade, 0);
         }
@@ -2982,32 +2963,35 @@
         }
 
 
-        let faturamentoMesGlobal = 0;
-        let combustivelMesGlobal = 0;
-        let debitoMesGlobal = 0;
-        let creditoMesGlobal = 0;
-        let vrMesGlobal = 0;
+        let liquidezMensalAtual = null;
 
-        // VARIÁVEIS GLOBAIS DAS TAXAS
-        let taxaMaqDebito = 2.0;
-        let taxaMaqCredito = 5.0;
-        let taxaMaqVR = 5.59;
+        function preencherValorPlanoLiquidez(select, idCampo) {
+            const opcao = select.options[select.selectedIndex];
+            document.getElementById(idCampo).value = opcao?.dataset.valor || '';
+        }
+
+        function valorCustoLiquidez(campo) {
+            const texto = campo.value.trim().replace(/^R\$\s*/, '');
+            if (!texto) return null;
+            if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(texto)) {
+                throw new Error('Preencha os custos com valores em reais, como 80,00.');
+            }
+            return Number(texto.replace(/\./g, '').replace(',', '.'));
+        }
+
+        function preencherCampoCustoLiquidez(campo, valor) {
+            campo.value = valor == null ? '' : Number(valor).toFixed(2).replace('.', ',');
+        }
 
         function abrirModalLiquidez() {
-            const hoje = new Date();
-            const mesesExtenso = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-            document.getElementById('mesReferenciaPDF').textContent = `${mesesExtenso[hoje.getMonth()]} de ${hoje.getFullYear()}`;
-
+            liquidezMensalAtual = null;
             document.getElementById('modalLiquidez').style.display = 'flex';
             document.getElementById('conteudoLiquidez').style.display = 'none';
             document.getElementById('loadingLiquidez').style.display = 'block';
+            document.getElementById('liqStatusSalvamento').textContent = '';
             const erroLiquidez = document.getElementById('erroLiquidez');
             erroLiquidez.textContent = '';
             erroLiquidez.style.display = 'none';
-
-            if(!document.getElementById('inpSalCozinha').value) document.getElementById('inpSalCozinha').value = '750,00';
-            if(!document.getElementById('inpSalCarro').value) document.getElementById('inpSalCarro').value = '300,00';
-            if(!document.getElementById('inpManutCarro').value) document.getElementById('inpManutCarro').value = '200,00';
 
             function mostrarErroLiquidez(erro) {
                 document.getElementById('loadingLiquidez').style.display = 'none';
@@ -3016,84 +3000,74 @@
             }
 
             if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run.withSuccessHandler(function(res) {
-                    const dados = normalizarRespostaApi(res);
-                    if (!dados || !Number.isFinite(dados.total)) {
+                google.script.run.withSuccessHandler(function(resposta) {
+                    const dados = normalizarRespostaApi(resposta);
+                    if (!dados || !Number.isFinite(dados.total) || !dados.custos || !dados.configuracoes) {
                         mostrarErroLiquidez();
                         return;
                     }
-                    faturamentoMesGlobal = dados.total;
-                    combustivelMesGlobal = dados.combustivel;
-                    creditoMesGlobal = dados.credito || 0;
-                    debitoMesGlobal = dados.debito || 0;
-                    vrMesGlobal = dados.vr || 0;
-
-                    document.getElementById('liqQtdTapiocasTxt').textContent = (dados.qtdTapiocas || 0) + " un";
-
-                    recalcularLiquidez();
+                    liquidezMensalAtual = dados;
+                    document.getElementById('liqQtdTapiocasTxt').textContent = (dados.qtdTapiocas || 0) + ' un';
+                    recalcularLiquidez(dados);
                     document.getElementById('loadingLiquidez').style.display = 'none';
                     document.getElementById('conteudoLiquidez').style.display = 'block';
-                }).withFailureHandler(mostrarErroLiquidez).obterResumoMesPlanilha();
+                }).withFailureHandler(mostrarErroLiquidez).obterLiquidezMensalPdv();
             } else {
                 mostrarErroLiquidez();
             }
         }
 
-        function recalcularLiquidez() {
-            let faturamento = faturamentoMesGlobal;
-            let combustivel = combustivelMesGlobal;
+        function recalcularLiquidez(dados) {
+            const { custos, configuracoes: config } = dados;
+            document.getElementById('mesReferenciaPDF').textContent = new Intl.DateTimeFormat('pt-BR', {
+                month: 'long', year: 'numeric'
+            }).format(new Date(dados.ano, dados.mes - 1, 1));
+            document.getElementById('liqTotalGeralTxt').textContent = formatarMoeda(dados.total);
+            document.getElementById('liqTaxasTxt').textContent = '- ' + formatarMoeda(dados.taxas);
+            document.getElementById('lblResumoTaxas').textContent = `(D: ${config.taxaDebito}% | C: ${config.taxaCredito}% | VR: ${config.taxaVr}%)`;
+            document.getElementById('liqSubtotal1Txt').textContent = formatarMoeda(dados.subtotal);
+            document.getElementById('liqCombustivelTxt').textContent = '- ' + formatarMoeda(custos.combustivelCarro);
+            document.getElementById('liqCombustivelTrailerTxt').textContent = 'Trailer · ' + formatarMoeda(custos.combustivelTrailer);
+            document.getElementById('liqTotalCustos').textContent = formatarMoeda(dados.totalCustos);
+            const liquido = document.getElementById('liqEliel');
+            liquido.textContent = formatarMoeda(dados.liquido);
+            liquido.style.color = dados.liquido < 0 ? 'var(--danger)' : 'var(--success)';
+            document.getElementById('liqPlanoAssinatura').value = config.planoAssinatura || '';
+            Object.entries({
+                inpSalCozinha: custos.salarioCozinha, inpSalCarro: custos.salarioAuxCarro, inpManutCarro: custos.manutencaoCarro,
+                liqAssinatura: config.assinaturaTapimovel, liqCustosVariaveis: config.custosVariaveis, liqSalarioMotorista: config.salarioMotorista
+            }).forEach(([id, valor]) => preencherCampoCustoLiquidez(document.getElementById(id), valor));
+        }
 
-            let salCozinha = parseDinheiro(document.getElementById('inpSalCozinha').value);
-            let salCarro = parseDinheiro(document.getElementById('inpSalCarro').value);
-            let manutCarro = parseDinheiro(document.getElementById('inpManutCarro').value);
-
-            let percCombTrailer = parseFloat(document.getElementById('inpPercCombTrailer').value) / 100 || 0;
-            let percMaterial = parseFloat(document.getElementById('inpPercMaterial').value) / 100 || 0;
-            let percLucas = parseFloat(document.getElementById('inpPercLucas').value) / 100 || 0;
-            let percEliel = parseFloat(document.getElementById('inpPercEliel').value) / 100 || 0;
-
-            document.getElementById('liqTotalGeralTxt').textContent = formatarMoeda(faturamento);
-
-            // PASSO 1: Taxas de Máquina Dinâmicas
-            let taxaDebito = debitoMesGlobal * (taxaMaqDebito / 100);
-            let taxaCredito = creditoMesGlobal * (taxaMaqCredito / 100);
-            let taxaVR = vrMesGlobal * (taxaMaqVR / 100);
-            let totalTaxas = taxaDebito + taxaCredito + taxaVR;
-
-            document.getElementById('liqTaxasTxt').textContent = "- " + formatarMoeda(totalTaxas);
-
-            let subtotal1 = faturamento - totalTaxas;
-            document.getElementById('liqSubtotal1Txt').textContent = formatarMoeda(subtotal1);
-
-            // PASSO 2: Custos Operacionais
-            let combustivelDescontado = combustivel * percCombTrailer;
-            let combustivelRestante = combustivel - combustivelDescontado;
-
-            document.getElementById('liqCombustivelTxt').textContent = "- " + formatarMoeda(combustivelDescontado);
-            document.getElementById('liqCombustivelTrailerTxt').textContent = "(Restante pago pelo Trailer: " + formatarMoeda(combustivelRestante) + ")";
-
-            let totalDespesasOperacionais = combustivelDescontado + salCozinha + salCarro + manutCarro;
-
-            // PASSO 3: Base para Rateio
-            let baseParaDivisao = subtotal1 - totalDespesasOperacionais;
-
-            document.getElementById('liqBaseDivisao').textContent = formatarMoeda(baseParaDivisao);
-            document.getElementById('liqBaseDivisao').style.color = baseParaDivisao >= 0 ? "var(--success)" : "var(--danger)";
-
-            // PASSO 4: Fatias (Rateio)
-            let valorMaterial = baseParaDivisao > 0 ? baseParaDivisao * percMaterial : 0;
-            let lucroLucas = baseParaDivisao > 0 ? baseParaDivisao * percLucas : 0;
-            let lucroEliel = baseParaDivisao > 0 ? baseParaDivisao * percEliel : 0;
-
-            document.getElementById('liqMaterialTxt').textContent = formatarMoeda(valorMaterial);
-
-            document.getElementById('liqLucas').setAttribute('data-valor', lucroLucas);
-            document.getElementById('liqEliel').setAttribute('data-valor', lucroEliel);
-
-            document.getElementById('liqLucas').textContent = 'R$ ****';
-            document.getElementById('liqEliel').textContent = 'R$ ****';
-            document.getElementById('icon-liqLucas').textContent = '👁️';
-            document.getElementById('icon-liqEliel').textContent = '👁️';
+        function salvarLiquidezMensal() {
+            const dados = liquidezMensalAtual;
+            if (!dados) return;
+            const status = document.getElementById('liqStatusSalvamento');
+            const botao = document.getElementById('liqSalvar');
+            if (botao.disabled) return;
+            let config;
+            try {
+                config = {
+                    planoAssinatura: document.getElementById('liqPlanoAssinatura').value,
+                    assinaturaTapimovel: valorCustoLiquidez(document.getElementById('liqAssinatura')),
+                    custosVariaveis: valorCustoLiquidez(document.getElementById('liqCustosVariaveis')),
+                    salarioMotorista: valorCustoLiquidez(document.getElementById('liqSalarioMotorista'))
+                };
+            } catch (erro) {
+                status.textContent = erro.message;
+                return;
+            }
+            botao.disabled = true;
+            status.textContent = 'Salvando custos…';
+            google.script.run.withSuccessHandler(function() {
+                botao.disabled = false;
+                if (liquidezMensalAtual !== dados || document.getElementById('modalLiquidez').style.display === 'none') return;
+                abrirModalLiquidez();
+                mostrarToast('Custos da Liquidez Mensal salvos.');
+            }).withFailureHandler(function(erro) {
+                botao.disabled = false;
+                status.textContent = erro.message || 'Não foi possível salvar os custos.';
+            }).salvarConfiguracoesRelatorioEliel(JSON.stringify(config), dados.mes, dados.ano);
         }
 
         function verificarPedidosAbertos() { const itensAbertos = historicoNuvem.filter(p => (!p.produzido || !p.timestamp) && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))); if (itensAbertos.length > 0) { mostrarAlerta("⚠️ Você possui pedidos pendentes na cozinha ou caixa!"); return true; } return false; }
@@ -3494,7 +3468,7 @@
             }
         }
     </script>
-    <script src="./eliel.js?v=20260816.4"></script>
+    <script src="./eliel.js?v=20261118.1"></script>
     <script src="./configuracao.js?v=20261002.1"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">

@@ -5,19 +5,20 @@ const vm = require('node:vm');
 
 function abrirConsulta(semApi = false) {
   const html = fs.readFileSync('frontend/index.html', 'utf8');
-  const source = html.slice(html.indexOf('function abrirModalLiquidez()'), html.indexOf('function recalcularLiquidez()'));
+  const source = html.slice(html.indexOf('function abrirModalLiquidez()'), html.indexOf('function recalcularLiquidez(dados)'));
   const nodes = {};
   for (const id of ['mesReferenciaPDF', 'modalLiquidez', 'conteudoLiquidez', 'loadingLiquidez', 'erroLiquidez',
-    'inpSalCozinha', 'inpSalCarro', 'inpManutCarro', 'liqQtdTapiocasTxt']) {
+    'liqStatusSalvamento', 'liqQtdTapiocasTxt']) {
     nodes[id] = {style: {}, value: '', textContent: ''};
   }
   const callbacks = {};
   const runner = {
     withSuccessHandler(fn) { callbacks.success = fn; return this; },
     withFailureHandler(fn) { callbacks.failure = fn; return this; },
-    obterResumoMesPlanilha() {}
+    obterLiquidezMensalPdv() {}
   };
   const context = {
+    liquidezMensalAtual: null,
     document: {getElementById: id => nodes[id]},
     google: semApi ? undefined : {script: {run: runner}},
     normalizarRespostaApi(res) { try { return JSON.parse(res); } catch { return null; } },
@@ -47,7 +48,7 @@ test('nova consulta limpa o erro e exibe o resumo quando há sucesso', () => {
   vm.runInNewContext('abrirModalLiquidez();', context);
   assert.equal(nodes.erroLiquidez.textContent, '');
   assert.equal(nodes.erroLiquidez.style.display, 'none');
-  callbacks.success(JSON.stringify({total: 32.75, qtdTapiocas: 7}));
+  callbacks.success(JSON.stringify({total: 32.75, qtdTapiocas: 7, custos: {}, configuracoes: {}}));
   assert.equal(nodes.loadingLiquidez.style.display, 'none');
   assert.equal(nodes.conteudoLiquidez.style.display, 'block');
   assert.equal(nodes.liqQtdTapiocasTxt.textContent, '7 un');

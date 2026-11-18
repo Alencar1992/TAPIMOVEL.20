@@ -119,6 +119,7 @@ function executarAcaoApi_(action, args, token) {
     "moverParaCancelados",
     "reabrirPedidoBackend",
     "obterResumoMesPlanilha",
+    "obterLiquidezMensalPdv",
     "calcularEstimativaSalarioLucas",
     "registrarDiaSemTrabalhoPlanilha",
     "buscarFolgasBackend",

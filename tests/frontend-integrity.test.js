@@ -414,7 +414,7 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
   assert.match(html, /Confirmar fechamento/);
   assert.match(html, /id="previaElielCombustivelTotal"/);
   assert.match(html, /Combustível total · 100%/);
-  assert.match(html, /Liquidez Mensal · consulta/);
+  assert.match(html, /id="modalLiquidez"/);
   assert.doesNotMatch(html, /Fechar Mês \(Drive\)/);
   assert.doesNotMatch(html, /function confirmarFechamentoMes\(/);
   assert.doesNotMatch(backend, /function fecharMesESalvarDrive\(/);

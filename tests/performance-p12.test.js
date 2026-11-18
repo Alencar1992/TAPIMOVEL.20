@@ -100,9 +100,9 @@ test('P12 nunca permite cache de filas ou controle de operações', () => {
 
 test('P12 Relatório Eliel usa snapshots analíticos reutilizáveis', () => {
   const source = read('apps-script/RelatorioElielService.gs');
-  assert.match(source, /lerAbaAnalitica_\("Historico_Diario"\)/);
-  assert.match(source, /lerAbaAnalitica_\("Fechamentos_Diarios"\)/);
-  assert.match(source, /lerAbaAnalitica_\("Combustivel"\)/);
+  assert.match(source, /lerAbaAnalitica_\("Historico_Diario", false, ss\)/);
+  assert.match(source, /lerAbaAnalitica_\("Fechamentos_Diarios", false, ss\)/);
+  assert.match(source, /lerAbaAnalitica_\("Combustivel", false, ss\)/);
   assert.doesNotMatch(source, /historico\.getDataRange\(\)\.getDisplayValues\(\)/);
   assert.doesNotMatch(source, /fechamentos\.getDataRange\(\)\.getDisplayValues\(\)/);
 });

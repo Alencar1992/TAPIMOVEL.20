@@ -4,57 +4,153 @@
 // O fechamento mensal permanece isolado em FechamentoService.gs.
 // =========================================================
 
-function obterConfiguracoesRelatorioEliel() {
+const PLANOS_ASSINATURA_TAPIMOVEL_ = { BASIC: 50, Plus: 80, PRO: 100 };
+
+function configLegadaRelatorioEliel_() {
   const padrao = {
     combustivelTotal: 0,
     salarioCozinha: 750,
     salarioAuxCarro: 300,
     manutencaoCarro: 200,
-    percentualCompra: 70,
-    percentualLucas: 25,
-    percentualEliel: 5,
+    percentualCompra: 70, percentualLucas: 25, percentualEliel: 5,
     taxaDebito: 2,
     taxaCredito: 5,
     taxaVr: 5.59
   };
   const salvo = obterScriptProperties_().getProperty("relatorio_eliel_config");
-  if (!salvo) return JSON.stringify(padrao);
   try {
-    const configSalva = JSON.parse(salvo);
-    if (configSalva.combustivelTotal == null && configSalva.combustivelCarro != null) {
-      configSalva.combustivelTotal = configSalva.combustivelCarro;
+    const config = JSON.parse(salvo || "{}");
+    if (config.combustivelTotal == null && config.combustivelCarro != null) {
+      config.combustivelTotal = config.combustivelCarro;
     }
-    return JSON.stringify(Object.assign(padrao, configSalva));
+    return Object.assign(padrao, config);
   } catch (_) {
-    return JSON.stringify(padrao);
+    return padrao;
   }
 }
-function dividirCombustivelRelatorioEliel_(valorTotal) {
-  const total = Math.max(0, normalizarNumero_(valorTotal));
-  return {
-    total: total,
-    carro: total * 0.80,
-    trailer: total * 0.20
+
+function chaveConfigLiquidez_(mes, ano) {
+  if (!chaveMes_(mes, ano)) {
+    throw erroApi_("INVALID_PERIOD", "Informe um mês e um ano válidos.");
+  }
+  return "relatorio_eliel_config_" + chaveMes_(mes, ano);
+}
+
+function custosMensaisSalvosEliel_(mes, ano) {
+  const salvo = obterScriptProperties_().getProperty(chaveConfigLiquidez_(mes, ano));
+  return salvo ? JSON.parse(salvo) : {};
+}
+
+function obterConfiguracoesRelatorioEliel(mes, ano) {
+  const padrao = Object.assign(configLegadaRelatorioEliel_(), {
+    combustivelEditado: null, salarioMotorista: null, planoAssinatura: "",
+    assinaturaTapimovel: null, custosVariaveis: null
+  });
+  if (mes == null && ano == null) return JSON.stringify(padrao);
+  return JSON.stringify(Object.assign(padrao, custosMensaisSalvosEliel_(mes, ano)));
+}
+
+function arredondarLiquidez_(valor) {
+  return Math.round((valor + Math.sign(valor) * Number.EPSILON) * 100) / 100;
+}
+
+function dividirCombustivelRelatorioEliel_(valor) {
+  const total = Math.max(0, normalizarNumero_(valor));
+  const carro = arredondarLiquidez_(total * 0.8);
+  return { total: total, carro: carro, trailer: arredondarLiquidez_(total - carro) };
+}
+
+function calcularCustosLiquidez_(combustivel, config) {
+  const total = config.combustivelEditado ?? (combustivel || config.combustivelTotal);
+  const combustivelDividido = dividirCombustivelRelatorioEliel_(total);
+  const custos = {
+    combustivelTotal: combustivelDividido.total,
+    combustivelCarro: combustivelDividido.carro,
+    combustivelTrailer: combustivelDividido.trailer,
+    salarioCozinha: normalizarNumero_(config.salarioCozinha),
+    salarioAuxCarro: normalizarNumero_(config.salarioAuxCarro),
+    manutencaoCarro: normalizarNumero_(config.manutencaoCarro),
+    salarioMotorista: normalizarNumero_(config.salarioMotorista),
+    assinaturaTapimovel: normalizarNumero_(config.assinaturaTapimovel),
+    custosVariaveis: normalizarNumero_(config.custosVariaveis)
   };
+  const totalCustos = arredondarLiquidez_(custos.combustivelCarro + custos.salarioCozinha +
+    custos.salarioAuxCarro + custos.manutencaoCarro + custos.salarioMotorista +
+    custos.assinaturaTapimovel + custos.custosVariaveis);
+  return { custos: custos, totalCustos: totalCustos };
 }
-function salvarConfiguracoesRelatorioEliel(configJSON) {
+
+function salvarConfiguracoesRelatorioEliel(configJSON, mes, ano) {
   const config = JSON.parse(configJSON || "{}");
-  const soma = normalizarNumero_(config.percentualCompra) +
-    normalizarNumero_(config.percentualLucas) +
-    normalizarNumero_(config.percentualEliel);
-  if (Math.abs(soma - 100) > 0.01) {
-    throw new Error("Os percentuais de Compra, Lucas e Eliel precisam somar 100%.");
+  const props = obterScriptProperties_();
+  // A assinatura anterior continua disponível para versões antigas do PDV.
+  if (mes == null && ano == null) {
+    const soma = normalizarNumero_(config.percentualCompra) +
+      normalizarNumero_(config.percentualLucas) + normalizarNumero_(config.percentualEliel);
+    if (Math.abs(soma - 100) > 0.01) {
+      throw new Error("Os percentuais de Compra, Lucas e Eliel precisam somar 100%.");
+    }
+    props.setProperty("relatorio_eliel_config", JSON.stringify(config));
+    return obterConfiguracoesRelatorioEliel();
   }
-  obterScriptProperties_()
-    .setProperty("relatorio_eliel_config", JSON.stringify(config));
-  return obterConfiguracoesRelatorioEliel();
+
+  const chave = chaveConfigLiquidez_(mes, ano);
+  const lock = LockService.getUserLock();
+  lock.waitLock(10000);
+  try {
+    const registro = custosMensaisSalvosEliel_(mes, ano);
+    ["combustivelEditado", "salarioCozinha", "salarioAuxCarro", "manutencaoCarro",
+      "salarioMotorista", "assinaturaTapimovel", "custosVariaveis"].forEach(function(campo) {
+      if (!Object.prototype.hasOwnProperty.call(config, campo)) return;
+      const valor = config[campo];
+      if (valor !== null && (typeof valor !== "number" || !Number.isSafeInteger(Math.round(valor * 100)) || valor < 0)) {
+        throw erroApi_("INVALID_COST", "Informe um custo válido em reais.");
+      }
+      registro[campo] = valor === null ? null : arredondarLiquidez_(valor);
+    });
+    if (Object.prototype.hasOwnProperty.call(config, "planoAssinatura")) {
+      const plano = config.planoAssinatura;
+      if (plano !== "" && !Object.prototype.hasOwnProperty.call(PLANOS_ASSINATURA_TAPIMOVEL_, plano)) {
+        throw erroApi_("INVALID_PLAN", "Selecione um plano de assinatura válido.");
+      }
+      registro.planoAssinatura = plano;
+      if (!Object.prototype.hasOwnProperty.call(config, "assinaturaTapimovel") && plano !== "") {
+        registro.assinaturaTapimovel = PLANOS_ASSINATURA_TAPIMOVEL_[plano];
+      }
+    }
+    if (registro.planoAssinatura && registro.assinaturaTapimovel == null) {
+      registro.assinaturaTapimovel = PLANOS_ASSINATURA_TAPIMOVEL_[registro.planoAssinatura];
+    }
+    props.setProperty(chave, JSON.stringify(registro));
+    return obterConfiguracoesRelatorioEliel(mes, ano);
+  } finally {
+    lock.releaseLock();
+  }
 }
+
+function obterLiquidezMensalPdv() {
+  const hoje = new Date();
+  const competencia = chaveMesDaDataAplicacao_(hoje).split("-");
+  const ano = Number(competencia[0]), mes = Number(competencia[1]);
+  const dados = JSON.parse(obterResumoMesPlanilha());
+  const configuracoes = JSON.parse(obterConfiguracoesRelatorioEliel(mes, ano));
+  const taxas = arredondarLiquidez_((dados.debito * normalizarNumero_(configuracoes.taxaDebito) +
+    dados.credito * normalizarNumero_(configuracoes.taxaCredito) +
+    dados.vr * normalizarNumero_(configuracoes.taxaVr)) / 100);
+  const subtotal = arredondarLiquidez_(dados.total - taxas);
+  const despesas = calcularCustosLiquidez_(dados.combustivel, configuracoes);
+  return JSON.stringify(Object.assign(dados, despesas, {
+    mes: mes, ano: ano, taxas: taxas, subtotal: subtotal,
+    liquido: arredondarLiquidez_(subtotal - despesas.totalCustos), configuracoes: configuracoes
+  }));
+}
+
 function obterRelatorioEliel(mes, ano, catalogoJSON) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const historico = ss.getSheetByName("Historico_Diario");
   const fechamentos = ss.getSheetByName("Fechamentos_Diarios");
   const combustivel = ss.getSheetByName("Combustivel");
-  const config = JSON.parse(obterConfiguracoesRelatorioEliel());
+  const config = JSON.parse(obterConfiguracoesRelatorioEliel(mes, ano));
   const catalogo = JSON.parse(catalogoJSON || "[]");
   const dias = {};
   const semanas = {};
@@ -83,7 +179,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   });
 
   if (historico) {
-    const dados = lerAbaAnalitica_("Historico_Diario");
+    const dados = lerAbaAnalitica_("Historico_Diario", false, ss);
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][1]);
       const tipo = String(dados[i][3] || "").toUpperCase();
@@ -115,7 +211,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   }
 
   if (fechamentos) {
-    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios", false, ss);
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][0]);
       if (!pertenceAoMes_(data, mes, ano)) continue;
@@ -137,7 +233,7 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
   }
 
   if (combustivel) {
-    const dados = lerAbaAnalitica_("Combustivel");
+    const dados = lerAbaAnalitica_("Combustivel", false, ss);
     for (let i = 1; i < dados.length; i++) {
       const data = extrairData_(dados[i][0]);
       if (pertenceAoMes_(data, mes, ano)) combustivelMes += normalizarNumero_(dados[i][1]);
@@ -211,27 +307,10 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
       valor: vr * normalizarNumero_(config.taxaVr) / 100
     }
   ];
-  const taxas = detalhesTaxas.reduce(function(total, item) { return total + item.valor; }, 0);
-  const subtotal = faturamento - taxas;
-  const combustivelRateado = dividirCombustivelRelatorioEliel_(
-    combustivelMes || config.combustivelTotal
-  );
-  const custos = {
-    combustivelTotal: combustivelRateado.total,
-    combustivelCarro: combustivelRateado.carro,
-    combustivelTrailer: combustivelRateado.trailer,
-    salarioCozinha: normalizarNumero_(config.salarioCozinha),
-    salarioAuxCarro: normalizarNumero_(config.salarioAuxCarro),
-    manutencaoCarro: normalizarNumero_(config.manutencaoCarro)
-  };
-  const totalCustos = custos.combustivelCarro + custos.salarioCozinha +
-    custos.salarioAuxCarro + custos.manutencaoCarro;
-  const liquido = subtotal - totalCustos;
-  const distribuicao = {
-    compra: Math.max(0, liquido) * normalizarNumero_(config.percentualCompra) / 100,
-    lucas: Math.max(0, liquido) * normalizarNumero_(config.percentualLucas) / 100,
-    eliel: Math.max(0, liquido) * normalizarNumero_(config.percentualEliel) / 100
-  };
+  const taxas = arredondarLiquidez_(detalhesTaxas.reduce(function(total, item) { return total + item.valor; }, 0));
+  const subtotal = arredondarLiquidez_(faturamento - taxas);
+  const despesas = calcularCustosLiquidez_(combustivelMes, config);
+  const liquido = arredondarLiquidez_(subtotal - despesas.totalCustos);
 
   const chave = chaveMes_(mes, ano);
   const relatorio = {
@@ -257,16 +336,15 @@ function obterRelatorioEliel(mes, ano, catalogoJSON) {
     detalhesTaxas: detalhesTaxas,
     mesesComparacao: periodosComparacao,
     subtotal: subtotal,
-    custos: custos,
-    totalCustos: totalCustos,
+    custos: despesas.custos,
+    totalCustos: despesas.totalCustos,
     liquido: liquido,
-    distribuicao: distribuicao,
     configuracoes: config
   };
   return JSON.stringify(relatorio);
 }
 function obterAbaRelatorioEliel_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName("Relatorio Eliel");
   if (!aba) {
     aba = ss.insertSheet("Relatorio Eliel");
@@ -285,7 +363,7 @@ function obterAbaRelatorioEliel_() {
   return aba;
 }
 function registrarAcessoRelatorioEliel(mes, ano) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   let aba = ss.getSheetByName("Log Relatorio Eliel");
   if (!aba) {
     aba = ss.insertSheet("Log Relatorio Eliel");
@@ -301,7 +379,7 @@ function registrarAcessoRelatorioEliel(mes, ano) {
   let temDadosAnterior = false;
   const fechamentos = ss.getSheetByName("Fechamentos_Diarios");
   if (fechamentos) {
-    const dados = lerAbaAnalitica_("Fechamentos_Diarios");
+    const dados = lerAbaAnalitica_("Fechamentos_Diarios", false, ss);
     temDadosAnterior = dados.slice(1).some(function(linha) {
       return pertenceAoMes_(extrairData_(linha[0]), anterior.getMonth() + 1, anterior.getFullYear()) &&
         normalizarNumero_(linha[1]) > 0;
@@ -313,7 +391,7 @@ function registrarAcessoRelatorioEliel(mes, ano) {
   });
 }
 function obterHistoricoVendasEliel(dataInicial, dataFinal) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = obterSpreadsheetAplicacao_();
   const aba = ss.getSheetByName("Historico_Diario");
   const cabecalhoPadrao = [
     "ID Pedido", "Data e Hora", "Produto", "Tipo", "Qtd", "Preço Unit.",

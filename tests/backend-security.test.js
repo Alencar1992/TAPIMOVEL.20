@@ -1295,3 +1295,60 @@ test("cancelamento aceita um segundo pedido válido e rejeita número inválido 
   assert.equal(JSON.parse(context.carregarDadosNuvem()).length, 0);
   assert.equal(spreadsheet.getSheetByName("Pedidos Cancelados").getLastRow(), 3);
 });
+
+test("Liquidez Mensal guarda custos por competência e mantém a edição do preço", () => {
+  const { context } = createContext();
+  const ler = (mes, ano) => JSON.parse(context.obterConfiguracoesRelatorioEliel(mes, ano));
+  const salvar = (config, mes = 11, ano = 2026) =>
+    JSON.parse(context.salvarConfiguracoesRelatorioEliel(JSON.stringify(config), mes, ano));
+
+  assert.equal(ler(11, 2026).custosVariaveis, null);
+  assert.equal(salvar({ planoAssinatura: "BASIC" }).assinaturaTapimovel, 50);
+  assert.equal(salvar({ planoAssinatura: "Plus" }).assinaturaTapimovel, 80);
+  assert.equal(salvar({ planoAssinatura: "PRO" }).assinaturaTapimovel, 100);
+  salvar({ assinaturaTapimovel: 95.25, custosVariaveis: 25, salarioMotorista: 300 });
+  assert.equal(ler(11, 2026).assinaturaTapimovel, 95.25);
+  assert.equal(ler(11, 2026).salarioMotorista, 300);
+  assert.equal(ler(12, 2026).assinaturaTapimovel, null);
+  assert.equal(ler(11, 2027).custosVariaveis, null);
+  assert.throws(() => salvar({ salarioMotorista: -100 }), erro => erro.code === "INVALID_COST");
+  assert.throws(() => salvar({ planoAssinatura: "Premium" }), erro => erro.code === "INVALID_PLAN");
+  assert.equal(ler(11, 2026).salarioMotorista, 300);
+});
+
+test("Liquidez Mensal do PDV desconta taxas e todos os custos e preserva zero e negativo", () => {
+  const { context } = createContext();
+  const hoje = new Date();
+  context.salvarConfiguracoesRelatorioEliel(JSON.stringify({
+    salarioMotorista: 300, planoAssinatura: "BASIC", custosVariaveis: 20
+  }), hoje.getMonth() + 1, hoje.getFullYear());
+
+  function apurar(total) {
+    context.obterResumoMesPlanilha = () => JSON.stringify({
+      total, debito: 100, credito: 100, vr: 0, combustivel: 100, qtdTapiocas: 7
+    });
+    return JSON.parse(context.obterLiquidezMensalPdv());
+  }
+  const positivo = apurar(2000);
+  assert.equal(positivo.taxas, 7);
+  assert.equal(positivo.totalCustos, 1700);
+  assert.equal(positivo.liquido, 293);
+  assert.equal(apurar(1707).liquido, 0);
+  assert.equal(apurar(1000).liquido, -707);
+});
+
+test("Vendas Hoje continua legível quando outra operação mantém a trava financeira", () => {
+  const { context } = createContext();
+  context.registrarVendaHojeAdmin(JSON.stringify({
+    numero: 55, timestampCriacao: 111, total: 14, formaPagamento: "PIX",
+    dataExibicao: "28/07/2026, 19:30",
+    itens: [{ nome: "Bauru", tipo: "tapioca", quantidade: 1, preco: 14 }]
+  }));
+  context.LockService.getUserLock = () => ({
+    tryLock: espera => { assert.equal(espera, 0); return false; },
+    waitLock: () => assert.fail("a leitura não deve esperar pela trava")
+  });
+  const vendas = JSON.parse(context.carregarVendasHojePersistidas());
+  assert.equal(vendas.length, 1);
+  assert.equal(vendas[0].numero, 55);
+});
