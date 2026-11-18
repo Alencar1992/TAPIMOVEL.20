@@ -71,7 +71,7 @@ test('API indisponível termina o carregamento e mostra o alerta', () => {
 
 test('campos monetários aceitam e exibem milhares e centavos no padrão brasileiro', () => {
   const html = fs.readFileSync('frontend/index.html', 'utf8');
-  const codigo = html.slice(html.indexOf('function valorCustoLiquidez(campo)'), html.indexOf('function abrirModalLiquidez()'));
+  const codigo = html.slice(html.indexOf('function valorCustoLiquidez('), html.indexOf('function abrirModalLiquidez()'));
   const entrada = { value: 'R$ 12.345,50' };
   vm.runInNewContext(codigo + '\npreencherCampoCustoLiquidez(entrada, valorCustoLiquidez(entrada));', { entrada });
   assert.equal(entrada.value, '12.345,50');
@@ -118,4 +118,8 @@ test('líquido reage a cada campo monetário e percentual antes de salvar', () =
     vm.runInContext('preverLiquidezMensal();', tela);
     assert.equal(obterCampo('liqEliel').textContent, anterior + diferenca, id);
   }
+  const anterior = iniciar();
+  obterCampo('liqFaturamento').value = '-1.000,00';
+  vm.runInContext('preverLiquidezMensal();', tela);
+  assert.equal(obterCampo('liqEliel').textContent, anterior - 3000);
 });

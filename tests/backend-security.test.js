@@ -1386,6 +1386,9 @@ test("Liquidez mensal edita bases, percentuais e custos mantendo as origens da p
   assert.equal(ler().liquido, 1054.23);
   salvar({ ajustesPdv: { total: 0 } });
   assert.equal(ler().total, 0);
+  salvar({ ajustesPdv: { total: -1250.50, credito: -100, debito: 0, vr: 0 } });
+  assert.equal(ler().total, -1250.50);
+  assert.equal(ler().taxas, -5);
   salvar({ combustivelEditado: null, ajustesPdv: {} });
   assert.equal(ler().total, 2000);
   assert.equal(ler().qtdTapiocas, 40);

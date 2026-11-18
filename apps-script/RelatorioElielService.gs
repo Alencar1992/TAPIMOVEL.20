@@ -146,8 +146,8 @@ function validarAjustesLiquidezPdv_(valores) {
 
     const percentual = campo.indexOf("taxa") === 0 || campo === "percentualCombustivelCarro";
     const unidades = campo === "qtdTapiocas";
-    if (typeof valor !== "number" || !Number.isSafeInteger(Math.round(valor * 100)) || valor < 0 ||
-        (percentual && valor > 100) || (unidades && !Number.isInteger(valor))) {
+    if (typeof valor !== "number" || !Number.isSafeInteger(Math.round(valor * 100)) ||
+        (percentual && (valor < 0 || valor > 100)) || (unidades && (valor < 0 || !Number.isInteger(valor)))) {
       throw erroApi_("INVALID_LIQUIDEZ_INPUT", "Use valores em reais, quantidades inteiras e percentuais de 0 a 100.");
     }
     ajustes[campo] = arredondarLiquidez_(valor);
@@ -170,8 +170,9 @@ function obterLiquidezMensalPdv() {
   });
   const entradas = Object.assign({}, originais, configuracoes.ajustesPdv);
   const centavos = valor => Math.round(valor * 100);
-  const taxas = Math.round((centavos(entradas.debito) * entradas.taxaDebito +
-    centavos(entradas.credito) * entradas.taxaCredito + centavos(entradas.vr) * entradas.taxaVr) / 100) / 100;
+  const taxasBrutas = (centavos(entradas.debito) * entradas.taxaDebito +
+    centavos(entradas.credito) * entradas.taxaCredito + centavos(entradas.vr) * entradas.taxaVr) / 100;
+  const taxas = Math.sign(taxasBrutas) * Math.round(Math.abs(taxasBrutas)) / 100;
   const subtotal = arredondarLiquidez_(entradas.total - taxas);
   const despesas = calcularCustosLiquidez_(dados.combustivel, configuracoes, entradas.percentualCombustivelCarro);
   return JSON.stringify(Object.assign(entradas, despesas, {
