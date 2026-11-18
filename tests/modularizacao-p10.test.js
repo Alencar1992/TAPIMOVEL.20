@@ -60,9 +60,9 @@ test('P10 preserva contratos públicos e permissões do Relatório Eliel na API'
   ]) {
     assert.match(api, new RegExp('"' + acao + '"'));
   }
-  assert.match(api, /const acoesEliel = \[/);
+  assert.match(api, /const acoesAdministrativas = \[/);
   assert.match(api, /const acoesProducao = \[/);
-  assert.match(api, /!permitidoParaEliel && !permitidoParaProducao/);
+  assert.match(api, /sessao\.perfil !== "admin" && !permitidoParaProducao/);
 });
 
 test('RelatorioElielService mantém indicadores, rankings, histórico e não absorve fechamento', () => {

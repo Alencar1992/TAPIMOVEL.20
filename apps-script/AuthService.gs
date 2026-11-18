@@ -8,19 +8,46 @@ function configurarPinAdministrador(pin) {
   if (!/^\d{6,12}$/.test(valor)) {
     throw new Error("O PIN administrativo deve conter de 6 a 12 números.");
   }
-  obterScriptProperties_().setProperty(CHAVE_PIN_ADMIN_, hashSeguro_(valor));
-  CacheService.getScriptCache().remove(chaveTentativasLoginPerfil_("admin"));
-  return "PIN administrativo configurado com sucesso.";
+  salvarCredencialAdmin_(valor);
+  return "PIN do PDV ADM configurado com sucesso.";
 }
 
-function configurarPinEliel(pin) {
-  const valor = String(pin || "");
-  if (!/^\d{6,12}$/.test(valor)) {
-    throw new Error("O PIN do CEO Eliel deve conter de 6 a 12 números.");
+function salvarCredencialAdmin_(pin) {
+  const salt = Utilities.getUuid() + Utilities.getUuid();
+  const credencial = JSON.stringify({
+    salt: salt,
+    hash: derivarPin_(pin, salt),
+    revisao: Utilities.getUuid()
+  });
+  obterScriptProperties_().setProperty(CHAVE_PIN_ADMIN_, credencial);
+  const cache = CacheService.getScriptCache();
+  cache.remove(chaveTentativasLoginPerfil_("admin"));
+  cache.remove(chaveTentativasLoginPerfil_("alterar-admin"));
+}
+
+function alterarPinAdministrador_(token, pinAtual, novoPin) {
+  const atual = String(pinAtual || "");
+  const novo = String(novoPin || "");
+  if (!/^\d{6,12}$/.test(novo) || atual === novo) {
+    throw erroApi_("INVALID_PIN", "Escolha um PIN diferente com 6 a 12 números.");
   }
-  obterScriptProperties_().setProperty(CHAVE_PIN_ELIEL_, hashSeguro_(valor));
-  CacheService.getScriptCache().remove(chaveTentativasLoginPerfil_("eliel"));
-  return "PIN do CEO Eliel configurado com sucesso.";
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    exigirSessaoAdministrador_(token);
+    const cache = CacheService.getScriptCache();
+    bloquearSeExcedeuTentativasLogin_(cache, "alterar-admin");
+    const credencial = obterCredencialAdmin_();
+    if (!pinAdminConfere_(atual, credencial)) {
+      registrarTentativaLoginInvalida_(cache, "alterar-admin");
+      throw erroApi_("INVALID_CREDENTIALS", "O PIN atual está incorreto.");
+    }
+    salvarCredencialAdmin_(novo);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function configurarPinProducao(pin) {
@@ -33,7 +60,7 @@ function configurarPinProducao(pin) {
   const credencial = JSON.stringify({
     versao: 1,
     salt: salt,
-    hash: derivarPinProducao_(valor, salt)
+    hash: derivarPin_(valor, salt)
   });
   const lock = LockService.getScriptLock();
   try {
@@ -71,49 +98,26 @@ function registrarTentativaLoginInvalida_(cache, perfil) {
 
 function loginAcesso(pin, perfilSolicitado) {
   const cache = CacheService.getScriptCache();
-  const perfilPedidoRaw = String(perfilSolicitado || "admin").toLowerCase();
-  const perfilPedido = perfilPedidoRaw === "eliel" || perfilPedidoRaw === "producao"
-    ? perfilPedidoRaw
-    : "admin";
+  const perfilPedido = String(perfilSolicitado || "admin").toLowerCase();
+  if (perfilPedido !== "admin" && perfilPedido !== "producao") {
+    throw erroApi_("PERMISSION_DENIED", "Use o acesso do PDV ADM ou de Produção.");
+  }
   const propriedades = obterScriptProperties_();
-  const hashInformado = hashSeguro_(pin);
+  const credencialAdmin = perfilPedido === "admin" ? obterCredencialAdmin_(propriedades) : null;
+  const credencialProducao = propriedades.getProperty(CHAVE_CREDENCIAL_PIN_PRODUCAO_);
 
-  const hashAdmin = propriedades.getProperty(CHAVE_PIN_ADMIN_);
-  const hashEliel = propriedades.getProperty(CHAVE_PIN_ELIEL_);
-  const credencialProducaoConfigurada = propriedades.getProperty(CHAVE_CREDENCIAL_PIN_PRODUCAO_);
-
-  if (
-    (perfilPedido === "admin" && !hashAdmin) ||
-    (perfilPedido === "eliel" && !hashEliel) ||
-    (perfilPedido === "producao" && !credencialProducaoConfigurada)
-  ) {
-    throw erroApi_(
-      perfilPedido === "eliel"
-        ? "ELIEL_NOT_CONFIGURED"
-        : perfilPedido === "producao"
-          ? "PRODUCAO_NOT_CONFIGURED"
-          : "ADMIN_NOT_CONFIGURED",
-      perfilPedido === "eliel"
-        ? "O PIN do CEO Eliel ainda não foi configurado no Apps Script."
-        : perfilPedido === "producao"
-          ? "O PIN de Produção ainda não foi configurado."
-          : "O PIN administrativo ainda não foi configurado no Apps Script."
-    );
+  if (perfilPedido === "admin" && !credencialAdmin) {
+    throw erroApi_("ADMIN_NOT_CONFIGURED", "O PIN do PDV ADM ainda não foi configurado no Apps Script.");
+  }
+  if (perfilPedido === "producao" && !credencialProducao) {
+    throw erroApi_("PRODUCAO_NOT_CONFIGURED", "O PIN de Produção ainda não foi configurado.");
   }
 
   let perfilAutenticado = null;
-  if (perfilPedido === "eliel") {
-    if (hashInformado === hashEliel) perfilAutenticado = "eliel";
-  } else if (perfilPedido === "producao") {
-    if (pinProducaoConfere_(pin, propriedades)) perfilAutenticado = "producao";
-  } else {
-    if (hashInformado === hashAdmin) {
-      perfilAutenticado = "admin";
-    } else if (hashEliel && hashInformado === hashEliel) {
-      perfilAutenticado = "eliel";
-    } else if (credencialProducaoConfigurada && pinProducaoConfere_(pin, propriedades)) {
-      perfilAutenticado = "producao";
-    }
+  if (pinAdminConfere_(pin, credencialAdmin)) {
+    perfilAutenticado = "admin";
+  } else if (credencialProducao && /^\d{4}$/.test(String(pin)) && pinProducaoConfere_(pin, propriedades)) {
+    perfilAutenticado = "producao";
   }
 
   if (!perfilAutenticado) {
@@ -135,11 +139,8 @@ function loginAcesso(pin, perfilSolicitado) {
 
   return criarSessaoAcesso_(
     perfilAutenticado,
-    perfilAutenticado === "eliel"
-      ? NOME_PERFIL_ELIEL_
-      : perfilAutenticado === "producao"
-        ? NOME_PERFIL_PRODUCAO_
-        : "Administrador"
+    perfilAutenticado === "producao" ? NOME_PERFIL_PRODUCAO_ : NOME_PERFIL_ADMIN_,
+    perfilAutenticado === "admin" ? credencialAdmin.revisao : undefined
   );
 }
 

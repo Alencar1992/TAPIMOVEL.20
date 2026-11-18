@@ -11,8 +11,8 @@
 
     <link rel="icon" type="image/png" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
     <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1vvxg2bM392Ct-JeXnAN38mKU2RTClnFA&sz=w512">
-    <script src="./config.js?v=20260828.3"></script>
-    <script src="./api-client.js?v=20261002.1"></script>
+    <script src="./config.js?v=20261118.2"></script>
+    <script src="./api-client.js?v=20261118.2"></script>
     <script src="./pedido-operation.js?v=20260929.1"></script>
     <script src="./vendor-loader.js"></script>
     <script src="./catalogo-base.js?v=20260816.3"></script>
@@ -251,12 +251,14 @@
     <link rel="stylesheet" href="./eliel.css?v=20260806.2">
     <link rel="stylesheet" href="./configuracao.css?v=20261002.1">
     <link rel="stylesheet" href="./loading.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&amp;display=swap">
+    <link rel="stylesheet" href="./pdv-interface.css?v=20261118.2">
 </head>
 <body class="app-admin">
     <section id="loginAdmin" aria-labelledby="loginAdminTitulo" style="display:none;position:fixed;inset:0;z-index:20000;background:radial-gradient(circle at top,#30272a 0,#121212 48%);align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
         <form id="formLoginAdmin" style="width:min(100%,390px);background:#1e1e1e;border:1px solid #3a3a3a;border-top:4px solid var(--primary);border-radius:18px;padding:28px;box-sizing:border-box;box-shadow:0 24px 70px rgba(0,0,0,.55)" autocomplete="off">
             <div aria-hidden="true" style="width:68px;height:68px;margin:0 auto 16px;display:grid;place-items:center;border-radius:20px;background:rgba(255,107,107,.12);font-size:2.1rem">🔐</div>
-            <h1 id="loginAdminTitulo" style="margin:0;text-align:center;color:var(--text);font-size:1.55rem">Acesso ao PDV</h1>
+            <h1 id="loginAdminTitulo" style="margin:0;text-align:center;color:var(--text);font-size:1.55rem">Acesso ao PDV ADM</h1>
             <p id="loginAdminDescricao" style="margin:8px 0 22px;text-align:center;color:var(--text-muted);line-height:1.45">Informe o PIN administrativo para acessar pedidos, relatórios e configurações.</p>
             <div id="tapimovelConnectionStatus" class="connection-status" data-state="connecting" role="status" aria-live="polite" hidden><span class="connection-dot" aria-hidden="true"></span><span>Conectando ao sistema…</span></div>
             <label id="loginAdminLabel" for="loginAdminPin" style="display:block;margin-bottom:7px;font-weight:700">PIN administrativo</label>
@@ -374,9 +376,9 @@
     <audio id="somCaixa" src="https://www.soundjay.com/misc/sounds/cash-register-01.mp3" preload="none"></audio>
 
     <header>
-        <button class="menu-btn" onclick="abrirMenuLateral()">☰</button>
-        <h1 class="header-title">TAPIMOVEL🌮🚗</h1>
-        <strong id="identidadeAcesso" hidden style="margin-left:auto;color:var(--primary);font-size:.92rem"></strong>
+        <button class="menu-btn" aria-label="Abrir menu" onclick="abrirMenuLateral()">☰</button>
+        <h1 class="header-title">TAPIMOVEL <span class="marca-emoji" aria-hidden="true">🌮🚗</span></h1>
+        <strong id="identidadeAcesso" hidden></strong>
         <div class="top-counters">
             <button class="btn-top btn-tapioca" id="btnTopoCatalogo" hidden onclick="mudarTela('view-catalogo')">🌮 Cardápio</button>
             <button class="btn-top" id="btnTopoProd" onclick="mudarTela('view-producao')">👨‍🍳 Prod.</button>
@@ -393,26 +395,23 @@
             <button onclick="fecharMenuLateral()" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">✖</button>
         </div>
 
-        <div class="menu-grupo menu-eliel">
+        <div class="menu-grupo">
             <button class="btn-categoria" onclick="abrirRestrito('relatorio-eliel')">📊 Relatório Eliel</button>
         </div>
 
-        <div class="menu-grupo menu-eliel" id="menuHistoricoFechamentos" hidden>
-            <button class="btn-categoria" onclick="abrirRestrito('fechamento-diario')">📅 Fechamento Diário</button>
-        </div>
-
-        <div class="menu-grupo menu-eliel menu-producao">
+        <div class="menu-grupo menu-producao">
             <button class="btn-categoria" onclick="abrirRestrito('itens')">📦 Itens</button>
         </div>
 
-        <div class="menu-grupo menu-eliel">
+        <div class="menu-grupo">
             <button class="btn-categoria" onclick="abrirRestrito('configuracao')">⚙️ Configuração</button>
         </div>
 
         <div class="menu-grupo">
-            <button class="btn-categoria" onclick="toggleSubmenu('sub-fechamentos')">💰 Fechamentos <span class="seta">▼</span></button>
+            <button class="btn-categoria" onclick="toggleSubmenu('sub-fechamentos')">💰 Fechamento <span class="seta">▼</span></button>
             <div id="sub-fechamentos" class="submenu">
                 <button onclick="abrirModalRelatorio(); fecharMenuLateral();">📊 Fechar o Dia</button>
+                <button onclick="abrirRestrito('fechamento-diario')">📅 Fechamento Diário</button>
                 <button onclick="abrirRestrito('liquidez')">💧 Liquidez Mensal</button>
             </div>
         </div>
@@ -429,8 +428,20 @@
             <button class="btn-categoria" onclick="abrirRestrito('rankings')">🏅 Rankings de Vendas</button>
         </div>
 
-        <button class="fechar-sidebar" onclick="fecharMenuLateral()" style="margin-top: auto;">⬅️ Voltar ao App</button>
+        <footer class="sidebar-rodape">
+            <button class="fechar-sidebar botao-voltar" onclick="fecharMenuLateral()">Voltar ao app</button>
+            <div class="sidebar-build">
+                <span>Versão <strong id="versaoPdv">—</strong></span>
+                <button id="buildPdv" type="button" onclick="abrirNotasBuildPdv()" aria-haspopup="dialog" disabled>Build —</button>
+            </div>
+        </footer>
     </div>
+    <dialog id="notasBuildPdv" class="notas-build" aria-labelledby="tituloBuildPdv">
+        <h2 id="tituloBuildPdv">Novidades da versão</h2>
+        <p id="dataNotasBuildPdv"></p>
+        <ul id="listaNotasBuildPdv"></ul>
+        <form method="dialog"><button class="nav-voltar">Voltar</button></form>
+    </dialog>
 
     <div id="view-catalogo" class="app-view active">
         <div style="position: relative; width: 100%; margin-bottom: 15px;">
@@ -457,19 +468,19 @@
     </div>
 
     <div id="view-producao" class="app-view">
-        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">Voltar</button>
         <h2 style="color: var(--primary);">👨‍🍳 Fila de Produção</h2>
         <div id="listaProducao"></div>
     </div>
 
     <div id="view-painel" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <h2 style="color: var(--primary);">📝 Painel de Pedidos (Caixa)</h2>
         <div id="listaPainelPedidos"></div>
     </div>
 
     <div id="view-pedidos-online" class="app-view">
-        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">Voltar</button>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div><h2 style="color:#a78bfa;margin-bottom:4px;">📲 Pedidos Online</h2><small style="color:var(--text-muted);">Ordem de chegada: mais antigo primeiro</small></div>
             <button id="btnAtivarCampainha" class="btn-acao" style="width:auto;background:#7c3aed;" onclick="ativarCampainhaOnline()">🔔 Ativar alertas de venda</button>
@@ -478,7 +489,7 @@
     </div>
 
     <div id="view-historico" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 8px;">
             <h2 style="color: var(--success); margin: 0; flex: 1;">✅ Vendas Hoje</h2>
             <button onclick="zerarContadorPlanilha()" style="background: var(--edit); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">🗑️ Apagar Cont.</button>
@@ -488,7 +499,7 @@
     </div>
 
     <section id="view-fechamento-diario" class="app-view fechamentos-diarios" aria-labelledby="tituloFechamentoDiario">
-        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">Voltar</button>
         <h2 id="tituloFechamentoDiario">Fechamento Diário</h2>
         <label for="mesFechamentoDiario">Mês de referência</label>
         <input id="mesFechamentoDiario" type="month" placeholder="AAAA-MM" required>
@@ -502,7 +513,7 @@
     </section>
 
     <div id="view-relatorio-eliel" class="app-view relatorio-eliel-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <div class="eliel-cabecalho">
             <div>
                 <p class="eliel-kicker">GESTÃO MENSAL</p>
@@ -522,7 +533,7 @@
         <div id="elielAvisoMesPendente" class="eliel-aviso" hidden>
             <div><strong>Mês anterior ainda não finalizado</strong><span id="elielAvisoMesTexto"></span></div>
             <div class="eliel-aviso-acoes">
-                <button type="button" class="eliel-owner-only" onclick="abrirMesPendenteEliel()">Finalizar agora</button>
+                <button type="button" class="pdv-admin-only" onclick="abrirMesPendenteEliel()">Finalizar agora</button>
                 <button type="button" class="secundario" onclick="this.closest('.eliel-aviso').hidden=true">Fechar</button>
             </div>
         </div>
@@ -590,7 +601,7 @@
 
             <section>
                 <article class="eliel-painel">
-                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link eliel-admin-only" id="elielSalvarCustos" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
+                    <div class="eliel-titulo-linha"><div><h3>Custos mensais</h3><p>Edite antes de fechar o mês.</p></div><button type="button" class="btn-eliel-link pdv-admin-only" id="elielSalvarCustos" onclick="salvarConfiguracoesEliel()">Salvar</button></div>
                     <div class="eliel-form-grid">
                         <label>Combustível total<input id="elielCustoCombustivel" class="input-obs" inputmode="decimal"></label>
                         <label>Assinatura do app Tapimóvel<select id="elielPlanoAssinatura" class="input-obs">
@@ -615,7 +626,7 @@
                 <button type="button" onclick="exportarRelatorioElielCsv()">Exportar resumo CSV</button>
                 <button type="button" onclick="exportarRelatorioElielXlsx()">Exportar resumo XLSX</button>
                 <button type="button" onclick="gerarComparativoElielPdf()">Comparativo do mês anterior em PDF</button>
-                <button type="button" class="perigo eliel-owner-only" onclick="abrirFechamentoMesEliel()">Revisar e fechar mês</button>
+                <button type="button" class="perigo pdv-admin-only" onclick="abrirFechamentoMesEliel()">Revisar e fechar mês</button>
             </div>
             <section class="eliel-painel eliel-historico-exportacao">
                 <div class="eliel-titulo-linha">
@@ -693,7 +704,7 @@
     </div>
 
     <div id="view-itens" class="app-view itens-view">
-        <button class="nav-voltar" onclick="voltarInicioAcesso()">⬅️ Voltar</button>
+        <button class="nav-voltar" onclick="voltarInicioAcesso()">Voltar</button>
         <div class="itens-cabecalho">
             <div><h2>Itens do cardápio</h2><p>Pausas valem apenas até a virada do dia.</p></div>
             <span id="itensResumo">0 disponíveis</span>
@@ -712,7 +723,7 @@
     </div>
 
     <div id="view-configuracao" class="app-view configuracao-view">
-        <button class="nav-voltar" onclick="sairConfiguracao()">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="sairConfiguracao()">Voltar para o Catálogo</button>
         <div class="config-cabecalho">
             <div>
                 <h2>Configuração geral</h2>
@@ -723,7 +734,23 @@
                 <strong id="configResponsavelAtual">—</strong>
             </div>
         </div>
-        <section class="config-seguranca eliel-admin-only" aria-labelledby="configPinProducaoTitulo">
+        <section class="config-seguranca pdv-admin-only" aria-labelledby="configPinAdminTitulo">
+            <div>
+                <h3 id="configPinAdminTitulo">🔐 PIN do PDV ADM</h3>
+                <p>Após salvar, entre novamente com o novo PIN.</p>
+            </div>
+            <form id="configFormPinAdmin" class="config-pin-admin" onsubmit="salvarPinAdministrador(event)">
+                <label for="configPinAdminAtual">PIN atual</label>
+                <input id="configPinAdminAtual" class="input-obs" type="password" inputmode="numeric" pattern="[0-9]{6,12}" maxlength="12" autocomplete="current-password" required>
+                <label for="configPinAdminNovo">Novo PIN de 6 a 12 números</label>
+                <input id="configPinAdminNovo" class="input-obs" type="password" inputmode="numeric" pattern="[0-9]{6,12}" maxlength="12" autocomplete="new-password" required>
+                <label for="configPinAdminConfirmacao">Confirme o novo PIN</label>
+                <input id="configPinAdminConfirmacao" class="input-obs" type="password" inputmode="numeric" pattern="[0-9]{6,12}" maxlength="12" autocomplete="new-password" required>
+                <button type="submit" class="config-btn-novo">Alterar PIN</button>
+                <p id="configPinAdminStatus" role="status"></p>
+            </form>
+        </section>
+        <section class="config-seguranca pdv-admin-only" aria-labelledby="configPinProducaoTitulo">
             <div>
                 <h3 id="configPinProducaoTitulo">🔐 Acesso de Produção</h3>
                 <p>Cadastre ou substitua o PIN usado pela equipe em Prod., Online, Caixa e Itens. O valor não fica salvo neste aparelho.</p>
@@ -748,7 +775,7 @@
     </div>
 
     <div id="view-espelho" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <h2 style="color: #20c997; margin-top: 0; margin-bottom: 5px;">🪞 Espelho da Planilha</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0; margin-bottom: 15px;">Visualização dos dados brutos em tempo real (Somente Leitura).</p>
 
@@ -785,7 +812,7 @@
     </div>
 
     <div id="view-combustivel" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <h2 style="color: #ff922b; margin-top: 0;">⛽ Controle de Combustível</h2>
 
         <div style="background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
@@ -823,7 +850,7 @@
     </div>
 
     <div id="view-rankings" class="app-view">
-        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">⬅️ Voltar para o Catálogo</button>
+        <button class="nav-voltar" onclick="mudarTela('view-catalogo')">Voltar para o Catálogo</button>
         <h2 style="color: #e599f7; margin-top: 0; text-align: center;">🏅 Central de Rankings</h2>
         <p style="color: var(--text-muted); text-align: center; font-size: 0.9rem; margin-top: -10px;">Analise os campeões de vendas e as melhores rotas.</p>
 
@@ -983,9 +1010,12 @@
                 <form id="liqFormulario" onsubmit="event.preventDefault(); salvarLiquidezMensal()"
                     oninput="preverLiquidezMensal()" onfocusout="formatarCampoLiquidezMensal(event.target)">
                     <section class="liq-box">
-                        <h4>Faturamento e taxas</h4>
+                        <div class="liq-cabecalho-bloco">
+                            <h4>Faturamento e taxas</h4>
+                            <button type="button" class="liq-editar" aria-label="Editar faturamento e taxas" aria-pressed="false" aria-controls="liq-faturamento" onclick="alternarEdicaoLiquidez(this)">✏️</button>
+                        </div>
                         <p>Os ajustes de faturamento, vendas e taxas valem para esta tela. Os valores dos custos também aparecem no Relatório Eliel.</p>
-                        <div class="liq-campos">
+                        <fieldset id="liq-faturamento" class="liq-campos" aria-label="Faturamento e taxas" disabled>
                             <label>Faturamento bruto (R$)<input id="liqFaturamento" class="input-obs" inputmode="decimal"></label>
                             <label>Tapiocas vendidas<input id="liqQtdTapiocasTxt" class="input-obs" type="number" min="0" step="1" inputmode="numeric"></label>
                             <label>Vendas em débito (R$)<input id="liqVendaDebito" class="input-obs" inputmode="decimal"></label>
@@ -994,44 +1024,49 @@
                             <label>Taxa de crédito (%)<input id="liqTaxaCredito" class="input-obs" inputmode="decimal"></label>
                             <label>Vendas em VR (R$)<input id="liqVendaVr" class="input-obs" inputmode="decimal"></label>
                             <label>Taxa de VR (%)<input id="liqTaxaVr" class="input-obs" inputmode="decimal"></label>
-                        </div>
+                        </fieldset>
                         <div class="liq-row"><span>Taxas de máquina</span><strong id="liqTaxasTxt">R$ 0,00</strong></div>
                         <div class="liq-row"><span>Subtotal após taxas</span><strong id="liqSubtotal1Txt">R$ 0,00</strong></div>
                     </section>
                     <section class="liq-box">
-                        <h4>Custos operacionais</h4>
-                        <div class="liq-campos">
-                            <label>Combustível total (R$)<input id="liqCombustivelTotal" class="input-obs" inputmode="decimal"></label>
-                            <label>Parte do carro (%)<input id="inpPercCombTrailer" class="input-obs" inputmode="decimal"></label>
+                        <div class="liq-cabecalho-bloco">
+                            <h4>Custos operacionais</h4>
+                            <button type="button" class="liq-editar" aria-label="Editar custos operacionais" aria-pressed="false" aria-controls="liq-custos" onclick="alternarEdicaoLiquidez(this)">✏️</button>
                         </div>
-                        <div class="liq-row"><span>Combustível descontado</span><strong id="liqCombustivelTxt">R$ 0,00</strong></div>
-                        <div class="liq-row"><span>Parte do trailer</span><strong id="liqCombustivelTrailerTxt">R$ 0,00</strong></div>
-                        <div class="liq-campos">
-                            <label>Plano Tapimóvel<select id="liqPlanoAssinatura" class="input-obs" onchange="preencherValorPlanoLiquidez(this, 'liqAssinatura'); preverLiquidezMensal()">
-                                <option value="">Selecione o plano</option>
-                                <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
-                                <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
-                                <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
-                            </select></label>
-                            <label>Valor da assinatura (R$)<input id="liqAssinatura" class="input-obs" inputmode="decimal"></label>
-                            <label>Custos variáveis (R$)<input id="liqCustosVariaveis" class="input-obs" inputmode="decimal"></label>
-                            <label>Salário do motorista (R$)<input id="liqSalarioMotorista" class="input-obs" inputmode="decimal"></label>
-                            <label>Salário cozinha (R$)<input id="inpSalCozinha" class="input-obs" inputmode="decimal"></label>
-                            <label>Salário aux. carro (R$)<input id="inpSalCarro" class="input-obs" inputmode="decimal"></label>
-                            <label>Manutenção do carro (R$)<input id="inpManutCarro" class="input-obs" inputmode="decimal"></label>
-                        </div>
+                        <fieldset id="liq-custos" aria-label="Custos operacionais" disabled>
+                            <div class="liq-campos">
+                                <label>Combustível total (R$)<input id="liqCombustivelTotal" class="input-obs" inputmode="decimal"></label>
+                                <label>Parte do carro (%)<input id="inpPercCombTrailer" class="input-obs" inputmode="decimal"></label>
+                            </div>
+                            <div class="liq-row"><span>Combustível descontado</span><strong id="liqCombustivelTxt">R$ 0,00</strong></div>
+                            <div class="liq-row"><span>Parte do trailer</span><strong id="liqCombustivelTrailerTxt">R$ 0,00</strong></div>
+                            <div class="liq-campos">
+                                <label>Plano Tapimóvel<select id="liqPlanoAssinatura" class="input-obs" onchange="preencherValorPlanoLiquidez(this, 'liqAssinatura'); preverLiquidezMensal()">
+                                    <option value="">Selecione o plano</option>
+                                    <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
+                                    <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
+                                    <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
+                                </select></label>
+                                <label>Valor da assinatura (R$)<input id="liqAssinatura" class="input-obs" inputmode="decimal"></label>
+                                <label>Custos variáveis (R$)<input id="liqCustosVariaveis" class="input-obs" inputmode="decimal"></label>
+                                <label>Salário do motorista (R$)<input id="liqSalarioMotorista" class="input-obs" inputmode="decimal"></label>
+                                <label>Salário cozinha (R$)<input id="inpSalCozinha" class="input-obs" inputmode="decimal"></label>
+                                <label>Salário aux. carro (R$)<input id="inpSalCarro" class="input-obs" inputmode="decimal"></label>
+                                <label>Manutenção do carro (R$)<input id="inpManutCarro" class="input-obs" inputmode="decimal"></label>
+                            </div>
+                        </fieldset>
                     </section>
                     <section class="liq-box" aria-live="polite">
                         <div class="liq-row"><span>Custos operacionais</span><strong id="liqTotalCustos">R$ 0,00</strong></div>
                         <div class="liq-row"><span>Líquido real do Eliel</span><strong id="liqEliel">R$ 0,00</strong></div>
                     </section>
                     <button id="liqSalvar" type="submit" class="btn-acao">Salvar ajustes do mês</button>
-                    <button type="button" class="btn-acao btn-limpar" onclick="restaurarEntradasLiquidez()">Usar dados do sistema</button>
+                    <button id="liqRestaurar" type="button" class="btn-acao btn-limpar" onclick="restaurarEntradasLiquidez()" disabled>Restaurar dados do bloco</button>
                     <p id="liqStatusSalvamento" role="status"></p>
                 </form>
             </div>
 
-            <button class="btn-acao btn-limpar" onclick="fecharModais()">Voltar</button>
+            <button class="btn-acao btn-limpar botao-voltar" onclick="fecharModais()">Voltar</button>
         </div>
     </div>
 
@@ -1078,7 +1113,7 @@
             </div>
             <div style="margin-top: 15px; font-size: 1.1rem; text-align: center;">Falta: <strong id="faltaMistoSpan" style="color:var(--danger);">R$ 0,00</strong></div>
             <button id="btnConfirmarMisto" class="btn-acao" style="background: var(--success); margin-top: 15px;" onclick="finalizarPagamentoMisto()" disabled>Revisar pagamento</button>
-            <button class="btn-acao btn-limpar" onclick="voltarParaFormasPagamento()">Voltar</button>
+            <button class="btn-acao btn-limpar botao-voltar" onclick="voltarParaFormasPagamento()">Voltar</button>
         </div>
     </div>
 
@@ -1093,9 +1128,7 @@
         let syncEmAndamento = false;
         let sessaoAcessoAtual = null;
         const parametroAcesso = new URLSearchParams(window.location.search).get('acesso');
-        const modoAcessoEsperado = ['eliel', 'producao'].indexOf(parametroAcesso) !== -1
-            ? parametroAcesso
-            : 'admin';
+        const modoAcessoEsperado = parametroAcesso === 'producao' ? 'producao' : 'admin';
 
         function normalizarRespostaApi(resposta, fallback) {
             const valorFallback = arguments.length > 1 ? fallback : null;
@@ -1109,69 +1142,33 @@
             }
         }
 
-        function acessoEhEliel() {
-            return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'eliel');
-        }
-
         function acessoEhProducao() {
             return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'producao');
         }
 
         function podeConsultarFechamentosDiarios() {
-            return Boolean(sessaoAcessoAtual && ['eliel', 'admin'].includes(sessaoAcessoAtual.perfil));
+            return Boolean(sessaoAcessoAtual && sessaoAcessoAtual.perfil === 'admin');
         }
 
         function aplicarPerfilAcesso(sessao) {
             sessaoAcessoAtual = sessao || null;
-            const eliel = acessoEhEliel();
             const producao = acessoEhProducao();
-            document.body.classList.toggle('perfil-eliel', eliel);
             document.body.classList.toggle('perfil-producao', producao);
-            document.querySelector('.top-counters').hidden = eliel;
             document.getElementById('btnTopoTapiocas').disabled = producao;
             document.getElementById('btnTopoCatalogo').hidden = !producao;
             document.querySelectorAll('#sidebar .menu-grupo').forEach(function(grupo) {
-                grupo.hidden = eliel
-                    ? !grupo.classList.contains('menu-eliel')
-                    : producao
-                        ? !grupo.classList.contains('menu-producao')
-                        : false;
+                grupo.hidden = producao && !grupo.classList.contains('menu-producao');
             });
-            document.getElementById('menuHistoricoFechamentos').hidden = !podeConsultarFechamentosDiarios();
             const identidade = document.getElementById('identidadeAcesso');
-            identidade.hidden = !eliel && !producao;
-            identidade.textContent = eliel ? 'CEO Eliel' : producao ? 'Produção' : '';
-            document.querySelector('.header-title').textContent = eliel
-                ? 'TAPIMÓVEL · CEO ELIEL'
-                : producao
-                    ? 'TAPIMÓVEL · PRODUÇÃO'
-                    : 'TAPIMOVEL🌮🚗';
-            document.querySelectorAll('.eliel-admin-only').forEach(function(elemento) {
-                elemento.hidden = eliel || producao;
+            identidade.hidden = !sessao;
+            identidade.textContent = producao ? 'Produção' : 'PDV ADM';
+            document.querySelectorAll('.pdv-admin-only').forEach(function(elemento) {
+                elemento.hidden = !podeConsultarFechamentosDiarios();
             });
-            document.querySelectorAll('.eliel-owner-only').forEach(function(elemento) {
-                elemento.hidden = !eliel;
-            });
-            [
-                'elielCustoCombustivel', 'elielCustoCozinha', 'elielCustoAux',
-                'elielCustoManutencao', 'elielAssinatura', 'elielCustosVariaveis', 'elielSalarioMotorista'
-            ].forEach(function(id) {
-                const campo = document.getElementById(id);
-                if (campo) campo.readOnly = eliel;
-            });
-            document.getElementById('elielPlanoAssinatura').disabled = eliel;
         }
 
         function voltarInicioAcesso() {
-            if (acessoEhEliel()) {
-                abrirRelatorioEliel();
-                return;
-            }
-            if (acessoEhProducao()) {
-                mudarTela('view-producao');
-                return;
-            }
-            mudarTela('view-catalogo');
+            mudarTela(acessoEhProducao() ? 'view-producao' : 'view-catalogo');
         }
 
         function mostrarConfirmacaoPagamento(numero) {
@@ -1206,19 +1203,12 @@
 
         function abrirRestrito(acao) {
             fecharMenuLateral();
-            if (acao === 'fechamento-diario' && podeConsultarFechamentosDiarios()) {
-                mudarTela('view-fechamento-diario');
-                return;
-            }
-            if (acessoEhEliel() && ['relatorio-eliel', 'itens', 'configuracao'].indexOf(acao) === -1) {
-                mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
-                return;
-            }
             if (acessoEhProducao() && acao !== 'itens') {
                 mostrarAlerta('O perfil Produção não possui acesso a esta área.');
                 return;
             }
-            if(acao === 'relatorio-eliel') abrirRelatorioEliel();
+            if(acao === 'fechamento-diario') mudarTela('view-fechamento-diario');
+            else if(acao === 'relatorio-eliel') abrirRelatorioEliel();
             else if(acao === 'itens') abrirTelaItens();
             else if(acao === 'configuracao') solicitarAcessoConfiguracao();
             else if(acao === 'espelho') mudarTela('view-espelho');
@@ -1241,6 +1231,7 @@
             titulo.textContent = opcoes.titulo || 'Confirme a ação';
             icone.textContent = opcoes.icone || '?';
             cancelar.textContent = opcoes.textoCancelar || 'Cancelar';
+            cancelar.classList.toggle('botao-voltar', cancelar.textContent.startsWith('Voltar'));
             novoBtnSim.textContent = opcoes.textoConfirmar || 'Confirmar';
             novoBtnSim.classList.toggle('acao-destrutiva', Boolean(opcoes.destrutiva));
             btnSim.parentNode.replaceChild(novoBtnSim, btnSim);
@@ -1468,6 +1459,8 @@
 
         function mostrarLoginAdmin(mensagem) {
             if (window.limparHistoricoFechamentos) window.limparHistoricoFechamentos();
+            sessaoAcessoAtual = null;
+            document.getElementById('notasBuildPdv').close();
             clearTimeout(syncAtivo);
             syncAtivo = null;
             pausarSync = true;
@@ -1475,23 +1468,12 @@
             document.getElementById('falhaAberturaPdv').style.display = 'none';
             document.getElementById('loginAdmin').style.display = 'flex';
             document.getElementById('loginAdminErro').textContent = mensagem || '';
-            const eliel = modoAcessoEsperado === 'eliel';
             const producao = modoAcessoEsperado === 'producao';
-            document.getElementById('loginAdminTitulo').textContent = eliel
-                ? 'Acesso CEO Eliel'
-                : producao
-                    ? 'Acesso Produção'
-                    : 'Acesso ao PDV';
-            document.getElementById('loginAdminDescricao').textContent = eliel
-                ? 'Acesse Relatório Eliel, Itens e Configuração com seu PIN exclusivo.'
-                : producao
-                    ? 'Acesse Produção, Online, Caixa e Itens com seu PIN operacional.'
-                    : 'Informe seu PIN para acessar o sistema.';
-            document.getElementById('loginAdminLabel').textContent = eliel
-                ? 'PIN do CEO Eliel'
-                : producao
-                    ? 'PIN de Produção'
-                    : 'PIN de acesso';
+            document.getElementById('loginAdminTitulo').textContent = producao ? 'Acesso Produção' : 'Acesso ao PDV ADM';
+            document.getElementById('loginAdminDescricao').textContent = producao
+                ? 'Acesse Produção, Online, Caixa e Itens com seu PIN operacional.'
+                : 'Informe seu PIN para acessar o PDV ADM.';
+            document.getElementById('loginAdminLabel').textContent = producao ? 'PIN de Produção' : 'PIN do PDV ADM';
             setTimeout(function() { document.getElementById('loginAdminPin').focus(); }, 80);
         }
 
@@ -1501,18 +1483,15 @@
             document.getElementById('loadingScreen').style.display = 'flex';
             document.getElementById('loadingText').textContent = 'Carregando cardápio...';
             pausarSync = false;
-            if (acessoEhEliel()) {
-                iniciarAplicacaoEliel();
-            } else {
-                iniciarAplicacaoAdmin();
-            }
+            iniciarAplicacaoAdmin();
+            carregarBuildPdv(sessao);
             if (sessao && sessao.perfil === 'admin' && typeof window.verificarAvisoPdv === 'function') {
                 window.verificarAvisoPdv();
             }
         }
 
         function liberarAplicacaoAdmin() {
-            liberarAplicacaoAcesso({ perfil: 'admin', nome: 'Administrador' });
+            liberarAplicacaoAcesso({ perfil: 'admin', nome: 'PDV ADM' });
         }
 
         function iniciarAutenticacaoAdmin() {
@@ -1536,10 +1515,6 @@
 
         function redirecionarPerfilRestritoNoLinkAdmin(sessao) {
             if (modoAcessoEsperado !== 'admin' || !sessao) return false;
-            if (sessao.perfil === 'eliel') {
-                window.location.replace('./relatorio-eliel.html?origem=pdv');
-                return true;
-            }
             if (sessao.perfil === 'producao') {
                 window.location.replace('./index.html?acesso=producao');
                 return true;
@@ -1565,6 +1540,10 @@
                     botao.disabled = false;
                     botao.textContent = 'Entrar com segurança';
                     if (redirecionarPerfilRestritoNoLinkAdmin(sessao)) return;
+                    if (!sessao || sessao.perfil !== modoAcessoEsperado) {
+                        erro.textContent = 'Use o PIN deste acesso.';
+                        return;
+                    }
                     liberarAplicacaoAcesso(sessao);
                 })
                 .withFailureHandler(function(falha) {
@@ -1654,24 +1633,37 @@
             }
         }
 
-        function iniciarAplicacaoEliel() {
-            document.getElementById('loadingText').textContent = 'Preparando acesso do CEO Eliel...';
-            carregarDisponibilidadeCardapio();
-            google.script.run
-                .withSuccessHandler(function(resposta) {
-                    const catalogo = normalizarRespostaApi(resposta, {});
-                    TapimovelCatalogo.substituir(bdCatalogo, catalogo);
-                    document.getElementById('loadingScreen').style.display = 'none';
-                    abrirRelatorioEliel();
-                })
-                .withFailureHandler(function(erro) {
-                    document.getElementById('loadingScreen').style.display = 'none';
-                    mostrarAlerta('Não foi possível preparar o acesso.<br><small>' + erro.message + '</small>');
-                })
-                .obterCatalogoCardapio(JSON.stringify(TapimovelCatalogo.copiar(bdCatalogo)));
+        function carregarBuildPdv(sessao) {
+            const botao = document.getElementById('buildPdv');
+            const versao = document.getElementById('versaoPdv');
+            botao.disabled = true;
+            botao.textContent = 'Build —';
+            versao.textContent = '—';
+            google.script.run.withSuccessHandler(function(build) {
+                if (sessaoAcessoAtual !== sessao || !build || !build.versao) return;
+                versao.textContent = build.versao;
+                botao.textContent = 'Build ' + (build.data || '—');
+                document.getElementById('tituloBuildPdv').textContent = 'Novidades da versão ' + build.versao;
+                document.getElementById('dataNotasBuildPdv').textContent = build.data ? 'Build de ' + build.data : '';
+                const lista = document.getElementById('listaNotasBuildPdv');
+                lista.replaceChildren();
+                (build.novidades || []).forEach(function(novidade) {
+                    const item = document.createElement('li');
+                    item.textContent = novidade;
+                    lista.appendChild(item);
+                });
+                botao.disabled = false;
+            }).withFailureHandler(function() {
+                // O rodapé pode ser carregado novamente ao abrir o menu.
+            }).obterBuildPdv();
+        }
+
+        function abrirNotasBuildPdv() {
+            document.getElementById('notasBuildPdv').showModal();
         }
 
         function abrirMenuLateral() {
+            if (sessaoAcessoAtual && document.getElementById('buildPdv').disabled) carregarBuildPdv(sessaoAcessoAtual);
             document.querySelectorAll('.submenu').forEach(sub => {
                 sub.style.display = 'none';
             });
@@ -1825,7 +1817,7 @@
         }
 
         function atualizarPedidosOnline() {
-            if (acessoEhEliel() || typeof google === 'undefined') return;
+            if (typeof google === 'undefined') return;
             google.script.run
                 .withSuccessHandler(function(lista) {
                     const novos = Array.isArray(lista) ? lista : [];
@@ -1914,13 +1906,6 @@
 
         function mudarTela(idTela) {
             if (idTela === 'view-fechamento-diario' && !podeConsultarFechamentosDiarios()) return;
-            if (
-                acessoEhEliel() &&
-                ['view-relatorio-eliel', 'view-itens', 'view-configuracao', 'view-fechamento-diario'].indexOf(idTela) === -1
-            ) {
-                mostrarAlerta('O perfil CEO Eliel não possui acesso a esta área.');
-                return;
-            }
             if (
                 acessoEhProducao() &&
                 ['view-catalogo', 'view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'].indexOf(idTela) === -1
@@ -2172,7 +2157,7 @@
                         htmlQueijos += `<button class="produto-btn produto-btn-com-foto" onclick="lancarMonte('${queijo}', ${precoFinal})"><img class="produto-imagem" src="./assets/menu/${imagensMonteSuaAdmin.queijos[queijo]}" alt="" loading="lazy" decoding="async"><span class="produto-conteudo"><span class="produto-nome" style="color:var(--success);">${nomeQueijo}</span><span class="produto-preco">${formatarMoeda(precoFinal)}</span></span></button>`;
                     });
                     htmlQueijos += `<button class="produto-btn" style="border: 2px dashed var(--edit);" onclick="lancarMonteSemQueijo()"><span class="produto-nome" style="color:var(--edit); font-weight:bold;">🚫 Sem Queijo</span><span class="produto-preco" style="font-size:0.75rem;">(Digitar Preço)</span></button>`;
-                    htmlQueijos += `<button class="btn-acao btn-limpar" style="grid-column: 1 / -1;" onclick="baseSelecionadaMonte=null; renderizarCatalogo('monte');">⬅️ Voltar para Carnes</button>`;
+                    htmlQueijos += `<button class="btn-acao btn-limpar" style="grid-column: 1 / -1;" onclick="baseSelecionadaMonte=null; renderizarCatalogo('monte');">Voltar para Carnes</button>`;
                     grid.innerHTML = htmlQueijos;
                 }
             }
@@ -2480,7 +2465,7 @@
         function renderizarProducao() {
             const lista = document.getElementById('listaProducao');
             let fila = historicoNuvem.filter(p => !p.produzido && (ehHoje(p.timestamp) || ehHoje(p.timestampCriacao))); fila.sort((a,b) => a.numero - b.numero);
-            if(fila.length === 0) { lista.innerHTML = '<p style="color:var(--text-muted);">Nenhum pedido na fila. Ufa! 😅</p>'; return; }
+            if(fila.length === 0) { lista.innerHTML = '<p style="color:var(--text-muted);">Aguardando um novo pedido</p>'; return; }
 
             let htmlBuffer = '';
             fila.forEach(pedido => {
@@ -3033,8 +3018,19 @@
             });
         }
 
+        function alternarEdicaoLiquidez(botaoAtivo) {
+            const editar = botaoAtivo && botaoAtivo.getAttribute('aria-pressed') === 'false';
+            document.querySelectorAll('#liqFormulario .liq-editar').forEach(function(botao) {
+                const ativo = Boolean(editar && botao === botaoAtivo);
+                botao.setAttribute('aria-pressed', String(ativo));
+                document.getElementById(botao.getAttribute('aria-controls')).disabled = !ativo;
+            });
+            document.getElementById('liqRestaurar').disabled = !editar;
+        }
+
         function abrirModalLiquidez() {
             liquidezMensalAtual = null;
+            alternarEdicaoLiquidez(null);
             document.getElementById('modalLiquidez').style.display = 'flex';
             document.getElementById('conteudoLiquidez').style.display = 'none';
             document.getElementById('loadingLiquidez').style.display = 'block';
@@ -3066,9 +3062,10 @@
             }
         }
 
-        function preencherEntradasLiquidez(entradas) {
+        function preencherEntradasLiquidez(entradas, apenasEditaveis = false) {
             Object.entries(CAMPOS_ENTRADAS_LIQUIDEZ).forEach(([chave, id]) => {
                 const campo = document.getElementById(id);
+                if (apenasEditaveis && campo.matches(':disabled')) return;
                 if (chave === 'qtdTapiocas') campo.value = String(entradas[chave]);
                 else preencherCampoCustoLiquidez(campo, entradas[chave]);
             });
@@ -3170,9 +3167,10 @@
 
         function restaurarEntradasLiquidez() {
             const dados = liquidezMensalAtual;
-            if (!dados) return;
-            preencherEntradasLiquidez(dados.originais);
-            preencherCampoCustoLiquidez(document.getElementById('liqCombustivelTotal'), dados.originais.combustivel);
+            if (!dados || document.getElementById('liqRestaurar').disabled) return;
+            preencherEntradasLiquidez(dados.originais, true);
+            const combustivel = document.getElementById('liqCombustivelTotal');
+            if (!combustivel.matches(':disabled')) preencherCampoCustoLiquidez(combustivel, dados.originais.combustivel);
             preverLiquidezMensal();
             document.getElementById('liqStatusSalvamento').textContent = 'Salve para aplicar os valores do sistema.';
         }
@@ -3191,15 +3189,17 @@
                 return;
             }
             const campos = Array.from(document.getElementById('liqFormulario').elements);
+            const bloqueados = campos.map(campo => campo.disabled);
+            const restaurarBloqueios = () => campos.forEach((campo, indice) => { campo.disabled = bloqueados[indice]; });
             campos.forEach(campo => { campo.disabled = true; });
             status.textContent = 'Salvando ajustes…';
             google.script.run.withSuccessHandler(function() {
-                campos.forEach(campo => { campo.disabled = false; });
+                restaurarBloqueios();
                 if (liquidezMensalAtual !== dados || document.getElementById('modalLiquidez').style.display === 'none') return;
                 abrirModalLiquidez();
                 mostrarToast('Ajustes da Liquidez Mensal salvos.');
             }).withFailureHandler(function(erro) {
-                campos.forEach(campo => { campo.disabled = false; });
+                restaurarBloqueios();
                 status.textContent = erro.message || 'Não foi possível salvar os ajustes.';
             }).salvarConfiguracoesRelatorioEliel(JSON.stringify(config), dados.mes, dados.ano);
         }
@@ -3602,8 +3602,8 @@
             }
         }
     </script>
-    <script src="./eliel.js?v=20261118.1"></script>
-    <script src="./configuracao.js?v=20261002.1"></script>
+    <script src="./eliel.js?v=20261118.2"></script>
+    <script src="./configuracao.js?v=20261118.2"></script>
    <div id="avisoPagamento" onclick="this.style.display='none'" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
     <div style="background: var(--success); color: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;">
 

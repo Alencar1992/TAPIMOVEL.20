@@ -68,26 +68,11 @@ function executarAcaoApi_(action, args, token) {
     "encerrarSessaoAdministrador"
   ];
 
-  const acoesEliel = [
-    "salvarDisponibilidadeCardapio",
-    "inicializarCatalogoConfiguracao",
-    "salvarItemCatalogo",
-    "removerItemCatalogo",
-    "salvarConfiguracaoOperacional",
-    "obterRelatorioEliel",
-    "registrarAcessoRelatorioEliel",
-    "obterConfiguracoesRelatorioEliel",
-    "obterHistoricoVendasEliel",
-    "listarFechamentosDiarios",
-    "obterPrintFechamentoDiario",
-    "obterPreviaFechamentoRelatorioEliel",
-    "fecharMesRelatorioEliel"
-  ];
-
   const acoesProducao = [
     "listarPedidosOnlinePendentes",
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
+    "obterBuildPdv",
     "carregarDadosNuvem",
     "carregarVendasHojePersistidas",
     "registrarPedidoPdv",
@@ -104,6 +89,7 @@ function executarAcaoApi_(action, args, token) {
     "listarPedidosOnlinePendentes",
     "aceitarPedidoOnline",
     "recusarPedidoOnline",
+    "obterBuildPdv",
     "carregarDadosNuvem",
     "carregarVendasHojePersistidas",
     "registrarVendaHojeAdmin",
@@ -149,6 +135,7 @@ function executarAcaoApi_(action, args, token) {
     "fecharMesRelatorioEliel",
     "obterAvisosPdv",
     "configurarPinProducao",
+    "alterarPinAdministrador",
     "atualizarEstadoProducao",
     "finalizarPagamentoProducao",
     "consultarPagamentoProducao",
@@ -166,24 +153,15 @@ function executarAcaoApi_(action, args, token) {
     if (!sessao) {
       throw erroApi_("AUTH_REQUIRED", "Acesso não autorizado.");
     }
-    if (action === "fecharMesRelatorioEliel" && sessao.perfil !== "eliel") {
-      throw erroApi_(
-        "PERMISSION_DENIED",
-        "O fechamento mensal é exclusivo do perfil CEO Eliel."
-      );
-    }
-    const permitidoParaEliel = sessao.perfil === "eliel" && acoesEliel.indexOf(action) !== -1;
     const permitidoParaProducao = sessao.perfil === "producao" && acoesProducao.indexOf(action) !== -1;
-    if (sessao.perfil !== "admin" && !permitidoParaEliel && !permitidoParaProducao) {
+    if (sessao.perfil !== "admin" && !permitidoParaProducao) {
       throw erroApi_("PERMISSION_DENIED", "O perfil " + sessao.nome + " não possui permissão para esta ação.");
     }
-    if (sessao.perfil === "eliel") {
-      if (action === "salvarDisponibilidadeCardapio") args[1] = NOME_PERFIL_ELIEL_;
-      if (action === "inicializarCatalogoConfiguracao") args[1] = NOME_PERFIL_ELIEL_;
-      if (action === "salvarItemCatalogo") args[2] = NOME_PERFIL_ELIEL_;
-      if (action === "removerItemCatalogo") args[1] = NOME_PERFIL_ELIEL_;
-      if (action === "salvarConfiguracaoOperacional") args[1] = NOME_PERFIL_ELIEL_;
-      if (action === "fecharMesRelatorioEliel") args[3] = NOME_PERFIL_ELIEL_;
+    if (action === "fecharMesRelatorioEliel") {
+      args[3] = NOME_PERFIL_ADMIN_;
+    }
+    if (action === "alterarPinAdministrador") {
+      return { ok: true, data: alterarPinAdministrador_(token, args[0], args[1]) };
     }
     if (sessao.perfil === "producao" && action === "salvarDisponibilidadeCardapio") {
       args[1] = NOME_PERFIL_PRODUCAO_;
@@ -217,4 +195,18 @@ function responderApi_(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function obterBuildPdv() {
+  const data = "__DATA_BUILD_PDV__";
+  return {
+    versao: "V2.0.0.71",
+    data: /^\d{2}\/\d{2}\/\d{4}$/.test(data) ? data : "",
+    novidades: [
+      "PDV ADM com o PIN atual, alteração de PIN em Configuração e acesso ao fechamento do Relatório Eliel.",
+      "Histórico de Fechamento Diário dentro de Fechamento.",
+      "Identidade TAPIMOVEL em 3D e botões com relevo no PDV, na Produção e no cardápio do cliente.",
+      "Edição por bloco na Liquidez Mensal e nova mensagem na fila de Produção."
+    ]
+  };
 }

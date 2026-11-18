@@ -316,8 +316,8 @@ function fecharMesRelatorioEliel(mes, ano, catalogoJSON, responsavel) {
   let chaveOperacao = "";
   try {
     lock.waitLock(15000);
-    if (responsavel !== NOME_PERFIL_ELIEL_) {
-      throw new Error("O fechamento mensal é exclusivo do perfil CEO Eliel.");
+    if (responsavel !== NOME_PERFIL_ADMIN_) {
+      throw new Error("O fechamento mensal é exclusivo do PDV ADM.");
     }
     const previa = montarPreviaFechamentoRelatorioEliel_(mes, ano, catalogoJSON);
     if (previa.duplicado) {

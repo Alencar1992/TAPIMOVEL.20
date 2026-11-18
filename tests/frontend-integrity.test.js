@@ -215,40 +215,15 @@ test("sessão do navegador persiste somente no dia e expira por inatividade", ()
   assert.match(index, /expira após 4 horas sem uso/);
 });
 
-test("acesso exclusivo do CEO Eliel limita navegação e mantém sessão separada", () => {
-  const apiClient = fs.readFileSync(
-    path.join(root, "frontend/api-client.js"),
-    "utf8"
-  );
+test("link antigo leva ao PDV ADM e mantém o acesso ao Relatório Eliel", () => {
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
-  const restricted = fs.readFileSync(
-    path.join(root, "frontend/relatorio-eliel.html"),
-    "utf8"
-  );
+  const redirect = fs.readFileSync(path.join(root, "frontend/relatorio-eliel.html"), "utf8");
 
-  assert.match(restricted, /index\.html\?acesso=eliel/);
-  assert.match(apiClient, /"tapimovel_" \+ accessMode \+ "_"/);
-  assert.match(apiClient, /TOKEN_PROFILE_KEY/);
-  assert.match(index, /CEO Eliel/);
-  assert.match(index, /\['view-relatorio-eliel', 'view-itens', 'view-configuracao', 'view-fechamento-diario'\]/);
+  assert.match(redirect, /window.location.replace\("\.\/index\.html"\)/);
+  assert.doesNotMatch(index + redirect, /acesso=eliel|CEO Eliel/);
+  assert.match(index, /Acesso ao PDV ADM/);
   assert.match(index, /\.loginAcesso\(pin, modoAcessoEsperado\)/);
-  assert.match(index, /class="[^"]*eliel-owner-only[^"]*"[^>]*>Revisar e fechar mês/);
-});
-
-test("PIN do CEO Eliel no PDV preserva a sessão restrita e redireciona", () => {
-  const apiClient = fs.readFileSync(
-    path.join(root, "frontend/api-client.js"),
-    "utf8"
-  );
-  const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
-
-  assert.match(apiClient, /\["eliel", "producao"\]\.indexOf\(session\.perfil\) !== -1/);
-  assert.match(apiClient, /sessionPrefix \+ "token"/);
-  assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)/);
-  assert.match(
-    index,
-    /sessao\.perfil === 'eliel'[\s\S]{0,180}window\.location\.replace\('\.\/relatorio-eliel\.html\?origem=pdv'\)/
-  );
+  assert.match(index, /class="[^"]*pdv-admin-only[^"]*"[^>]*>Revisar e fechar mês/);
 });
 
 test("perfil Produção mantém sessão própria e limita a interface às áreas operacionais", () => {
@@ -258,11 +233,11 @@ test("perfil Produção mantém sessão própria e limita a interface às áreas
   );
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
 
-  assert.match(apiClient, /parametroAcesso === "eliel" \|\| parametroAcesso === "producao"/);
-  assert.match(apiClient, /\["eliel", "producao"\]\.indexOf\(session\.perfil\) !== -1/);
+  assert.match(apiClient, /parametroAcesso === "producao"/);
+  assert.match(apiClient, /session\.perfil === "producao"/);
   assert.match(index, /pattern="\[0-9\]\{4,12\}" minlength="4"/);
   assert.match(index, /function acessoEhProducao\(\)/);
-  assert.match(index, /class="menu-grupo menu-eliel menu-producao"/);
+  assert.match(index, /class="menu-grupo menu-producao"/);
   assert.match(index, /\['view-catalogo', 'view-producao', 'view-pedidos-online', 'view-painel', 'view-itens'\]/);
   assert.match(index, /id="btnTopoCatalogo" hidden onclick="mudarTela\('view-catalogo'\)"/);
   assert.match(index, /function redirecionarPerfilRestritoNoLinkAdmin\(sessao\)[\s\S]{0,500}sessao\.perfil === 'producao'[\s\S]{0,180}index\.html\?acesso=producao/);
@@ -318,9 +293,9 @@ test("perfil Produção usa transições seguras e assets sem cache legado", () 
   const index = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "frontend/configuracao.css"), "utf8");
 
-  assert.match(index, /api-client\.js\?v=20261002\.1/);
+  assert.match(index, /api-client\.js\?v=20261118\.2/);
   assert.match(index, /configuracao\.css\?v=20261002\.1/);
-  assert.match(index, /configuracao\.js\?v=20261002\.1/);
+  assert.match(index, /configuracao\.js\?v=20261118\.2/);
   assert.match(css, /\.config-seguranca\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
   assert.match(index, /\.btn-top\[hidden\][\s\S]{0,160}display:\s*none\s*!important/);
   assert.match(index, /\.atualizarEstadoProducao\(JSON\.stringify\(p\)\)/);
@@ -329,13 +304,13 @@ test("perfil Produção usa transições seguras e assets sem cache legado", () 
   assert.match(index, /acessoEhProducao\(\)[\s\S]{0,500}excluirPedidoTravadoProducao/);
 });
 
-test("configuração usa identidade CEO Eliel sem solicitar nome manual", () => {
-  const configuracao = fs.readFileSync(
-    path.join(root, "frontend/configuracao.js"),
-    "utf8"
-  );
-  assert.match(configuracao, /sessao\.perfil === "eliel"/);
-  assert.match(configuracao, /responsavelAtual = "CEO Eliel"/);
+test("configuração pede PIN atual e confirma o novo PIN do PDV ADM", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const configuracao = fs.readFileSync(path.join(root, "frontend/configuracao.js"), "utf8");
+  assert.match(html, /id="configPinAdminAtual"[^>]*autocomplete="current-password"/);
+  assert.match(html, /id="configPinAdminConfirmacao"/);
+  assert.match(configuracao, /novo !== confirmacao.value/);
+  assert.match(configuracao, /\.alterarPinAdministrador\(atual, novo\)/);
 });
 
 test("administrador configura o PIN de Produção sem persistir o valor no formulário", () => {
@@ -424,7 +399,7 @@ test("fechamento mensal é exclusivo do Relatório Eliel e exige prévia", () =>
     /previaElielCombustivelTotal"\)\.textContent = moeda\(custos\.combustivelTotal\)/
   );
   assert.match(eliel, /\.fecharMesRelatorioEliel\(\s*mes,\s*ano,/);
-  assert.match(backend, /O fechamento mensal é exclusivo do perfil CEO Eliel/);
+  assert.match(backend, /O fechamento mensal é exclusivo do PDV ADM/);
   assert.match(backend, /pedidosPendentes/);
   assert.match(backend, /obterAbaFechamentosMensais_/);
   assert.match(backend, /Fechamentos_Mensais_v2/);

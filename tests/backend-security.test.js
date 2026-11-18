@@ -258,28 +258,44 @@ test("sessão administrativa é invalidada na mudança do dia", () => {
   assert.equal(context.validarSessaoAdministrador(session.token), false);
 });
 
-test("CEO Eliel recebe sessão própria e identidade fixa", () => {
-  const { context } = createContext();
-  context.configurarPinEliel("654321");
-  const session = context.loginAcesso("654321", "eliel");
+test("PDV ADM preserva o PIN anterior ao deploy e rejeita o acesso Eliel", () => {
+  const { context, properties } = createContext();
+  const hashAnterior = context.hashSeguro_("123456");
+  properties.set("pdv_admin_pin_hash", hashAnterior);
+  properties.set("pdv_eliel_pin_hash", context.hashSeguro_("654321"));
+  const tokenLegado = context.criarSessaoAcesso_("admin", "Administrador").token;
 
-  assert.equal(session.perfil, "eliel");
-  assert.equal(session.nome, "CEO Eliel");
-  assert.equal(context.validarSessaoAdministrador(session.token), false);
-  assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
+  const sessao = context.loginAcesso("123456", "admin");
+  assert.equal(sessao.nome, "PDV ADM");
+  assert.equal(properties.get("pdv_admin_pin_hash"), hashAnterior);
+  assert.equal(context.validarSessaoAcesso(tokenLegado).nome, "PDV ADM");
+  assert.throws(() => context.loginAcesso("654321", "eliel"), { code: "PERMISSION_DENIED" });
+  assert.throws(() => context.loginAcesso("654321", "admin"), { code: "INVALID_CREDENTIALS" });
+  const eliel = context.criarSessaoAcesso_("eliel", "CEO Eliel").token;
+  assert.equal(context.validarSessaoAcesso(eliel), false);
 });
 
-test("PIN do CEO Eliel informado no PDV cria somente sessão restrita", () => {
-  const { context } = createContext();
-  context.configurarPinAdministrador("123456");
-  context.configurarPinEliel("654321");
+test("alteração requer PIN atual e invalida sessões do PDV ADM sem afetar Produção", () => {
+  const { context, properties } = createContext();
+  const hashAnterior = context.hashSeguro_("123456");
+  properties.set("pdv_admin_pin_hash", hashAnterior);
+  context.configurarPinProducao("5931");
+  const admin = context.loginAcesso("123456", "admin");
+  const producao = context.loginAcesso("5931", "producao");
+  const alterar = (atual, novo, token) =>
+    context.executarAcaoApi_("alterarPinAdministrador", [atual, novo], token);
 
-  const session = context.loginAcesso("654321", "admin");
-
-  assert.equal(session.perfil, "eliel");
-  assert.equal(session.nome, "CEO Eliel");
-  assert.equal(context.validarSessaoAdministrador(session.token), false);
-  assert.equal(context.validarSessaoAcesso(session.token).perfil, "eliel");
+  assert.throws(() => alterar("123456", "246810", producao.token), { code: "PERMISSION_DENIED" });
+  assert.throws(() => alterar("000000", "246810", admin.token), { code: "INVALID_CREDENTIALS" });
+  assert.throws(() => alterar("123456", "4826", admin.token), { code: "INVALID_PIN" });
+  assert.equal(properties.get("pdv_admin_pin_hash"), hashAnterior);
+  assert.equal(alterar("123456", "246810", admin.token).data, true);
+  assert.equal(context.validarSessaoAcesso(admin.token), false);
+  assert.throws(() => alterar("246810", "123456", admin.token), { code: "AUTH_REQUIRED" });
+  assert.equal(context.validarSessaoAcesso(producao.token).perfil, "producao");
+  assert.throws(() => context.loginAcesso("123456", "admin"), { code: "INVALID_CREDENTIALS" });
+  const nova = context.loginAcesso("246810", "admin");
+  assert.equal(context.validarSessaoAcesso(nova.token).perfil, "admin");
 });
 
 test("PIN de Produção exige quatro dígitos e fica armazenado em credencial derivada única", () => {
@@ -320,7 +336,6 @@ test("configurações concorrentes nunca publicam salt e hash de PINs diferentes
 test("PIN de Produção informado no PDV cria sessão operacional própria", () => {
   const { context } = createContext();
   context.configurarPinAdministrador("731905");
-  context.configurarPinEliel("864207");
   context.configurarPinProducao("4826");
 
   const session = context.loginAcesso("4826", "admin");
@@ -525,16 +540,16 @@ test("a virada fecha a véspera, mantém pendências e preserva o comprovante", 
   assert.equal(fechamentos.get(4, 2), 0);
 });
 
-test("histórico diário aceita Admin e Eliel e recusa Produção e visitantes", () => {
-  const { context } = createContext();
-  const tokens = ["admin", "eliel", "producao"].map(perfil => context.criarSessaoAcesso_(perfil, perfil).token);
+test("histórico diário é exclusivo do PDV ADM", () => {
+  const { context, properties } = createContext();
+  properties.set("pdv_admin_pin_hash", context.hashSeguro_("123456"));
+  const admin = context.criarSessaoAcesso_("admin", "PDV ADM").token;
+  const producao = context.criarSessaoAcesso_("producao", "Produção").token;
   for (const [acao, argumentos] of [["listarFechamentosDiarios", ["2026-07"]], ["obterPrintFechamentoDiario", ["28/07/2026"]]]) {
-    assert.throws(() => context.executarAcaoApi_(acao, argumentos, ""), erro => erro.code === "AUTH_REQUIRED");
-    assert.throws(() => context.executarAcaoApi_(acao, argumentos, tokens[2]), erro => erro.code === "PERMISSION_DENIED");
-    for (const token of tokens.slice(0, 2)) {
-      if (acao === "listarFechamentosDiarios") assert.equal(context.executarAcaoApi_(acao, argumentos, token).ok, true);
-      else assert.throws(() => context.executarAcaoApi_(acao, argumentos, token), erro => erro.code === "INVALID_CLOSURE");
-    }
+    assert.throws(() => context.executarAcaoApi_(acao, argumentos, ""), { code: "AUTH_REQUIRED" });
+    assert.throws(() => context.executarAcaoApi_(acao, argumentos, producao), { code: "PERMISSION_DENIED" });
+    if (acao === "listarFechamentosDiarios") assert.equal(context.executarAcaoApi_(acao, argumentos, admin).ok, true);
+    else assert.throws(() => context.executarAcaoApi_(acao, argumentos, admin), { code: "INVALID_CLOSURE" });
   }
 });
 
@@ -877,93 +892,25 @@ test("fechamento move Vendas_hoje para histórico, consolida e limpa somente no 
   assert.equal(repetido.status, "JA_FECHADO");
 });
 
-test("CEO Eliel acessa somente relatório, itens e configuração", () => {
-  const { context } = createContext();
-  context.configurarPinEliel("654321");
-  const session = context.loginAcesso("654321", "eliel");
-
-  context.obterRelatorioEliel = () => "RELATORIO";
-  context.salvarDisponibilidadeCardapio = (_itens, responsavel) => responsavel;
-  context.inicializarCatalogoConfiguracao = (_catalogo, responsavel) => responsavel;
-  context.salvarItemCatalogo = (_item, _original, responsavel) => responsavel;
-  context.removerItemCatalogo = (_item, responsavel) => responsavel;
-
-  assert.equal(
-    context.executarAcaoApi_("obterRelatorioEliel", [], session.token).data,
-    "RELATORIO"
-  );
-  assert.equal(
-    context.executarAcaoApi_("salvarDisponibilidadeCardapio", ["[]"], session.token).data,
-    "CEO Eliel"
-  );
-  assert.equal(
-    context.executarAcaoApi_("inicializarCatalogoConfiguracao", ["{}"], session.token).data,
-    "CEO Eliel"
-  );
-  assert.equal(
-    context.executarAcaoApi_("salvarItemCatalogo", ["{}", ""], session.token).data,
-    "CEO Eliel"
-  );
-  assert.equal(
-    context.executarAcaoApi_("removerItemCatalogo", ["Bauru"], session.token).data,
-    "CEO Eliel"
-  );
-});
-
-test("CEO Eliel não acessa o PDV, mas controla o fechamento mensal", () => {
-  const { context } = createContext();
-  context.configurarPinEliel("654321");
-  const session = context.loginAcesso("654321", "eliel");
-
-  [
-    "carregarDadosNuvem",
-    "registrarPedidoPdv",
-    "salvarConfiguracoesRelatorioEliel"
-  ].forEach(action => {
-    assert.throws(
-      () => context.executarAcaoApi_(action, [], session.token),
-      error => error.code === "PERMISSION_DENIED"
-    );
-  });
-
-  context.obterPreviaFechamentoRelatorioEliel = () => "PREVIA";
+test("PDV ADM edita e fecha o mês com identidade registrada pelo servidor", () => {
+  const { context, properties } = createContext();
+  properties.set("pdv_admin_pin_hash", context.hashSeguro_("123456"));
+  const admin = context.loginAcesso("123456", "admin").token;
+  const producao = context.criarSessaoAcesso_("producao", "Produção").token;
+  context.salvarConfiguracoesRelatorioEliel = () => true;
   context.fecharMesRelatorioEliel = (_mes, _ano, _catalogo, responsavel) => responsavel;
-  assert.equal(
-    context.executarAcaoApi_(
-      "obterPreviaFechamentoRelatorioEliel",
-      [7, 2026, "{}"],
-      session.token
-    ).data,
-    "PREVIA"
-  );
-  assert.equal(
-    context.executarAcaoApi_(
-      "fecharMesRelatorioEliel",
-      [7, 2026, "{}"],
-      session.token
-    ).data,
-    "CEO Eliel"
-  );
-});
 
-test("administrador não fecha o mês e a rota antiga do PDV foi removida", () => {
-  const { context } = createContext();
-  context.configurarPinAdministrador("123456");
-  const session = context.loginAcesso("123456", "admin");
-  context.fecharMesRelatorioEliel = () => "NAO_DEVE_EXECUTAR";
+  assert.equal(context.executarAcaoApi_("salvarConfiguracoesRelatorioEliel", ["{}"], admin).data, true);
+  assert.equal(context.executarAcaoApi_("fecharMesRelatorioEliel", [7, 2026, "{}", "Nome indevido"], admin).data, "PDV ADM");
+  assert.throws(() => context.executarAcaoApi_("fecharMesRelatorioEliel", [], producao), { code: "PERMISSION_DENIED" });
+  assert.throws(() => context.executarAcaoApi_("salvarConfiguracoesRelatorioEliel", [], producao), { code: "PERMISSION_DENIED" });
+  assert.throws(() => context.executarAcaoApi_("fecharMesESalvarDrive", [], admin), { code: "ACTION_NOT_ALLOWED" });
 
-  assert.throws(
-    () => context.executarAcaoApi_(
-      "fecharMesRelatorioEliel",
-      [7, 2026, "{}"],
-      session.token
-    ),
-    error => error.code === "PERMISSION_DENIED"
-  );
-  assert.throws(
-    () => context.executarAcaoApi_("fecharMesESalvarDrive", [], session.token),
-    error => error.code === "ACTION_NOT_ALLOWED"
-  );
+  for (const token of [admin, producao]) {
+    const build = context.executarAcaoApi_("obterBuildPdv", [], token).data;
+    assert.match(build.versao, /^V\d+\.\d+\.\d+\.\d+$/);
+    assert.ok(build.novidades.length > 0);
+  }
 });
 
 test("preço e tipo do cliente são ignorados em favor do catálogo", () => {

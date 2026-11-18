@@ -19,7 +19,7 @@ const all = fs.readdirSync(dir)
 test("P6 separa entrada HTTP e autenticação sem duplicar funções no Code.gs", () => {
   const apiNames = ["doGet", "doPost", "executarAcaoApi_", "responderApi_"];
   const authNames = [
-    "configurarPinAdministrador", "configurarPinEliel", "loginAcesso",
+    "configurarPinAdministrador", "alterarPinAdministrador_", "loginAcesso",
     "loginAdministrador", "validarSessaoAcesso", "validarSessaoAdministrador",
     "encerrarSessaoAdministrador"
   ];
@@ -55,7 +55,7 @@ test("AuthService preserva PINs e contratos públicos; helpers permanecem em Sec
   assert.match(auth, /\^\\d\{6,12\}\$/);
   assert.match(auth, /LOGIN_BLOCKED/);
   assert.match(auth, /INVALID_CREDENTIALS/);
-  assert.match(auth, /NOME_PERFIL_ELIEL_/);
+  assert.match(auth, /NOME_PERFIL_ADMIN_/);
   assert.match(security, /function hashSeguro_\(/);
   assert.match(security, /function criarSessaoAcesso_\(/);
   assert.match(security, /function obterSessaoAcesso_\(/);
