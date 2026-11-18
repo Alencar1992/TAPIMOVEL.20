@@ -21,7 +21,6 @@
         :root {
             --primary: #ff6b6b; --primary-hover: #fa5252; --edit: #339af0; --edit-hover: #228be6;
             --success: #40c057; --success-hover: #2f9e44; --danger: #dc3545; --danger-hover: #c82333;
-            --tab-active: #39ff14;
             --bg: #121212; --panel-bg: #1e1e1e; --text: #e0e0e0;
             --text-muted: #aaaaaa; --border: #333333; --pending-bg: #2a2510; --card-bg: #2d2d2d;
             --troco-bg: #162b16; --troco-neg-bg: #4a1c1c; --stat-bg: #252525; --input-bg: #2d2d2d;
@@ -65,8 +64,47 @@
         .fechamentos-diarios img { display: block; width: 100%; max-width: 520px; margin: 0 auto 12px; }
         .fechamentos-diarios a { text-align: center; text-decoration: none; display: block; }
         .tabs-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; }
-        .tab-btn { background: var(--stat-bg); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 20px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 0.95rem; flex-grow: 1; text-align: center; transition: 0.2s;}
-        .tab-btn.active { background: var(--tab-active); color: #000; border-color: var(--tab-active); box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);}
+        #containerAbas .tab-btn {
+            flex: 1 0 auto;
+            min-height: 42px;
+            padding: 9px 13px;
+            border: 1px solid #686c72;
+            border-bottom-color: #303238;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #4a4d53, #24262b 72%);
+            box-shadow: inset 0 1px 0 #ffffff44, 0 4px 0 #141519, 0 7px 10px #0007;
+            color: #f4f6f9;
+            font: inherit;
+            font-size: .95rem;
+            font-weight: 700;
+            line-height: 1.2;
+            text-align: center;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: transform .14s ease, box-shadow .14s ease;
+        }
+        #containerAbas .tab-btn.active {
+            border-color: #b7ff99;
+            border-bottom-color: #388020;
+            background: linear-gradient(180deg, #e0ffcf, #89f451 47%, #60d62c);
+            box-shadow: inset 0 1px 0 #ffffffe0, 0 4px 0 #378717, 0 0 16px #78ee5066;
+            color: #142409;
+        }
+        #containerAbas .tab-btn:active {
+            transform: translateY(3px);
+            box-shadow: inset 0 1px 2px #0004, 0 1px 0 #141519;
+        }
+        #containerAbas .tab-btn.active:active {
+            box-shadow: inset 0 1px 2px #1d4e2166, 0 1px 0 #378717, 0 0 13px #78ee5066;
+        }
+        #containerAbas .tab-btn:focus-visible {
+            outline: 2px solid #f1f6fa;
+            outline-offset: 3px;
+        }
+        #containerAbas { row-gap: 11px; padding-bottom: 5px; }
+        @media (prefers-reduced-motion: reduce) {
+            #containerAbas .tab-btn { transition: none; }
+        }
 
         .barra-pesquisa { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); box-sizing: border-box; margin-bottom: 15px; transition: 0.2s; }
         .barra-pesquisa:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 8px rgba(255,107,107,0.3); }
@@ -139,6 +177,9 @@
         .modal-content { background: var(--panel-bg); padding: 20px; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .liq-box { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
         .liq-row { display: flex; justify-content: space-between; font-size: 1.1rem; margin-bottom: 10px; padding-bottom: 5px; align-items: center;}
+        .liq-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-block: 10px; }
+        .liq-campos label { display: grid; align-content: start; gap: 4px; font-size: .88rem; }
+        .liq-campos .input-obs { box-sizing: border-box; min-width: 0; margin: 0; font-size: 1rem; }
         .liq-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .liq-total { font-size: 1.4rem; font-weight: bold; color: var(--success); text-align: center; margin-bottom: 15px; }
         .ocultavel { transition: all 0.3s; font-family: monospace; font-size: 1.2rem; }
@@ -397,11 +438,11 @@
             <button id="btnLimparPesquisa" onclick="limparPesquisa()" style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 5px;">✖ Limpar</button>
         </div>
         <div class="tabs-container" id="containerAbas">
-            <button class="tab-btn" onclick="trocarAba('salgadas', this)">Salgadas</button>
-            <button class="tab-btn" onclick="trocarAba('especiais', this)">Especiais</button>
-            <button class="tab-btn" onclick="trocarAba('doces', this)">Doces</button>
-            <button class="tab-btn" onclick="trocarAba('monte', this)">Monte Sua</button>
-            <button class="tab-btn" onclick="trocarAba('bebidas', this)">Bebidas</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('salgadas', this)">Salgadas</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('especiais', this)">Especiais</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('doces', this)">Doces</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('monte', this)">Monte Sua</button>
+            <button type="button" class="tab-btn" aria-pressed="false" onclick="trocarAba('bebidas', this)">Bebidas</button>
         </div>
         <div class="grid-produtos" id="gridProdutos"></div>
         <div class="painel-carrinho" id="boxCarrinho" style="display: none;">
@@ -939,81 +980,55 @@
             <div id="conteudoLiquidez">
                 <h3 style="text-align:center; color: var(--primary); margin-top:0;">📊 Liquidez Mensal</h3>
                 <p id="mesReferenciaPDF" style="text-align:center; color: var(--text-muted); margin-top: -10px; font-weight: bold;"></p>
-                <p style="text-align:center; color:var(--text-muted); font-size:.82rem; line-height:1.45;">O fechamento oficial é realizado no Relatório Eliel.</p>
-
-                <div class="liq-box" style="border-color: var(--primary); background: rgba(255,107,107,0.05);">
-                    <div class="liq-row" style="border:none;">
-                        <span>💰 Faturamento Bruto</span>
-                        <strong id="liqTotalGeralTxt">R$ 0,00</strong>
-                    </div>
-                    <div class="liq-row" style="border:none;">
-                        <span>🌮 Tapiocas Vendidas</span>
-                        <strong id="liqQtdTapiocasTxt">0 un</strong>
-                    </div>
-
-                    <!-- TAXAS DE MÁQUINA COM O MODO EDIÇÃO INLINE -->
-                    <div class="liq-row" style="border:none; color: var(--danger); font-size: 0.95rem; align-items: flex-start;">
-                        <div style="display:flex; flex-direction:column; gap: 4px;">
-                            <span>💳 Taxas de Máquina</span>
-
-                            <!-- Modo Visualização -->
-                            <div id="boxVisualizarTaxas" style="font-size: 0.75rem; color: var(--text-muted); display:flex; align-items:center; gap:5px;">
-                                <span id="lblResumoTaxas">(D: 2% | C: 5% | VR: 5.59%)</span>
-                            </div>
+                <form id="liqFormulario" onsubmit="event.preventDefault(); salvarLiquidezMensal()"
+                    oninput="preverLiquidezMensal()" onfocusout="formatarCampoLiquidezMensal(event.target)">
+                    <section class="liq-box">
+                        <h4>Faturamento e taxas</h4>
+                        <p>Os ajustes de faturamento, vendas e taxas valem para esta tela. Os valores dos custos também aparecem no Relatório Eliel.</p>
+                        <div class="liq-campos">
+                            <label>Faturamento bruto (R$)<input id="liqFaturamento" class="input-obs" inputmode="decimal"></label>
+                            <label>Tapiocas vendidas<input id="liqQtdTapiocasTxt" class="input-obs" type="number" min="0" step="1" inputmode="numeric"></label>
+                            <label>Vendas em débito (R$)<input id="liqVendaDebito" class="input-obs" inputmode="decimal"></label>
+                            <label>Taxa de débito (%)<input id="liqTaxaDebito" class="input-obs" inputmode="decimal"></label>
+                            <label>Vendas em crédito (R$)<input id="liqVendaCredito" class="input-obs" inputmode="decimal"></label>
+                            <label>Taxa de crédito (%)<input id="liqTaxaCredito" class="input-obs" inputmode="decimal"></label>
+                            <label>Vendas em VR (R$)<input id="liqVendaVr" class="input-obs" inputmode="decimal"></label>
+                            <label>Taxa de VR (%)<input id="liqTaxaVr" class="input-obs" inputmode="decimal"></label>
                         </div>
-                        <strong id="liqTaxasTxt">- R$ 0,00</strong>
-                    </div>
-
-                    <div class="liq-row" style="border-bottom:1px dashed var(--border); padding-bottom:5px; margin-bottom:10px;">
-                        <span style="font-weight:bold;">= Subtotal (Após Taxas)</span>
-                        <strong id="liqSubtotal1Txt">R$ 0,00</strong>
-                    </div>
-                </div>
-
-                <div class="liq-box" style="border-color: #f59f00;">
-                    <p style="margin:0 0 10px 0; font-size:0.8rem; color:#f59f00; font-weight:bold;">⚙️ CUSTOS OPERACIONAIS E FIXOS</p>
-
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <label style="font-size:0.85rem;">Combustível Carro (%):</label>
-                        <input type="number" id="inpPercCombTrailer" class="input-obs" value="80" style="width: 70px; padding: 5px;" disabled>
-                    </div>
-                    <div class="liq-row" style="border:none; margin-bottom: 5px;">
-                        <span>Gasto Descontado</span>
-                        <strong id="liqCombustivelTxt" style="color: var(--danger);">- R$ 0,00</strong>
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); text-align: right; margin-bottom: 10px;" id="liqCombustivelTrailerTxt">
-                        (Restante pago pelo Trailer: R$ 0,00)
-                    </div>
-
-                    <label for="liqPlanoAssinatura">Assinatura do app Tapimóvel</label>
-                    <select id="liqPlanoAssinatura" class="input-obs" onchange="preencherValorPlanoLiquidez(this, 'liqAssinatura')">
-                        <option value="">Selecione o plano</option>
-                        <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
-                        <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
-                        <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
-                    </select>
-                    <label for="liqAssinatura">Valor da assinatura (R$)</label>
-                    <input id="liqAssinatura" class="input-obs" inputmode="decimal" placeholder="0,00" style="margin-bottom:8px">
-                    <label for="liqCustosVariaveis">Custos variáveis (R$)</label>
-                    <input id="liqCustosVariaveis" class="input-obs" inputmode="decimal" style="margin-bottom:8px">
-                    <label for="liqSalarioMotorista">Salário do motorista de tapiocas (R$)</label>
-                    <input id="liqSalarioMotorista" class="input-obs" inputmode="decimal" placeholder="0,00" style="margin-bottom:8px">
-                    <label style="font-size:0.85rem;">Salário Cozinha (R$):</label>
-                    <input type="text" id="inpSalCozinha" class="input-obs" placeholder="750,00" value="750,00" style="margin-bottom:8px;" disabled>
-
-                    <label style="font-size:0.85rem;">Salário Aux. Carro (R$):</label>
-                    <input type="text" id="inpSalCarro" class="input-obs" placeholder="300,00" value="300,00" style="margin-bottom:8px;" disabled>
-
-                    <label style="font-size:0.85rem;">Manutenção Carro (R$):</label>
-                    <input type="text" id="inpManutCarro" class="input-obs" placeholder="200,00" value="200,00" disabled>
-                </div>
-
-                <div class="liq-box">
-                    <div class="liq-row"><span>Custos operacionais</span><strong id="liqTotalCustos">R$ 0,00</strong></div>
-                    <div class="liq-row" style="border:none"><span>Líquido real do Eliel</span><strong id="liqEliel">R$ 0,00</strong></div>
-                </div>
-                <button id="liqSalvar" type="button" class="btn-acao" onclick="salvarLiquidezMensal()">Salvar custos do mês</button>
-                <p id="liqStatusSalvamento" role="status"></p>
+                        <div class="liq-row"><span>Taxas de máquina</span><strong id="liqTaxasTxt">R$ 0,00</strong></div>
+                        <div class="liq-row"><span>Subtotal após taxas</span><strong id="liqSubtotal1Txt">R$ 0,00</strong></div>
+                    </section>
+                    <section class="liq-box">
+                        <h4>Custos operacionais</h4>
+                        <div class="liq-campos">
+                            <label>Combustível total (R$)<input id="liqCombustivelTotal" class="input-obs" inputmode="decimal"></label>
+                            <label>Parte do carro (%)<input id="inpPercCombTrailer" class="input-obs" inputmode="decimal"></label>
+                        </div>
+                        <div class="liq-row"><span>Combustível descontado</span><strong id="liqCombustivelTxt">R$ 0,00</strong></div>
+                        <div class="liq-row"><span>Parte do trailer</span><strong id="liqCombustivelTrailerTxt">R$ 0,00</strong></div>
+                        <div class="liq-campos">
+                            <label>Plano Tapimóvel<select id="liqPlanoAssinatura" class="input-obs" onchange="preencherValorPlanoLiquidez(this, 'liqAssinatura'); preverLiquidezMensal()">
+                                <option value="">Selecione o plano</option>
+                                <option value="BASIC" data-valor="50,00">BASIC · R$ 50,00</option>
+                                <option value="Plus" data-valor="80,00">Plus · R$ 80,00</option>
+                                <option value="PRO" data-valor="100,00">PRO · R$ 100,00</option>
+                            </select></label>
+                            <label>Valor da assinatura (R$)<input id="liqAssinatura" class="input-obs" inputmode="decimal"></label>
+                            <label>Custos variáveis (R$)<input id="liqCustosVariaveis" class="input-obs" inputmode="decimal"></label>
+                            <label>Salário do motorista (R$)<input id="liqSalarioMotorista" class="input-obs" inputmode="decimal"></label>
+                            <label>Salário cozinha (R$)<input id="inpSalCozinha" class="input-obs" inputmode="decimal"></label>
+                            <label>Salário aux. carro (R$)<input id="inpSalCarro" class="input-obs" inputmode="decimal"></label>
+                            <label>Manutenção do carro (R$)<input id="inpManutCarro" class="input-obs" inputmode="decimal"></label>
+                        </div>
+                    </section>
+                    <section class="liq-box" aria-live="polite">
+                        <div class="liq-row"><span>Custos operacionais</span><strong id="liqTotalCustos">R$ 0,00</strong></div>
+                        <div class="liq-row"><span>Líquido real do Eliel</span><strong id="liqEliel">R$ 0,00</strong></div>
+                    </section>
+                    <button id="liqSalvar" type="submit" class="btn-acao">Salvar ajustes do mês</button>
+                    <button type="button" class="btn-acao btn-limpar" onclick="restaurarEntradasLiquidez()">Usar dados do sistema</button>
+                    <p id="liqStatusSalvamento" role="status"></p>
+                </form>
             </div>
 
             <button class="btn-acao btn-limpar" onclick="fecharModais()">Voltar</button>
@@ -2107,7 +2122,24 @@
             input.focus();
         }
 
-        function trocarAba(categoria, elementoBtn) { document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); if(elementoBtn) elementoBtn.classList.add('active'); abaAtivaCatalogo = categoria; baseSelecionadaMonte = null; let inputPesq = document.getElementById('inputPesquisa'); if(inputPesq.value !== '') { inputPesq.value = ''; termoPesquisa = ''; document.getElementById('containerAbas').style.display = 'flex'; } renderizarCatalogo(categoria); }
+        function trocarAba(categoria, elementoBtn) {
+            const desmarcar = abaAtivaCatalogo === categoria;
+            abaAtivaCatalogo = desmarcar ? null : categoria;
+            baseSelecionadaMonte = null;
+            document.querySelectorAll('#containerAbas .tab-btn').forEach(botao => {
+                const selecionado = !desmarcar && botao === elementoBtn;
+                botao.classList.toggle('active', selecionado);
+                botao.setAttribute('aria-pressed', String(selecionado));
+            });
+
+            const pesquisa = document.getElementById('inputPesquisa');
+            if (pesquisa.value !== '') {
+                pesquisa.value = '';
+                termoPesquisa = '';
+                document.getElementById('containerAbas').style.display = 'flex';
+            }
+            renderizarCatalogo(abaAtivaCatalogo);
+        }
 
         function renderizarCatalogo(categoria) {
             if (termoPesquisa.length > 0) return;
@@ -2964,23 +2996,41 @@
 
 
         let liquidezMensalAtual = null;
+        const CAMPOS_ENTRADAS_LIQUIDEZ = {
+            total: 'liqFaturamento', qtdTapiocas: 'liqQtdTapiocasTxt',
+            debito: 'liqVendaDebito', credito: 'liqVendaCredito', vr: 'liqVendaVr',
+            taxaDebito: 'liqTaxaDebito', taxaCredito: 'liqTaxaCredito', taxaVr: 'liqTaxaVr',
+            percentualCombustivelCarro: 'inpPercCombTrailer'
+        };
+        const CAMPOS_VENDAS_LIQUIDEZ = ['total', 'debito', 'credito', 'vr'];
+        const CAMPOS_CUSTOS_LIQUIDEZ = {
+            combustivelEditado: 'liqCombustivelTotal', assinaturaTapimovel: 'liqAssinatura',
+            custosVariaveis: 'liqCustosVariaveis', salarioMotorista: 'liqSalarioMotorista',
+            salarioCozinha: 'inpSalCozinha', salarioAuxCarro: 'inpSalCarro', manutencaoCarro: 'inpManutCarro'
+        };
 
         function preencherValorPlanoLiquidez(select, idCampo) {
             const opcao = select.options[select.selectedIndex];
             document.getElementById(idCampo).value = opcao?.dataset.valor || '';
         }
 
-        function valorCustoLiquidez(campo) {
-            const texto = campo.value.trim().replace(/^R\$\s*/, '');
+        function valorCustoLiquidez(campo, aceitaNegativo = false) {
+            const texto = campo.value.trim().replace(/^(-?)R\$\s*/, '$1');
             if (!texto) return null;
-            if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(texto)) {
+            if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(texto) || (!aceitaNegativo && texto.startsWith('-'))) {
                 throw new Error('Preencha os custos com valores em reais, como 80,00.');
             }
-            return Number(texto.replace(/\./g, '').replace(',', '.'));
+            const valor = Number(texto.replace(/\./g, '').replace(',', '.'));
+            if (!Number.isSafeInteger(Math.round(valor * 100))) {
+                throw new Error('Informe um valor em reais dentro do limite aceito.');
+            }
+            return valor;
         }
 
         function preencherCampoCustoLiquidez(campo, valor) {
-            campo.value = valor == null ? '' : Number(valor).toFixed(2).replace('.', ',');
+            campo.value = valor == null ? '' : Number(valor).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+            });
         }
 
         function abrirModalLiquidez() {
@@ -3002,12 +3052,11 @@
             if (typeof google !== 'undefined' && google.script && google.script.run) {
                 google.script.run.withSuccessHandler(function(resposta) {
                     const dados = normalizarRespostaApi(resposta);
-                    if (!dados || !Number.isFinite(dados.total) || !dados.custos || !dados.configuracoes) {
+                    if (!dados || !Number.isFinite(dados.total) || !dados.originais || !dados.custos || !dados.configuracoes) {
                         mostrarErroLiquidez();
                         return;
                     }
                     liquidezMensalAtual = dados;
-                    document.getElementById('liqQtdTapiocasTxt').textContent = (dados.qtdTapiocas || 0) + ' un';
                     recalcularLiquidez(dados);
                     document.getElementById('loadingLiquidez').style.display = 'none';
                     document.getElementById('conteudoLiquidez').style.display = 'block';
@@ -3017,26 +3066,115 @@
             }
         }
 
+        function preencherEntradasLiquidez(entradas) {
+            Object.entries(CAMPOS_ENTRADAS_LIQUIDEZ).forEach(([chave, id]) => {
+                const campo = document.getElementById(id);
+                if (chave === 'qtdTapiocas') campo.value = String(entradas[chave]);
+                else preencherCampoCustoLiquidez(campo, entradas[chave]);
+            });
+        }
+
         function recalcularLiquidez(dados) {
             const { custos, configuracoes: config } = dados;
             document.getElementById('mesReferenciaPDF').textContent = new Intl.DateTimeFormat('pt-BR', {
                 month: 'long', year: 'numeric'
             }).format(new Date(dados.ano, dados.mes - 1, 1));
-            document.getElementById('liqTotalGeralTxt').textContent = formatarMoeda(dados.total);
-            document.getElementById('liqTaxasTxt').textContent = '- ' + formatarMoeda(dados.taxas);
-            document.getElementById('lblResumoTaxas').textContent = `(D: ${config.taxaDebito}% | C: ${config.taxaCredito}% | VR: ${config.taxaVr}%)`;
-            document.getElementById('liqSubtotal1Txt').textContent = formatarMoeda(dados.subtotal);
-            document.getElementById('liqCombustivelTxt').textContent = '- ' + formatarMoeda(custos.combustivelCarro);
-            document.getElementById('liqCombustivelTrailerTxt').textContent = 'Trailer · ' + formatarMoeda(custos.combustivelTrailer);
-            document.getElementById('liqTotalCustos').textContent = formatarMoeda(dados.totalCustos);
-            const liquido = document.getElementById('liqEliel');
-            liquido.textContent = formatarMoeda(dados.liquido);
-            liquido.style.color = dados.liquido < 0 ? 'var(--danger)' : 'var(--success)';
+            preencherEntradasLiquidez(dados);
             document.getElementById('liqPlanoAssinatura').value = config.planoAssinatura || '';
-            Object.entries({
-                inpSalCozinha: custos.salarioCozinha, inpSalCarro: custos.salarioAuxCarro, inpManutCarro: custos.manutencaoCarro,
-                liqAssinatura: config.assinaturaTapimovel, liqCustosVariaveis: config.custosVariaveis, liqSalarioMotorista: config.salarioMotorista
-            }).forEach(([id, valor]) => preencherCampoCustoLiquidez(document.getElementById(id), valor));
+            Object.entries(CAMPOS_CUSTOS_LIQUIDEZ).forEach(([chave, id]) => {
+                const valor = chave === 'combustivelEditado' ? custos.combustivelTotal : config[chave];
+                preencherCampoCustoLiquidez(document.getElementById(id), valor);
+            });
+            exibirTotaisLiquidez(dados);
+        }
+
+        function exibirTotaisLiquidez(dados) {
+            const valores = {
+                liqTaxasTxt: dados.taxas, liqSubtotal1Txt: dados.subtotal,
+                liqCombustivelTxt: dados.custos.combustivelCarro, liqCombustivelTrailerTxt: dados.custos.combustivelTrailer,
+                liqTotalCustos: dados.totalCustos, liqEliel: dados.liquido
+            };
+            Object.entries(valores).forEach(([id, valor]) => {
+                document.getElementById(id).textContent = formatarMoeda(valor);
+            });
+            document.getElementById('liqEliel').style.color = dados.liquido < 0 ? 'var(--danger)' : 'var(--success)';
+        }
+
+        function lerAjustesLiquidez(dados) {
+            const ajustesPdv = {};
+            Object.entries(CAMPOS_ENTRADAS_LIQUIDEZ).forEach(([chave, id]) => {
+                const campo = document.getElementById(id);
+                if (!campo.validity.valid) throw new Error('Informe uma quantidade inteira de tapiocas.');
+                const valor = valorCustoLiquidez(campo, CAMPOS_VENDAS_LIQUIDEZ.includes(chave));
+                const percentual = chave.startsWith('taxa') || chave === 'percentualCombustivelCarro';
+                if (percentual && valor > 100) throw new Error('Use percentuais de 0 a 100.');
+                if (chave === 'qtdTapiocas' && valor !== null && !Number.isInteger(valor)) {
+                    throw new Error('Informe uma quantidade inteira de tapiocas.');
+                }
+                if (valor !== null && valor !== dados.originais[chave]) ajustesPdv[chave] = valor;
+            });
+
+            const config = { planoAssinatura: document.getElementById('liqPlanoAssinatura').value, ajustesPdv };
+            Object.entries(CAMPOS_CUSTOS_LIQUIDEZ).forEach(([chave, id]) => {
+                config[chave] = valorCustoLiquidez(document.getElementById(id));
+            });
+            if (config.combustivelEditado === dados.originais.combustivel) config.combustivelEditado = null;
+            if (config.planoAssinatura && config.assinaturaTapimovel === null) {
+                const plano = document.getElementById('liqPlanoAssinatura');
+                config.assinaturaTapimovel = valorCustoLiquidez({ value: plano.options[plano.selectedIndex].dataset.valor });
+            }
+            return config;
+        }
+
+        function preverLiquidezMensal() {
+            const dados = liquidezMensalAtual;
+            if (!dados) return;
+            const status = document.getElementById('liqStatusSalvamento');
+            if (document.getElementById('liqSalvar').disabled) return;
+            let config;
+            try {
+                config = lerAjustesLiquidez(dados);
+            } catch (erro) {
+                status.textContent = erro.message;
+                return;
+            }
+            const entradas = Object.assign({}, dados.originais, config.ajustesPdv);
+            const emCentavos = valor => Math.round((valor || 0) * 100);
+            const taxasBrutas = (emCentavos(entradas.debito) * entradas.taxaDebito +
+                emCentavos(entradas.credito) * entradas.taxaCredito + emCentavos(entradas.vr) * entradas.taxaVr) / 100;
+            const taxas = Math.sign(taxasBrutas) * Math.round(Math.abs(taxasBrutas));
+            const subtotal = emCentavos(entradas.total) - taxas;
+            const combustivel = emCentavos(config.combustivelEditado ?? entradas.combustivel);
+            const carro = Math.round(combustivel * entradas.percentualCombustivelCarro / 100);
+            const custos = carro + Object.keys(CAMPOS_CUSTOS_LIQUIDEZ)
+                .filter(chave => chave !== 'combustivelEditado')
+                .reduce((total, chave) => total + emCentavos(config[chave]), 0);
+            exibirTotaisLiquidez({
+                taxas: taxas / 100, subtotal: subtotal / 100, totalCustos: custos / 100,
+                liquido: (subtotal - custos) / 100, custos: {
+                    combustivelCarro: carro / 100, combustivelTrailer: (combustivel - carro) / 100
+                }
+            });
+            status.textContent = '';
+        }
+
+        function formatarCampoLiquidezMensal(campo) {
+            if (campo.tagName !== 'INPUT' || campo.type === 'number') return;
+            try {
+                const aceitaNegativo = CAMPOS_VENDAS_LIQUIDEZ.some(chave => CAMPOS_ENTRADAS_LIQUIDEZ[chave] === campo.id);
+                preencherCampoCustoLiquidez(campo, valorCustoLiquidez(campo, aceitaNegativo));
+            } catch (_) {
+                // Mantém o texto para o usuário corrigir.
+            }
+        }
+
+        function restaurarEntradasLiquidez() {
+            const dados = liquidezMensalAtual;
+            if (!dados) return;
+            preencherEntradasLiquidez(dados.originais);
+            preencherCampoCustoLiquidez(document.getElementById('liqCombustivelTotal'), dados.originais.combustivel);
+            preverLiquidezMensal();
+            document.getElementById('liqStatusSalvamento').textContent = 'Salve para aplicar os valores do sistema.';
         }
 
         function salvarLiquidezMensal() {
@@ -3047,26 +3185,22 @@
             if (botao.disabled) return;
             let config;
             try {
-                config = {
-                    planoAssinatura: document.getElementById('liqPlanoAssinatura').value,
-                    assinaturaTapimovel: valorCustoLiquidez(document.getElementById('liqAssinatura')),
-                    custosVariaveis: valorCustoLiquidez(document.getElementById('liqCustosVariaveis')),
-                    salarioMotorista: valorCustoLiquidez(document.getElementById('liqSalarioMotorista'))
-                };
+                config = lerAjustesLiquidez(dados);
             } catch (erro) {
                 status.textContent = erro.message;
                 return;
             }
-            botao.disabled = true;
-            status.textContent = 'Salvando custos…';
+            const campos = Array.from(document.getElementById('liqFormulario').elements);
+            campos.forEach(campo => { campo.disabled = true; });
+            status.textContent = 'Salvando ajustes…';
             google.script.run.withSuccessHandler(function() {
-                botao.disabled = false;
+                campos.forEach(campo => { campo.disabled = false; });
                 if (liquidezMensalAtual !== dados || document.getElementById('modalLiquidez').style.display === 'none') return;
                 abrirModalLiquidez();
-                mostrarToast('Custos da Liquidez Mensal salvos.');
+                mostrarToast('Ajustes da Liquidez Mensal salvos.');
             }).withFailureHandler(function(erro) {
-                botao.disabled = false;
-                status.textContent = erro.message || 'Não foi possível salvar os custos.';
+                campos.forEach(campo => { campo.disabled = false; });
+                status.textContent = erro.message || 'Não foi possível salvar os ajustes.';
             }).salvarConfiguracoesRelatorioEliel(JSON.stringify(config), dados.mes, dados.ano);
         }
 

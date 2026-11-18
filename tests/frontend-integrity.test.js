@@ -723,3 +723,35 @@ test("reabrir pedido remove a venda local antes da próxima sincronização", ()
   assert.match(bloco, /vendasHojePersistidas = vendasHojePersistidas\.filter/);
   assert.match(bloco, /Number\(venda && venda\.numero\) !== Number\(numero\)/);
 });
+
+test("categoria do PDV é ativada e desativada no segundo toque", () => {
+  const html = fs.readFileSync(path.join(root, "frontend/index.html"), "utf8");
+  const inicio = html.indexOf("function trocarAba(categoria, elementoBtn)");
+  const fim = html.indexOf("function renderizarCatalogo(categoria)", inicio);
+  const botao = () => ({
+    classList: { toggle(classe, ativa) { assert.equal(classe, "active"); this.ativa = ativa; } },
+    setAttribute(nome, valor) { assert.equal(nome, "aria-pressed"); this.pressionado = valor; }
+  });
+  const salgada = botao();
+  const doce = botao();
+  const eventos = [];
+  const tela = {
+    abaAtivaCatalogo: null, baseSelecionadaMonte: null, termoPesquisa: "",
+    document: {
+      querySelectorAll(seletor) { assert.equal(seletor, "#containerAbas .tab-btn"); return [salgada, doce]; },
+      getElementById() { return { value: "" }; }
+    },
+    renderizarCatalogo: categoria => eventos.push(categoria)
+  };
+  vm.runInNewContext(html.slice(inicio, fim), tela);
+  tela.trocarAba("salgadas", salgada);
+  assert.equal(salgada.pressionado, "true");
+  assert.equal(salgada.classList.ativa, true);
+  tela.trocarAba("doces", doce);
+  assert.equal(salgada.pressionado, "false");
+  assert.equal(doce.pressionado, "true");
+  tela.trocarAba("doces", doce);
+  assert.equal(doce.pressionado, "false");
+  assert.equal(doce.classList.ativa, false);
+  assert.deepEqual(eventos, ["salgadas", "doces", null]);
+});
