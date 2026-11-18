@@ -19,8 +19,8 @@ test('Tapi-Tudo usa o mesmo cache-buster no PDV e no cardápio', () => {
   const config = read(CONFIG);
   const loader = read(LOADER);
 
-  assert.match(index, /<script src="\.\/config\.js\?v=20260828\.3"><\/script>/);
-  assert.match(cliente, /<script src="\.\/config\.js\?v=20260828\.3"><\/script>/);
+  assert.match(index, /<script src="\.\/config\.js\?v=20261118\.2"><\/script>/);
+  assert.match(cliente, /<script src="\.\/config\.js\?v=20261118\.2"><\/script>/);
   assert.match(config, /carregarLoaderTapiTudoGlobal[\s\S]*?const versao = "20260828\.3"/);
   assert.match(loader, /tapi_tudo_loader_animado\.webp\?v=20260828\.3/);
 });

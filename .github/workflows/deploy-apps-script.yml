@@ -70,6 +70,8 @@ jobs:
 
       - name: Publicar código
         run: |
+          data_build=$(TZ=America/Sao_Paulo date +%d/%m/%Y)
+          sed -i "s|__DATA_BUILD_PDV__|$data_build|" apps-script/Api.gs
           npx -y @google/clasp@3.3.0 show-file-status
           npx -y @google/clasp@3.3.0 push --force
 

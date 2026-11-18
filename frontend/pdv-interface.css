@@ -1,0 +1,166 @@
+body.app-admin .header-title {
+  display: flex;
+  align-items: center;
+  gap: .35em;
+  white-space: nowrap;
+  color: #ffd28a;
+  font: 900 clamp(1.18rem, 3.2vw, 1.85rem)/1 "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  letter-spacing: .045em;
+  text-shadow: 0 -1px #fff3d7, 0 1px #cd8242, 0 2px #965122, 0 3px #623418, 0 5px 8px #000a;
+}
+
+.marca-emoji {
+  font-size: .82em;
+  letter-spacing: .05em;
+  filter: drop-shadow(0 2px 0 #6d3519) drop-shadow(0 3px 4px #0009);
+}
+
+#identidadeAcesso {
+  flex: 0 0 auto;
+  margin: 0 10px 0 0;
+  padding: .28rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: .75rem;
+  white-space: nowrap;
+}
+
+body:is(.app-admin, .app-cliente) button:not(.tab-btn),
+body.app-admin .fechamentos-diarios a {
+  border-radius: 12px;
+  background-image: linear-gradient(180deg, #ffffff21, #0003 78%);
+  box-shadow: inset 0 1px 0 #ffffff42, 0 3px 0 #141519, 0 5px 8px #0006;
+}
+
+body:is(.app-admin, .app-cliente) button:not(.tab-btn):enabled:is(.tab.active, [aria-pressed="true"], [aria-expanded="true"], .aberto, .active-nav, .ativo),
+body.app-admin #sidebar button.aberto:enabled {
+  background: linear-gradient(180deg, #e0ffcf, #89f451 47%, #60d62c) !important;
+  color: #142409 !important;
+  box-shadow: inset 0 1px 0 #ffffffe0, 0 3px 0 #378717, 0 0 13px #78ee5066;
+}
+
+body:is(.app-admin, .app-cliente) button:not(.tab-btn):enabled:active,
+body.app-admin .fechamentos-diarios a:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 2px #0004, 0 1px 0 #141519;
+}
+
+body:is(.app-admin, .app-cliente) button:not(.tab-btn):focus-visible,
+body.app-admin .fechamentos-diarios a:focus-visible {
+  outline: 2px solid #f1f6fa;
+  outline-offset: 3px;
+}
+
+body:is(.app-admin, .app-cliente) button:not(.tab-btn):disabled {
+  box-shadow: none;
+}
+
+body.app-admin #sidebar button:not(.aberto) {
+  background-image: linear-gradient(180deg, #ffffff17, #0003 78%) !important;
+}
+
+body.app-admin .nav-voltar,
+body.app-admin .botao-voltar {
+  border-radius: 999px;
+}
+
+.nav-voltar::before,
+.botao-voltar::before {
+  content: "";
+  display: inline-block;
+  width: .48em;
+  height: .48em;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-inline: .25em .45em;
+}
+
+.sidebar-rodape {
+  margin-top: auto;
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-build {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--text-muted);
+  font-size: .77rem;
+}
+
+body.app-admin #sidebar .sidebar-build button {
+  width: auto;
+  min-height: 34px;
+  padding: 5px 9px;
+  color: var(--text);
+  font-size: inherit;
+}
+
+.notas-build {
+  box-sizing: border-box;
+  max-width: min(90vw, 520px);
+  max-height: 85vh;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+.notas-build::backdrop { background: #000b; }
+.notas-build h2 { margin: 0; color: var(--primary); font-size: 1.2rem; }
+.notas-build p { color: var(--text-muted); }
+.notas-build ul { padding-inline-start: 1.2rem; line-height: 1.5; }
+.notas-build li + li { margin-top: .65rem; }
+
+.liq-cabecalho-bloco {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.liq-cabecalho-bloco h4 { margin: 0; }
+.liq-editar {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  background-color: var(--stat-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#liqFormulario fieldset { min-inline-size: 0; margin: 0; border: 0; padding: 0; }
+#liqFormulario fieldset:disabled .input-obs {
+  opacity: 1;
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  border-color: transparent;
+  background: var(--stat-bg);
+  cursor: default;
+}
+
+.config-pin-admin {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 340px);
+}
+
+.config-pin-admin .input-obs { box-sizing: border-box; width: 100%; }
+.config-pin-admin [role="status"] { margin: 0; color: var(--text-muted); }
+
+@media (max-width: 700px) {
+  #identidadeAcesso { margin-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:is(.app-admin, .app-cliente) button:not(.tab-btn) { transition: none; }
+}

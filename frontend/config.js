@@ -17,7 +17,7 @@ function paginaTapimovelEhCliente_() {
 
 if (!paginaTapimovelEhCliente_()) {
   (function carregarControleFechamentoEliel() {
-    const versao = "20260826.3";
+    const versao = "20261118.2";
 
     const css = document.createElement("link");
     css.rel = "stylesheet";

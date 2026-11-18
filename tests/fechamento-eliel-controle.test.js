@@ -10,7 +10,7 @@ test('P10.1 carrega módulo próprio de controle do fechamento', () => {
   const config = read('frontend/config.js');
   assert.match(config, /fechamento-eliel-ui\.css\?v=/);
   assert.match(config, /fechamento-eliel-ui\.js\?v=/);
-  assert.match(config, /20260826\.3/);
+  assert.match(config, /20261118\.2/);
 });
 
 test('painel mostra período, status, pendências e operação do mês', () => {
@@ -51,16 +51,16 @@ test('respostas assíncronas de prévia antigas são descartadas', () => {
   assert.match(ui, /periodoRelatorioCarregado !== chave/);
 });
 
-test('admin comum não recebe poder de fechar e CEO Eliel continua protegido no backend', () => {
+test('PDV ADM pode fechar o mês pelo relatório com autorização do backend', () => {
   const ui = read('frontend/fechamento-eliel-ui.js');
   const api = read('apps-script/Api.gs');
   const fechamento = read('apps-script/FechamentoService.gs');
 
-  assert.match(ui, /Entrar como CEO Eliel/);
-  assert.match(ui, /index\.html\?acesso=eliel/);
-  assert.match(api, /action === "fecharMesRelatorioEliel" && sessao\.perfil !== "eliel"/);
+  assert.match(ui, /sessao && sessao.perfil === "admin"/);
+  assert.doesNotMatch(ui, /acesso=eliel/);
+  assert.match(api, /args\[3\] = NOME_PERFIL_ADMIN_/);
   assert.match(api, /PERMISSION_DENIED/);
-  assert.match(fechamento, /O fechamento mensal é exclusivo do perfil CEO Eliel/);
+  assert.match(fechamento, /O fechamento mensal é exclusivo do PDV ADM/);
 });
 
 test('painel diferencia pronto, bloqueado, fechado e recuperação segura', () => {

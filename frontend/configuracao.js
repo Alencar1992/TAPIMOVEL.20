@@ -50,26 +50,6 @@
 
   window.solicitarAcessoConfiguracao = function () {
     fecharMenuLateral();
-    var sessao = window.TapimovelAuth && window.TapimovelAuth.getSession
-      ? window.TapimovelAuth.getSession()
-      : null;
-    if (sessao && sessao.perfil === "eliel") {
-      responsavelAtual = "CEO Eliel";
-      google.script.run
-        .withSuccessHandler(function (resposta) {
-          atualizarCatalogo(resposta);
-          document.getElementById("configResponsavelAtual").textContent = responsavelAtual;
-          mudarTela("view-configuracao");
-        })
-        .withFailureHandler(function (erro) {
-          mostrarAlerta("Não foi possível abrir a configuração.<br><small>" + escapar(erro.message) + "</small>");
-        })
-        .inicializarCatalogoConfiguracao(
-          JSON.stringify(TapimovelCatalogo.copiar(bdCatalogo)),
-          responsavelAtual
-        );
-      return;
-    }
     var modal = document.getElementById("modalIdentificacaoConfig");
     var campo = document.getElementById("configResponsavel");
     campo.value = responsavelAtual;
@@ -114,9 +94,45 @@
 
   window.sairConfiguracao = function () {
     responsavelAtual = "";
+    document.getElementById("configFormPinAdmin").reset();
+    document.getElementById("configPinAdminStatus").textContent = "";
     document.getElementById("configResponsavelAtual").textContent = "—";
     document.getElementById("configResponsavel").value = "";
     voltarInicioAcesso();
+  };
+
+  window.salvarPinAdministrador = function (evento) {
+    evento.preventDefault();
+    var formulario = evento.currentTarget;
+    var botao = formulario.querySelector("button[type=submit]");
+    if (botao.disabled) return;
+    var status = document.getElementById("configPinAdminStatus");
+    var atual = document.getElementById("configPinAdminAtual").value;
+    var novo = document.getElementById("configPinAdminNovo").value;
+    var confirmacao = document.getElementById("configPinAdminConfirmacao");
+    if (novo !== confirmacao.value) {
+      status.textContent = "Os novos PINs precisam ser iguais.";
+      confirmacao.focus();
+      return;
+    }
+
+    formulario.reset();
+    botao.disabled = true;
+    status.textContent = "Alterando PIN…";
+    google.script.run
+      .withSuccessHandler(function () {
+        botao.disabled = false;
+        status.textContent = "";
+        window.TapimovelAuth.clear();
+        fecharModais();
+        sairConfiguracao();
+        mostrarLoginAdmin("PIN atualizado. Entre com o novo PIN.");
+      })
+      .withFailureHandler(function (erro) {
+        botao.disabled = false;
+        status.textContent = erro.message || "Não foi possível alterar o PIN.";
+      })
+      .alterarPinAdministrador(atual, novo);
   };
 
   window.salvarPinProducao = function (evento) {

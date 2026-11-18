@@ -19,6 +19,7 @@ function abrirConsulta(semApi = false) {
   };
   const context = {
     liquidezMensalAtual: null,
+    alternarEdicaoLiquidez() {},
     document: {getElementById: id => nodes[id]},
     google: semApi ? undefined : {script: {run: runner}},
     normalizarRespostaApi(res) { try { return JSON.parse(res); } catch { return null; } },

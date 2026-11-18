@@ -758,7 +758,7 @@
                 : `Confirmar o fechamento de ${previaFechamentoElielAtual.chave}? Será salva uma fotografia desta competência sem alterar pedidos de outros meses.`,
             fecharMesElielConfirmado,
             {
-                titulo: recuperacao ? "Recuperar fechamento incompleto" : "Confirmação final do CEO Eliel",
+                titulo: recuperacao ? "Recuperar fechamento incompleto" : "Confirmação final do PDV ADM",
                 icone: "!",
                 textoCancelar: "Revisar novamente",
                 textoConfirmar: recuperacao ? "Continuar recuperação" : "Confirmar fechamento",

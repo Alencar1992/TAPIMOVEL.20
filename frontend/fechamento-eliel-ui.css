@@ -94,8 +94,7 @@
     line-height: 1.5;
 }
 
-.eliel-fechamento-acoes,
-.eliel-fechamento-admin {
+.eliel-fechamento-acoes {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -103,8 +102,7 @@
     margin-top: 15px;
 }
 
-.eliel-fechamento-acoes button,
-.eliel-fechamento-admin button {
+.eliel-fechamento-acoes button {
     min-height: 44px;
     padding: 0 15px;
     border: 1px solid var(--eliel-line);
@@ -125,35 +123,12 @@
     cursor: not-allowed;
 }
 
-.eliel-fechamento-admin {
-    justify-content: space-between;
-    padding-top: 13px;
-    border-top: 1px solid rgba(255,255,255,.08);
-}
-
-.eliel-fechamento-admin > div {
-    display: grid;
-    gap: 4px;
-}
-
-.eliel-fechamento-admin span {
-    color: #929a97;
-    font-size: .78rem;
-}
-
-.eliel-fechamento-admin button {
-    border-color: rgba(232,184,79,.42);
-    color: var(--eliel-accent);
-}
-
-.eliel-fechamento-acoes[hidden],
-.eliel-fechamento-admin[hidden] {
+.eliel-fechamento-acoes[hidden] {
     display: none !important;
 }
 
 @media (max-width: 700px) {
-    .eliel-fechamento-cabecalho,
-    .eliel-fechamento-admin {
+    .eliel-fechamento-cabecalho {
         align-items: stretch;
         flex-direction: column;
     }
@@ -167,8 +142,7 @@
         grid-template-columns: 1fr;
     }
 
-    .eliel-fechamento-acoes button,
-    .eliel-fechamento-admin button {
+    .eliel-fechamento-acoes button {
         width: 100%;
     }
 }

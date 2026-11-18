@@ -52,11 +52,11 @@ test('P9 concentra o fechamento mensal no FechamentoService sem duplicação', (
   }
 });
 
-test('P9 preserva os contratos públicos e a autorização do CEO Eliel na API', () => {
+test('P9 preserva os contratos públicos e a autorização do PDV ADM na API', () => {
   assert.equal(api.includes('"obterPreviaFechamentoRelatorioEliel"'), true);
   assert.equal(api.includes('"fecharMesRelatorioEliel"'), true);
   assert.equal(api.includes('action === "fecharMesRelatorioEliel"'), true);
-  assert.equal(api.includes('sessao.perfil !== "eliel"'), true);
+  assert.equal(api.includes('args[3] = NOME_PERFIL_ADMIN_'), true);
 });
 
 test('FechamentoService mantém idempotência, recuperação e bloqueio de pendências', () => {

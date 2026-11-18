@@ -2,9 +2,7 @@
   "use strict";
 
   var parametroAcesso = new URLSearchParams(window.location.search).get("acesso");
-  var accessMode = parametroAcesso === "eliel" || parametroAcesso === "producao"
-    ? parametroAcesso
-    : "admin";
+  var accessMode = parametroAcesso === "producao" ? "producao" : "admin";
   var STORAGE_PREFIX = "tapimovel_" + accessMode + "_";
   var TOKEN_KEY = STORAGE_PREFIX + "token";
   var TOKEN_DAY_KEY = STORAGE_PREFIX + "token_day";
@@ -44,10 +42,8 @@
   }
 
   function saveToken(session) {
-    if (!session || !session.token) return;
-    var sessionMode = ["eliel", "producao"].indexOf(session.perfil) !== -1
-      ? session.perfil
-      : accessMode;
+    if (!session || !session.token || ["admin", "producao"].indexOf(session.perfil) === -1) return;
+    var sessionMode = session.perfil === "producao" ? "producao" : "admin";
     var sessionPrefix = "tapimovel_" + sessionMode + "_";
     inactivityMs = Math.max(
       60 * 1000,

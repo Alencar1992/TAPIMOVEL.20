@@ -94,8 +94,8 @@ for (const allowed of ['Historico_Diario', 'Fechamentos_Diarios', 'Tapiocas Diá
 expect(/CACHE_LEITURA_ANALITICA_TTL_\s*=\s*30/.test(cache), 'TTL analítico deixou de ser 30 segundos.');
 expect(/invalidarCachesAnaliticos_\(\)/.test(fechamento), 'fechamento mensal não força leitura fresca antes da prévia.');
 
-expect(/action === "fecharMesRelatorioEliel" && sessao\.perfil !== "eliel"/.test(api), 'fechamento mensal perdeu a barreira exclusiva do CEO Eliel.');
-expect(/O fechamento mensal é exclusivo do perfil CEO Eliel/.test(fechamento), 'serviço de fechamento mensal perdeu a validação de perfil.');
+expect(/sessao\.perfil !== "admin" && !permitidoParaProducao/.test(api) && /args\[3\] = NOME_PERFIL_ADMIN_/.test(api), 'fechamento mensal perdeu a proteção do PDV ADM.');
+expect(/O fechamento mensal é exclusivo do PDV ADM/.test(fechamento), 'serviço de fechamento mensal perdeu a validação de perfil.');
 expect(/function fecharDiaSeguro\s*\(/.test(diario), 'fechamento diário seguro ausente.');
 expect(/validarPersistenciaFechamentoDiario_\(resumo\)/.test(diario), 'fechamento diário não valida persistência.');
 expect(/removerSomentePedidosDoDiaFechado_/.test(diario), 'fechamento diário não limita a limpeza ao dia fechado.');

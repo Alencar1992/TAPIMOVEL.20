@@ -61,8 +61,8 @@ test('API autoriza somente sessão administrativa para o novo fechamento diário
   assert.match(api, /"obterStatusFechamentoDiario"/);
   assert.match(api, /"obterPreviaFechamentoDiario"/);
   assert.match(api, /"fecharDiaSeguro"/);
-  const blocoEliel = api.match(/const acoesEliel = \[([\s\S]*?)\];/)[1];
-  assert.doesNotMatch(blocoEliel, /fecharDiaSeguro/);
+  const blocoProducao = api.match(/const acoesProducao = \[([\s\S]*?)\];/)[1];
+  assert.doesNotMatch(blocoProducao, /fecharDiaSeguro/);
 });
 
 test('frontend não zera localmente antes da confirmação do servidor', () => {

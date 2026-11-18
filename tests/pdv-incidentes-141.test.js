@@ -56,7 +56,7 @@ function criarTela() {
   vm.createContext(tela);
   vm.runInContext([
     trecho("let versaoPagamento", "function mostrarLoginAdmin"),
-    trecho("function iniciarAplicacaoAdmin", "function iniciarAplicacaoEliel"),
+    trecho("function iniciarAplicacaoAdmin", "function carregarBuildPdv"),
     trecho("function pedidoSelecionadoParaPagamento", "function maskCurrency"),
     trecho("function maskCurrency", "function checarBaixaCache"),
     trecho("function chaveVendaHoje", "function vendasHojeCompletas"),

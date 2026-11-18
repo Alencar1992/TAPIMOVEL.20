@@ -9,8 +9,9 @@
     let carregamentoRelatorioEmCurso = null;
     let carregarRelatorioOriginal = null;
 
-    function ehAcessoEliel() {
-        return new URLSearchParams(window.location.search).get("acesso") === "eliel";
+    function ehPdvAdm() {
+        const sessao = window.TapimovelAuth && window.TapimovelAuth.getSession();
+        return Boolean(sessao && sessao.perfil === "admin");
     }
 
     function escapar(valor) {
@@ -63,7 +64,7 @@
                 <div>
                     <p class="eliel-kicker">CONTROLE DO FECHAMENTO MENSAL</p>
                     <h3>Fechamento do mês</h3>
-                    <p>O CEO Eliel acompanha o estado do período, confere pendências e conclui o fechamento por aqui.</p>
+                    <p>Confira o período e os pedidos pendentes antes de fechar o mês.</p>
                 </div>
                 <strong id="elielFechamentoBadge" class="eliel-fechamento-badge">CONSULTANDO</strong>
             </div>
@@ -74,37 +75,23 @@
                 <div><span>Operação</span><strong id="elielFechamentoOperacao">-</strong></div>
             </div>
             <p id="elielFechamentoMensagem" class="eliel-fechamento-mensagem">A conclusão sempre exige prévia e confirmação final.</p>
-            <div id="elielFechamentoAcoesCeo" class="eliel-fechamento-acoes">
+            <div id="elielFechamentoAcoesAdmin" class="eliel-fechamento-acoes">
                 <button type="button" id="btnAtualizarFechamentoEliel" class="secundario">Atualizar status</button>
                 <button type="button" id="btnFecharMesElielPrincipal" class="perigo">Revisar e fechar mês</button>
-            </div>
-            <div id="elielFechamentoAcessoAdmin" class="eliel-fechamento-admin">
-                <div>
-                    <strong>Fechamento protegido</strong>
-                    <span>O administrador pode consultar este relatório, mas somente o perfil CEO Eliel pode concluir o mês.</span>
-                </div>
-                <button type="button" id="btnEntrarCeoEliel">Entrar como CEO Eliel</button>
             </div>`;
 
         conteudo.insertBefore(painel, conteudo.firstChild);
 
         document.getElementById("btnAtualizarFechamentoEliel").addEventListener("click", atualizarControleFechamentoEliel);
         document.getElementById("btnFecharMesElielPrincipal").addEventListener("click", abrirFechamentoMesElielSeguro);
-        document.getElementById("btnEntrarCeoEliel").addEventListener("click", function () {
-            window.location.assign("./index.html?acesso=eliel");
-        });
-
         aplicarPerfilVisual();
         observarPeriodo();
         return true;
     }
 
     function aplicarPerfilVisual() {
-        const ceo = ehAcessoEliel();
-        const acoes = document.getElementById("elielFechamentoAcoesCeo");
-        const admin = document.getElementById("elielFechamentoAcessoAdmin");
-        if (acoes) acoes.hidden = !ceo;
-        if (admin) admin.hidden = ceo;
+        const acoes = document.getElementById("elielFechamentoAcoesAdmin");
+        if (acoes) acoes.hidden = !ehPdvAdm();
     }
 
     function definirBadge(texto, classe) {
@@ -227,10 +214,7 @@
     }
 
     function abrirFechamentoMesElielSeguro() {
-        if (!ehAcessoEliel()) {
-            window.location.assign("./index.html?acesso=eliel");
-            return;
-        }
+        if (!ehPdvAdm()) return;
 
         const chave = chaveSelecionada();
         const estadoSincronizado = ultimoEstado && String(ultimoEstado.chave || "") === chave;

@@ -218,7 +218,7 @@ test("fechamento usa v2 e preserva integralmente a aba mensal legada", () => {
   seedLegacy(spreadsheet);
   const legacyBefore = JSON.stringify(spreadsheet.getSheetByName("Fechamentos_Mensais").rows);
 
-  const result = JSON.parse(context.fecharMesRelatorioEliel(7, 2026, "{}", "CEO Eliel"));
+  const result = JSON.parse(context.fecharMesRelatorioEliel(7, 2026, "{}", "PDV ADM"));
 
   assert.equal(result.ok, true);
   assert.equal(result.recuperado, false);
@@ -228,7 +228,7 @@ test("fechamento usa v2 e preserva integralmente a aba mensal legada", () => {
   assert.equal(spreadsheet.getSheetByName("Relatorio Eliel").rows.length, 2);
   assert.equal(spreadsheet.getSheetByName("Controle_Operacoes").rows[1][3], "CONCLUIDO");
   assert.throws(
-    () => context.fecharMesRelatorioEliel(7, 2026, "{}", "CEO Eliel"),
+    () => context.fecharMesRelatorioEliel(7, 2026, "{}", "PDV ADM"),
     /já foi fechado/
   );
 });
@@ -238,7 +238,7 @@ test("falha parcial pode ser retomada sem duplicar o relatório", () => {
   seedLegacy(spreadsheet);
 
   assert.throws(
-    () => context.fecharMesRelatorioEliel(7, 2026, "{}", "CEO Eliel"),
+    () => context.fecharMesRelatorioEliel(7, 2026, "{}", "PDV ADM"),
     /Falha simulada/
   );
   assert.equal(spreadsheet.getSheetByName("Relatorio Eliel").rows.length, 2);
@@ -249,7 +249,7 @@ test("falha parcial pode ser retomada sem duplicar o relatório", () => {
   assert.equal(preview.duplicado, false);
   assert.equal(preview.podeFechar, true);
 
-  const result = JSON.parse(context.fecharMesRelatorioEliel(7, 2026, "{}", "CEO Eliel"));
+  const result = JSON.parse(context.fecharMesRelatorioEliel(7, 2026, "{}", "PDV ADM"));
   assert.equal(result.recuperado, true);
   assert.equal(spreadsheet.getSheetByName("Relatorio Eliel").rows.length, 2);
   assert.equal(spreadsheet.getSheetByName("Fechamentos_Mensais_v2").rows.length, 2);

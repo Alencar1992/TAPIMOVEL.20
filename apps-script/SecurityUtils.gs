@@ -19,13 +19,32 @@ function hashSeguro_(valor) {
   }).join("");
 }
 
-function derivarPinProducao_(pin, salt) {
+function derivarPin_(pin, salt) {
   let derivado = String(pin || "");
   const saltNormalizado = String(salt || "");
-  for (let indice = 0; indice < ITERACOES_PIN_PRODUCAO_; indice++) {
+  for (let indice = 0; indice < ITERACOES_PIN_; indice++) {
     derivado = hashSeguro_(saltNormalizado + ":" + derivado + ":" + indice);
   }
   return derivado;
+}
+
+function obterCredencialAdmin_(propriedades) {
+  const valor = (propriedades || obterScriptProperties_()).getProperty(CHAVE_PIN_ADMIN_);
+  if (!valor) return null;
+  if (/^[0-9a-f]{64}$/.test(valor)) return { hash: valor, revisao: "" };
+  try {
+    const credencial = JSON.parse(valor);
+    if (credencial && credencial.salt && credencial.hash && credencial.revisao) return credencial;
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+function pinAdminConfere_(pin, credencial) {
+  if (!credencial || !/^\d{6,12}$/.test(String(pin))) return false;
+  const hash = credencial.salt ? derivarPin_(pin, credencial.salt) : hashSeguro_(pin);
+  return hash === credencial.hash;
 }
 
 function pinProducaoConfere_(pin, propriedades) {
@@ -39,7 +58,7 @@ function pinProducaoConfere_(pin, propriedades) {
     return false;
   }
   if (!credencial || !credencial.salt || !credencial.hash) return false;
-  return derivarPinProducao_(pin, credencial.salt) === credencial.hash;
+  return derivarPin_(pin, credencial.salt) === credencial.hash;
 }
 
 function erroApi_(codigo, mensagem) {
@@ -48,13 +67,14 @@ function erroApi_(codigo, mensagem) {
   return erro;
 }
 
-function criarSessaoAcesso_(perfil, nome) {
+function criarSessaoAcesso_(perfil, nome, revisaoAdmin) {
   const token = Utilities.getUuid() + Utilities.getUuid();
   const sessao = {
     criadoEm: Date.now(),
     dia: obterDiaSessaoAdmin_(),
     perfil: perfil,
-    nome: nome
+    nome: nome,
+    revisaoAdmin: revisaoAdmin
   };
   CacheService.getScriptCache().put(
     CHAVE_SESSAO_ADMIN_ + hashSeguro_(token),
@@ -91,12 +111,24 @@ function obterSessaoAcesso_(token, renovar) {
     return false;
   }
 
+  if (sessao.perfil !== "admin" && sessao.perfil !== "producao") {
+    cache.remove(chave);
+    return false;
+  }
+  if (sessao.perfil === "admin") {
+    const credencial = obterCredencialAdmin_();
+    if (!credencial || (sessao.revisaoAdmin || "") !== credencial.revisao) {
+      cache.remove(chave);
+      return false;
+    }
+  }
+
   if (renovar !== false) {
     cache.put(chave, sessaoSalva, DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_);
   }
   return {
-    perfil: sessao.perfil || "admin",
-    nome: sessao.nome || "Administrador",
+    perfil: sessao.perfil,
+    nome: sessao.perfil === "admin" ? NOME_PERFIL_ADMIN_ : NOME_PERFIL_PRODUCAO_,
     diaSessao: sessao.dia,
     inatividadeSegundos: DURACAO_INATIVIDADE_ADMIN_SEGUNDOS_
   };
